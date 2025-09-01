@@ -5,16 +5,26 @@ import {
   CheckCircle, 
   AlertCircle,
   Users,
-  Timer
+  Timer,
+  Package,
+  Eye,
+  RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Mesa } from '../types';
+import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
+
+interface OrdenConDetalles extends Orden {
+  productos?: OrdenDetalleProducto[];
+  platillos?: OrdenDetallePlatillo[];
+}
 
 const SurtirOrden: React.FC = () => {
-  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [ordenes, setOrdenes] = useState<OrdenConDetalles[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [selectedOrden, setSelectedOrden] = useState<OrdenConDetalles | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [markingItem, setMarkingItem] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -51,6 +61,59 @@ const SurtirOrden: React.FC = () => {
     }
   };
 
+  const loadOrdenDetails = async (orden: OrdenConDetalles) => {
+    try {
+      // For now, we'll simulate loading order details
+      // In a real implementation, you would fetch from API
+      const ordenConDetalles: OrdenConDetalles = {
+        ...orden,
+        productos: [
+          // Simulated product details - replace with actual API call
+        ],
+        platillos: [
+          // Simulated dish details - replace with actual API call
+        ]
+      };
+      
+      setSelectedOrden(ordenConDetalles);
+    } catch (error) {
+      setError('Error cargando detalles de la orden');
+    }
+  };
+
+  const handleMarkItemAsReady = async (itemId: string, type: 'producto' | 'platillo') => {
+    if (!selectedOrden) return;
+
+    setMarkingItem(itemId);
+    try {
+      // In a real implementation, you would update the item status via API
+      // For now, we'll simulate this
+      
+      if (type === 'producto') {
+        setSelectedOrden(prev => ({
+          ...prev!,
+          productos: prev!.productos?.map(p => 
+            p._id === itemId ? { ...p, entregado: true } : p
+          )
+        }));
+      } else {
+        setSelectedOrden(prev => ({
+          ...prev!,
+          platillos: prev!.platillos?.map(p => 
+            p._id === itemId ? { ...p, entregado: true } : p
+          )
+        }));
+      }
+
+      setSuccess('Item marcado como listo');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setError('Error marcando item como listo');
+    } finally {
+      setMarkingItem(null);
+    }
+  };
+
   const handleIniciarPreparacion = async (ordenId: string) => {
     setUpdating(ordenId);
     setError('');
@@ -84,6 +147,7 @@ const SurtirOrden: React.FC = () => {
       if (response.success) {
         setSuccess('Orden surtida exitosamente');
         await loadData(); // Refresh the list
+        setSelectedOrden(null); // Close details view
         
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);
@@ -95,6 +159,12 @@ const SurtirOrden: React.FC = () => {
     } finally {
       setUpdating(null);
     }
+  };
+
+  const isOrderReadyToComplete = (orden: OrdenConDetalles) => {
+    const allProductsReady = orden.productos?.every(p => p.entregado) ?? true;
+    const allDishesReady = orden.platillos?.every(p => p.entregado) ?? true;
+    return allProductsReady && allDishesReady;
   };
 
   const getMesaInfo = (mesaId: string) => {
@@ -242,45 +312,222 @@ const SurtirOrden: React.FC = () => {
                 </div>
 
                 {orden.estatus === 'Recepcion' ? (
-                  <button
-                    onClick={() => handleIniciarPreparacion(orden._id!)}
-                    disabled={updating === orden._id}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    {updating === orden._id ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Iniciando...
-                      </>
-                    ) : (
-                      <>
-                        <ChefHat className="w-5 h-5 mr-2" />
-                        Iniciar Preparación
-                      </>
-                    )}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => loadOrdenDetails(orden)}
+                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Detalles
+                    </button>
+                    <button
+                      onClick={() => handleIniciarPreparacion(orden._id!)}
+                      disabled={updating === orden._id}
+                      className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      {updating === orden._id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Iniciando...
+                        </>
+                      ) : (
+                        <>
+                          <ChefHat className="w-5 h-5 mr-2" />
+                          Iniciar Preparación
+                        </>
+                      )}
+                    </button>
+                  </div>
                 ) : (
-                  <button
-                    onClick={() => handleCompletarOrden(orden._id!)}
-                    disabled={updating === orden._id}
-                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    {updating === orden._id ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Completando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        Marcar como Surtida
-                      </>
-                    )}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => loadOrdenDetails(orden)}
+                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Items para Surtir
+                    </button>
+                    <button
+                      onClick={() => handleCompletarOrden(orden._id!)}
+                      disabled={updating === orden._id || !isOrderReadyToComplete(orden)}
+                      className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    >
+                      {updating === orden._id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Completando...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Marcar como Surtida
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {selectedOrden && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Detalles de Orden - Mesa {selectedOrden.mesa}
+                </h2>
+                <button
+                  onClick={() => setSelectedOrden(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Estado: {selectedOrden.estatus} | Total: ${selectedOrden.total.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Products Section */}
+              {selectedOrden.productos && selectedOrden.productos.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                    <Package className="w-5 h-5 mr-2 text-orange-600" />
+                    Productos
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedOrden.productos.map((producto) => (
+                      <div
+                        key={producto._id}
+                        className={`flex items-center justify-between p-3 rounded-lg border ${
+                          producto.entregado ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            producto.entregado ? 'bg-green-500' : 'bg-gray-300'
+                          }`}></div>
+                          <div>
+                            <p className="font-medium text-gray-900">{producto.producto}</p>
+                            <p className="text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-900">
+                            ${producto.subtotal.toFixed(2)}
+                          </span>
+                          {!producto.entregado && selectedOrden.estatus === 'Preparacion' && (
+                            <button
+                              onClick={() => handleMarkItemAsReady(producto._id!, 'producto')}
+                              disabled={markingItem === producto._id}
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {markingItem === producto._id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                'Listo'
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dishes Section */}
+              {selectedOrden.platillos && selectedOrden.platillos.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                    <ChefHat className="w-5 h-5 mr-2 text-orange-600" />
+                    Platillos
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedOrden.platillos.map((platillo) => (
+                      <div
+                        key={platillo._id}
+                        className={`flex items-center justify-between p-3 rounded-lg border ${
+                          platillo.entregado ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            platillo.entregado ? 'bg-green-500' : 'bg-gray-300'
+                          }`}></div>
+                          <div>
+                            <p className="font-medium text-gray-900">{platillo.platillo}</p>
+                            <p className="text-sm text-gray-600">
+                              Guiso: {platillo.guiso} | Cantidad: {platillo.cantidad}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-900">
+                            ${platillo.subtotal.toFixed(2)}
+                          </span>
+                          {!platillo.entregado && selectedOrden.estatus === 'Preparacion' && (
+                            <button
+                              onClick={() => handleMarkItemAsReady(platillo._id!, 'platillo')}
+                              disabled={markingItem === platillo._id}
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {markingItem === platillo._id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                'Listo'
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Order Actions */}
+              <div className="border-t border-gray-200 pt-4">
+                {selectedOrden.estatus === 'Preparacion' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Progreso de preparación</p>
+                        <p className="text-xs text-blue-700">
+                          Marca cada item como listo cuando esté preparado
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <button
+                          onClick={() => handleCompletarOrden(selectedOrden._id!)}
+                          disabled={updating === selectedOrden._id || !isOrderReadyToComplete(selectedOrden)}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                        >
+                          {updating === selectedOrden._id ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Completando...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Marcar Surtida
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

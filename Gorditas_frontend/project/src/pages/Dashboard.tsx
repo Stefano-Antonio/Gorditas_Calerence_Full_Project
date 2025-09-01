@@ -62,18 +62,28 @@ const Dashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       // Load orders
-      const ordenesResponse = await apiService.getOrdenes();
+  const ordenesResponse = await apiService.getOrdenes();
+      console.log('Respuesta de la API de órdenes:', ordenesResponse);
+      if (ordenesResponse?.data?.ordenes) {
+        console.log('Array de órdenes:', ordenesResponse.data.ordenes);
+        console.log('Cantidad de órdenes:', ordenesResponse.data.ordenes.length);
+        if (ordenesResponse.data.ordenes.length > 0) {
+          console.log('Primeras órdenes:', ordenesResponse.data.ordenes.slice(0, 3));
+        }
+      } else {
+        console.log('No se encontró el array de órdenes en la respuesta.');
+      }
       if (ordenesResponse.success && ordenesResponse.data) {
-        const ordenes: Orden[] = Array.isArray(ordenesResponse.data) ? ordenesResponse.data : [];
+        const ordenes: Orden[] = Array.isArray(ordenesResponse.data.ordenes) ? ordenesResponse.data.ordenes : [];
         const hoy = new Date().toDateString();
         
         const ordenesHoy = ordenes.filter((orden: Orden) => 
-          new Date(orden.fecha).toDateString() === hoy
+          new Date(orden.fechaHora ?? orden.fecha).toDateString() === hoy
         ).length;
         
         const ventasHoy = ordenes
           .filter((orden: Orden) => 
-            new Date(orden.fecha).toDateString() === hoy && 
+            new Date(orden.fechaHora ?? orden.fecha).toDateString() === hoy && 
             orden.estatus === 'Pagada'
           )
           .reduce((sum, orden) => sum + orden.total, 0);
@@ -93,15 +103,18 @@ const Dashboard: React.FC = () => {
           .filter((orden: Orden) => 
             orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
           )
-          .map((orden: Orden) => ({
-            _id: orden._id || '',
-            folio: `#${(orden as any).folio || 'N/A'}`,
-            mesa: (orden as any).nombreMesa || orden.mesa || 'N/A',
-            estatus: orden.estatus,
-            total: orden.total,
-            fechaHora: orden.fecha,
-            tiempoTranscurrido: calculateTimeElapsed(orden.fecha)
-          }))
+          .map((orden: Orden) => {
+            const fechaHora = orden.fechaHora ?? orden.fecha;
+            return {
+              _id: orden._id || '',
+              folio: `#${(orden as any).folio || 'N/A'}`,
+              mesa: (orden as any).nombreMesa || orden.mesa || 'N/A',
+              estatus: orden.estatus,
+              total: orden.total,
+              fechaHora,
+              tiempoTranscurrido: calculateTimeElapsed(fechaHora)
+            };
+          })
           .sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
 
         setStats(prev => ({

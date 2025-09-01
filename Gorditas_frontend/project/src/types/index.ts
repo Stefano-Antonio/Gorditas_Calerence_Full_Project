@@ -78,6 +78,7 @@ export interface Orden extends BaseEntity {
   estatus: 'Pendiente' | 'Recepcion' | 'Preparacion' | 'Surtida' | 'Entregada' | 'Pagada' | 'Cancelado';
   total: number;
   fecha: Date;
+  fechaHora?: Date;
   subordenes?: string[];
 }
 

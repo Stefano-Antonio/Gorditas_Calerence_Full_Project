@@ -40,7 +40,13 @@ const iconMap: { [key: string]: React.ComponentType<any> } = {
   PlusCircle,
 };
 
-const Sidebar: React.FC = () => {
+
+interface SidebarProps {
+  minimized?: boolean;
+  onToggleMinimized?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ minimized = false, onToggleMinimized }) => {
   const { hasPermission } = useAuth();
 
   const filteredMenuItems = menuItems.filter(item => 
@@ -48,9 +54,18 @@ const Sidebar: React.FC = () => {
   );
 
   return (
-    <aside className="w-64 bg-gray-900 min-h-screen">
-      <nav className="mt-8">
-        <div className="px-4">
+    <aside className={`bg-gray-900 min-h-screen transition-all duration-200 ${minimized ? 'w-16' : 'w-64'}`}>
+      <div className="flex items-center justify-end p-2">
+        <button
+          onClick={onToggleMinimized}
+          className="text-gray-300 hover:text-white focus:outline-none"
+          title={minimized ? 'Expandir menú' : 'Minimizar menú'}
+        >
+          {minimized ? <span>&#9776;</span> : <span>&#10094;</span>}
+        </button>
+      </div>
+      <nav className="mt-4">
+        <div className="px-2">
           <ul className="space-y-2">
             {filteredMenuItems.map((item) => {
               const Icon = iconMap[item.icon];
@@ -59,7 +74,7 @@ const Sidebar: React.FC = () => {
                   <NavLink
                     to={item.path}
                     className={({ isActive }) =>
-                      `flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      `flex items-center space-x-3 px-2 py-3 rounded-lg text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-orange-600 text-white'
                           : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -67,7 +82,7 @@ const Sidebar: React.FC = () => {
                     }
                   >
                     <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    {!minimized && <span>{item.label}</span>}
                   </NavLink>
                 </li>
               );
@@ -78,5 +93,6 @@ const Sidebar: React.FC = () => {
     </aside>
   );
 };
+
 
 export default Sidebar;

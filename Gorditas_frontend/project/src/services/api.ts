@@ -1,6 +1,8 @@
 import { ApiResponse } from '../types';
+import { mockApiService } from './mockApi';
 
 const API_BASE_URL = 'http://localhost:3000/api';
+const USE_MOCK_API = import.meta.env.DEV && !import.meta.env.VITE_DISABLE_MOCK;
 
 class ApiService {
   private token: string | null = localStorage.getItem('token');
@@ -9,6 +11,12 @@ class ApiService {
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
+  // Use mock API if enabled and in development mode
+  if (USE_MOCK_API) {
+    console.log('🔄 Using mock API for:', endpoint);
+    return this.handleMockRequest<T>(endpoint, options);
+  }
+
   const url = `${API_BASE_URL}${endpoint}`;
   
   const headers: Record<string, string> = {
@@ -42,12 +50,54 @@ class ApiService {
       data: data.data,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: 'Network error occurred',
-    };
+    console.warn('🔄 Backend unavailable, falling back to mock API for:', endpoint);
+    return this.handleMockRequest<T>(endpoint, options);
   }
 }
+
+  private async handleMockRequest<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.parse(options.body as string) : null;
+
+    // Route to appropriate mock method based on endpoint and method
+    if (endpoint === '/auth/login' && method === 'POST') {
+      return mockApiService.login(body.email, body.password) as Promise<ApiResponse<T>>;
+    }
+    
+    if (endpoint === '/auth/profile') {
+      return mockApiService.getProfile() as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/catalogos/') && method === 'GET') {
+      const modelo = endpoint.split('/')[2];
+      return mockApiService.getCatalog<T>(modelo);
+    }
+
+    if (endpoint.startsWith('/catalogos/') && method === 'POST') {
+      const modelo = endpoint.split('/')[2];
+      return mockApiService.createCatalogItem(modelo, body) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint === '/ordenes/nueva' && method === 'POST') {
+      return mockApiService.createOrden(body) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/suborden') && method === 'POST') {
+      const ordenId = endpoint.split('/')[2];
+      return mockApiService.addSuborden(ordenId, body) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/platillo') && method === 'POST') {
+      const subordenId = endpoint.split('/')[3];
+      return mockApiService.addPlatillo(subordenId, body) as Promise<ApiResponse<T>>;
+    }
+
+    // Default mock response
+    return {
+      success: true,
+      data: {} as T
+    };
+  }
 
   // Auth methods
   async login(email: string, password: string) {

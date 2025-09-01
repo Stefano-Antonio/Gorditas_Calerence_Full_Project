@@ -482,7 +482,7 @@ const NuevaOrden: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium">Mesa {selectedMesa?.numero}</span>
+                    <span className="ml-2 font-medium">{selectedMesa?.nombre}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Suborden:</span>

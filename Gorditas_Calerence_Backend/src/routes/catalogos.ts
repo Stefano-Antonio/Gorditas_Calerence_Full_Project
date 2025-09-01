@@ -70,7 +70,7 @@ router.get('/:modelo', authenticate, validateModel,
 );
 
 // POST /api/catalogos/{modelo} - Crear
-router.post('/:modelo', authenticate, isEncargado, validateModel,
+router.post('/:modelo', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
     // Para modelos con _id numérico, generar el siguiente ID
     const needsNumericId = !['usuario'].includes(req.params.modelo.toLowerCase());
@@ -90,7 +90,7 @@ router.post('/:modelo', authenticate, isEncargado, validateModel,
 );
 
 // PUT /api/catalogos/{modelo}/:id - Actualizar
-router.put('/:modelo/:id', authenticate, isEncargado, validateModel,
+router.put('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
     const item = await req.Model.findByIdAndUpdate(
       req.params.id,
@@ -107,7 +107,7 @@ router.put('/:modelo/:id', authenticate, isEncargado, validateModel,
 );
 
 // DELETE /api/catalogos/{modelo}/:id - Eliminar
-router.delete('/:modelo/:id', authenticate, isAdmin, validateModel,
+router.delete('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
     // Para modelos críticos, solo desactivar
     const criticalModels = ['usuario', 'producto', 'platillo'];

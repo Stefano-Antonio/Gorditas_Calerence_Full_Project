@@ -257,6 +257,136 @@ const Dashboard: React.FC = () => {
     return false;
   };
 
+  const renderWorkflowActions = (orden: OrdenWorkflow) => {
+    const userRole = user?.nombreTipoUsuario;
+    const currentStatus = orden.estatus;
+    const isUpdating = updating === orden._id;
+
+    // Admin can see all actions
+    if (userRole === 'Admin') {
+      return renderAdminActions(orden);
+    }
+
+    // Role-specific workflow actions
+    switch (currentStatus) {
+      case 'Pendiente':
+        // Mesero can verify and validate the order
+        if (userRole === 'Mesero') {
+          return (
+            <div className="flex space-x-1">
+              <button
+                onClick={() => updateOrderStatus(orden._id, 'Recepcion')}
+                disabled={isUpdating}
+                className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+                title="Marcar como verificada y completa"
+              >
+                {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                <span>Verificar</span>
+              </button>
+            </div>
+          );
+        }
+        break;
+
+      case 'Recepcion':
+        // Despachador can start preparation
+        if (userRole === 'Despachador') {
+          return (
+            <button
+              onClick={() => updateOrderStatus(orden._id, 'Preparacion')}
+              disabled={isUpdating}
+              className="flex items-center space-x-1 px-2 py-1 bg-yellow-100 text-yellow-600 rounded text-xs hover:bg-yellow-200 transition-colors disabled:opacity-50"
+              title="Iniciar preparación"
+            >
+              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ChefHat className="w-3 h-3" />}
+              <span>Preparar</span>
+            </button>
+          );
+        }
+        break;
+
+      case 'Preparacion':
+        // Despachador can mark as ready (surtida)
+        if (userRole === 'Despachador') {
+          return (
+            <button
+              onClick={() => updateOrderStatus(orden._id, 'Surtida')}
+              disabled={isUpdating}
+              className="flex items-center space-x-1 px-2 py-1 bg-purple-100 text-purple-600 rounded text-xs hover:bg-purple-200 transition-colors disabled:opacity-50"
+              title="Marcar como surtida"
+            >
+              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Package className="w-3 h-3" />}
+              <span>Surtir</span>
+            </button>
+          );
+        }
+        break;
+
+      case 'Surtida':
+        // Mesero can mark as delivered to customer
+        if (userRole === 'Mesero') {
+          return (
+            <button
+              onClick={() => updateOrderStatus(orden._id, 'Entregada')}
+              disabled={isUpdating}
+              className="flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200 transition-colors disabled:opacity-50"
+              title="Entregar al cliente"
+            >
+              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />}
+              <span>Entregar</span>
+            </button>
+          );
+        }
+        break;
+
+      case 'Entregada':
+        // Mesero or Encargado can mark as paid
+        if (userRole === 'Mesero' || userRole === 'Encargado') {
+          return (
+            <button
+              onClick={() => updateOrderStatus(orden._id, 'Pagada')}
+              disabled={isUpdating}
+              className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+              title="Cobrar orden"
+            >
+              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
+              <span>Cobrar</span>
+            </button>
+          );
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return null;
+  };
+
+  const renderAdminActions = (orden: OrdenWorkflow) => {
+    const isUpdating = updating === orden._id;
+    const nextStatus = getNextStatus(orden.estatus);
+
+    if (!nextStatus) return null;
+
+    return (
+      <button
+        onClick={() => updateOrderStatus(orden._id, nextStatus)}
+        disabled={isUpdating}
+        className="flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-sm disabled:opacity-50"
+      >
+        {isUpdating ? (
+          <RefreshCw className="w-4 h-4 animate-spin" />
+        ) : (
+          <>
+            <ArrowRight className="w-4 h-4" />
+            <span>{nextStatus}</span>
+          </>
+        )}
+      </button>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -410,6 +540,12 @@ const Dashboard: React.FC = () => {
                         <span className="text-sm text-gray-500">
                           {orden.tiempoTranscurrido}
                         </span>
+                        {/* Order modification indicator */}
+                        {orden.estatus === 'Pendiente' && (
+                          <span className="px-2 py-1 text-xs bg-orange-100 text-orange-600 rounded">
+                            Requiere validación
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -418,22 +554,8 @@ const Dashboard: React.FC = () => {
                         ${orden.total.toFixed(2)}
                       </span>
                       
-                      {canUserUpdateStatus(orden.estatus) && getNextStatus(orden.estatus) && (
-                        <button
-                          onClick={() => updateOrderStatus(orden._id, getNextStatus(orden.estatus)!)}
-                          disabled={updating === orden._id}
-                          className="flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-sm disabled:opacity-50"
-                        >
-                          {updating === orden._id ? (
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <ArrowRight className="w-4 h-4" />
-                              <span>{getNextStatus(orden.estatus)}</span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                      {/* Workflow Action Buttons */}
+                      {renderWorkflowActions(orden)}
                       
                       <Link
                         to="/editar-orden"

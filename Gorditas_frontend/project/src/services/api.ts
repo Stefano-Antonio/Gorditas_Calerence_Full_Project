@@ -88,6 +88,10 @@ class ApiService {
       return mockApiService.createCatalogItem(modelo, body) as Promise<ApiResponse<T>>;
     }
 
+    if (endpoint === '/ordenes' && method === 'GET') {
+      return mockApiService.getOrdenes() as Promise<ApiResponse<T>>;
+    }
+
     if (endpoint === '/ordenes/nueva' && method === 'POST') {
       return mockApiService.createOrden(body) as Promise<ApiResponse<T>>;
     }
@@ -100,6 +104,15 @@ class ApiService {
     if (endpoint.includes('/platillo') && method === 'POST') {
       const subordenId = endpoint.split('/')[3];
       return mockApiService.addPlatillo(subordenId, body) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/ordenes/') && endpoint.includes('/estatus') && method === 'PUT') {
+      const ordenId = endpoint.split('/')[2];
+      return mockApiService.updateOrdenStatus(ordenId, body.estatus) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint === '/inventario' && method === 'GET') {
+      return mockApiService.getInventario() as Promise<ApiResponse<T>>;
     }
 
     // Default mock response

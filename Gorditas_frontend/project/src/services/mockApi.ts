@@ -74,7 +74,42 @@ class MockApiService {
         success: true,
         data: {
           token: 'mock-token',
-          user: { id: '1', nombre: 'Usuario Test', email: 'test@test.com' }
+          user: { 
+            _id: '1', 
+            nombre: 'Usuario Mesero', 
+            email: 'test@test.com',
+            nombreTipoUsuario: 'Mesero'
+          }
+        }
+      };
+    }
+    
+    if (email === 'admin@test.com' && password === 'password123') {
+      return {
+        success: true,
+        data: {
+          token: 'mock-token',
+          user: { 
+            _id: '2', 
+            nombre: 'Usuario Admin', 
+            email: 'admin@test.com',
+            nombreTipoUsuario: 'Admin'
+          }
+        }
+      };
+    }
+    
+    if (email === 'despachador@test.com' && password === 'password123') {
+      return {
+        success: true,
+        data: {
+          token: 'mock-token',
+          user: { 
+            _id: '3', 
+            nombre: 'Usuario Despachador', 
+            email: 'despachador@test.com',
+            nombreTipoUsuario: 'Despachador'
+          }
         }
       };
     }
@@ -88,7 +123,12 @@ class MockApiService {
   async getProfile() {
     return {
       success: true,
-      data: { id: '1', nombre: 'Usuario Test', email: 'test@test.com' }
+      data: { 
+        _id: '1', 
+        nombre: 'Usuario Mesero', 
+        email: 'test@test.com',
+        nombreTipoUsuario: 'Mesero'
+      }
     };
   }
 
@@ -173,7 +213,62 @@ class MockApiService {
 
   // Mock other methods with basic responses
   async getOrdenes() {
-    return { success: true, data: [] };
+    // Mock orders with different statuses to demonstrate workflow
+    const mockOrdersData = {
+      ordenes: [
+        {
+          _id: '1',
+          mesa: 'Mesa 1',
+          nombreMesa: 'Mesa 1',
+          estatus: 'Pendiente',
+          total: 75.50,
+          fecha: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          fechaHora: new Date(Date.now() - 30 * 60 * 1000),
+          folio: 'ORD-001'
+        },
+        {
+          _id: '2',
+          mesa: 'Mesa 2',
+          nombreMesa: 'Mesa 2',
+          estatus: 'Recepcion',
+          total: 125.00,
+          fecha: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
+          fechaHora: new Date(Date.now() - 45 * 60 * 1000),
+          folio: 'ORD-002'
+        },
+        {
+          _id: '3',
+          mesa: 'Mesa 3',
+          nombreMesa: 'Mesa 3',
+          estatus: 'Preparacion',
+          total: 89.25,
+          fecha: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
+          fechaHora: new Date(Date.now() - 60 * 60 * 1000),
+          folio: 'ORD-003'
+        },
+        {
+          _id: '4',
+          mesa: 'Mesa 4',
+          nombreMesa: 'Mesa 4',
+          estatus: 'Surtida',
+          total: 156.75,
+          fecha: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
+          fechaHora: new Date(Date.now() - 15 * 60 * 1000),
+          folio: 'ORD-004'
+        },
+        {
+          _id: '5',
+          mesa: 'Mesa 5',
+          nombreMesa: 'Mesa 5',
+          estatus: 'Entregada',
+          total: 98.50,
+          fecha: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
+          fechaHora: new Date(Date.now() - 10 * 60 * 1000),
+          folio: 'ORD-005'
+        }
+      ]
+    };
+    return { success: true, data: mockOrdersData };
   }
 
   async addProducto(ordenId: string, producto: any) {

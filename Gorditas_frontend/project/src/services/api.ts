@@ -175,6 +175,13 @@ class ApiService {
     });
   }
 
+  async verifyOrden(ordenId: string, isComplete: boolean) {
+    return this.request(`/ordenes/${ordenId}/verificar`, {
+      method: 'PUT',
+      body: JSON.stringify({ isComplete }),
+    });
+  }
+
   // Inventory methods
   async getInventario() {
     return this.request('/inventario');

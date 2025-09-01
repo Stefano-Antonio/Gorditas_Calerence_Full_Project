@@ -201,27 +201,94 @@ router.post('/:id/producto', authenticate, isMesero,
 );
 
 // PUT /api/ordenes/:id/estatus - Cambiar estatus
-router.put('/:id/estatus', authenticate, isDespachador,
+router.put('/:id/estatus', authenticate,
   asyncHandler(async (req: any, res: any) => {
     const { estatus } = req.body;
+    const userRole = req.user.nombreTipoUsuario;
     
     if (!Object.values(OrdenStatus).includes(estatus)) {
       return res.status(400).json(createResponse(false, null, 'Estatus no válido'));
     }
 
-    const orden = await Orden.findByIdAndUpdate(
-      req.params.id,
-      { estatus },
-      { new: true }
-    );
-
+    const orden = await Orden.findById(req.params.id);
     if (!orden) {
       return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
     }
 
+    // Validate status transition based on user role
+    const currentStatus = orden.estatus;
+    const isValidTransition = validateStatusTransition(currentStatus, estatus, userRole);
+    
+    if (!isValidTransition) {
+      return res.status(403).json(createResponse(false, null, 'Transición de estatus no permitida para su rol'));
+    }
+
+    // Update the order status
+    orden.estatus = estatus;
+    await orden.save();
+
     res.json(createResponse(true, orden, 'Estatus actualizado exitosamente'));
   })
 );
+
+// PUT /api/ordenes/:id/verificar - Verificar completitud de orden
+router.put('/:id/verificar', authenticate, isMesero,
+  asyncHandler(async (req: any, res: any) => {
+    const { isComplete } = req.body;
+    
+    const orden = await Orden.findById(req.params.id);
+    if (!orden) {
+      return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
+    }
+
+    // Only allow verification for pending orders
+    if (orden.estatus !== OrdenStatus.PENDIENTE) {
+      return res.status(400).json(createResponse(false, null, 'Solo se pueden verificar órdenes pendientes'));
+    }
+
+    // Update status based on verification
+    const newStatus = isComplete ? OrdenStatus.RECEPCION : OrdenStatus.PENDIENTE;
+    orden.estatus = newStatus;
+    await orden.save();
+
+    const message = isComplete 
+      ? 'Orden verificada y enviada a preparación' 
+      : 'Orden marcada como pendiente para revisión';
+
+    res.json(createResponse(true, orden, message));
+  })
+);
+
+// Helper function to validate status transitions based on user role
+function validateStatusTransition(currentStatus: string, newStatus: string, userRole: string): boolean {
+  // Admin can change any status
+  if (userRole === 'Admin') return true;
+
+  const validTransitions: { [key: string]: { [key: string]: string[] } } = {
+    'Mesero': {
+      'Pendiente': ['Recepcion'],
+      'Entregada': ['Pagada']
+    },
+    'Despachador': {
+      'Recepcion': ['Preparacion'],
+      'Preparacion': ['Surtida'],
+      'Surtida': ['Entregada']
+    },
+    'Encargado': {
+      'Entregada': ['Pagada']
+    },
+    'Cocinero': {
+      'Recepcion': ['Preparacion'],
+      'Preparacion': ['Surtida']
+    }
+  };
+
+  const roleTransitions = validTransitions[userRole];
+  if (!roleTransitions) return false;
+
+  const allowedNewStatuses = roleTransitions[currentStatus];
+  return allowedNewStatuses ? allowedNewStatuses.includes(newStatus) : false;
+}
 
 // Helper function to update orden total
 async function updateOrdenTotal(ordenId: string) {

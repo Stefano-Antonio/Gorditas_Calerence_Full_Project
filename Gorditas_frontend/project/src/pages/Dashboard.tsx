@@ -7,7 +7,12 @@ import {
   Clock,
   Package,
   ChefHat,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  ArrowRight,
+  Eye,
+  Edit,
+  RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +24,19 @@ interface DashboardStats {
   ventasHoy: number;
   ordenesPendientes: number;
   productosLowStock: number;
+  ordenesPorEstatus: {
+    [key: string]: number;
+  };
+}
+
+interface OrdenWorkflow {
+  _id: string;
+  folio: string;
+  mesa: string;
+  estatus: string;
+  total: number;
+  fechaHora: Date;
+  tiempoTranscurrido?: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -28,9 +46,14 @@ const Dashboard: React.FC = () => {
     ventasHoy: 0,
     ordenesPendientes: 0,
     productosLowStock: 0,
+    ordenesPorEstatus: {},
   });
   const [ordenesPendientes, setOrdenesPendientes] = useState<Orden[]>([]);
+  const [ordenesWorkflow, setOrdenesWorkflow] = useState<OrdenWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     loadDashboardData();
@@ -49,21 +72,48 @@ const Dashboard: React.FC = () => {
         ).length;
         
         const ventasHoy = ordenes
-          .filter((orden: Orden) => new Date(orden.fecha).toDateString() === hoy)
-          .reduce((sum: number, orden: Orden) => sum + orden.total, 0);
-        
+          .filter((orden: Orden) => 
+            new Date(orden.fecha).toDateString() === hoy && 
+            orden.estatus === 'Pagada'
+          )
+          .reduce((sum, orden) => sum + orden.total, 0);
+
         const pendientes = ordenes.filter((orden: Orden) => 
-          ['Recepcion', 'Preparacion'].includes(orden.estatus)
+          orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
         );
+
+        // Count orders by status
+        const ordenesPorEstatus = ordenes.reduce((acc: any, orden: Orden) => {
+          acc[orden.estatus] = (acc[orden.estatus] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Create workflow data with time calculations
+        const workflow = ordenes
+          .filter((orden: Orden) => 
+            orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
+          )
+          .map((orden: Orden) => ({
+            _id: orden._id || '',
+            folio: `#${(orden as any).folio || 'N/A'}`,
+            mesa: (orden as any).nombreMesa || orden.mesa || 'N/A',
+            estatus: orden.estatus,
+            total: orden.total,
+            fechaHora: orden.fecha,
+            tiempoTranscurrido: calculateTimeElapsed(orden.fecha)
+          }))
+          .sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
 
         setStats(prev => ({
           ...prev,
           ordenesHoy,
           ventasHoy,
           ordenesPendientes: pendientes.length,
+          ordenesPorEstatus
         }));
 
         setOrdenesPendientes(pendientes);
+        setOrdenesWorkflow(workflow);
       }
 
       // Load inventory
@@ -79,24 +129,119 @@ const Dashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setError('Error cargando datos del dashboard');
     } finally {
       setLoading(false);
     }
   };
 
+  const calculateTimeElapsed = (fecha: Date) => {
+    const now = new Date();
+    const orderTime = new Date(fecha);
+    const diffInMinutes = Math.floor((now.getTime() - orderTime.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} min`;
+    } else {
+      const hours = Math.floor(diffInMinutes / 60);
+      const minutes = diffInMinutes % 60;
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
+  const updateOrderStatus = async (ordenId: string, newStatus: string) => {
+    setUpdating(ordenId);
+    try {
+      const response = await apiService.updateOrdenStatus(ordenId, newStatus);
+      if (response.success) {
+        setSuccess(`Orden actualizada a ${newStatus}`);
+        setTimeout(() => setSuccess(''), 3000);
+        await loadDashboardData(); // Reload data
+      } else {
+        setError('Error actualizando orden');
+      }
+    } catch (error) {
+      setError('Error actualizando orden');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const getStatusColor = (estatus: string) => {
     switch (estatus) {
+      case 'Pendiente':
+        return 'bg-orange-100 text-orange-800';
       case 'Recepcion':
         return 'bg-blue-100 text-blue-800';
       case 'Preparacion':
         return 'bg-yellow-100 text-yellow-800';
       case 'Surtida':
+        return 'bg-purple-100 text-purple-800';
+      case 'Entregada':
         return 'bg-green-100 text-green-800';
-      case 'Finalizada':
+      case 'Pagada':
         return 'bg-gray-100 text-gray-800';
+      case 'Cancelado':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusIcon = (estatus: string) => {
+    switch (estatus) {
+      case 'Pendiente':
+        return <Clock className="w-4 h-4" />;
+      case 'Recepcion':
+        return <Eye className="w-4 h-4" />;
+      case 'Preparacion':
+        return <ChefHat className="w-4 h-4" />;
+      case 'Surtida':
+        return <Package className="w-4 h-4" />;
+      case 'Entregada':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'Pagada':
+        return <DollarSign className="w-4 h-4" />;
+      case 'Cancelado':
+        return <AlertCircle className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getNextStatus = (currentStatus: string) => {
+    const statusFlow = {
+      'Pendiente': 'Recepcion',
+      'Recepcion': 'Preparacion',
+      'Preparacion': 'Surtida',
+      'Surtida': 'Entregada',
+      'Entregada': 'Pagada'
+    };
+    return statusFlow[currentStatus as keyof typeof statusFlow];
+  };
+
+  const canUserUpdateStatus = (currentStatus: string) => {
+    const userRole = user?.nombreTipoUsuario;
+    
+    // Admin can update any status
+    if (userRole === 'Admin') return true;
+    
+    // Mesero can update Pendiente to Recepcion and Entregada to Pagada
+    if (userRole === 'Mesero') {
+      return currentStatus === 'Pendiente' || currentStatus === 'Entregada';
+    }
+    
+    // Despachador can update Recepcion to Preparacion and Preparacion to Surtida
+    if (userRole === 'Despachador') {
+      return currentStatus === 'Recepcion' || currentStatus === 'Preparacion';
+    }
+    
+    // Encargado can update Entregada to Pagada
+    if (userRole === 'Encargado') {
+      return currentStatus === 'Entregada';
+    }
+    
+    return false;
   };
 
   if (loading) {
@@ -183,7 +328,114 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Alert Messages */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+          {success}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Order Workflow Management */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2">
+              <RefreshCw className="w-5 h-5 text-orange-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Gestión de Flujo de Órdenes</h2>
+            </div>
+            <button
+              onClick={loadDashboardData}
+              className="px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-sm"
+            >
+              Actualizar
+            </button>
+          </div>
+
+          {/* Status Overview */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+            {Object.entries(stats.ordenesPorEstatus).map(([status, count]) => (
+              <div key={status} className="text-center">
+                <div className={`inline-flex items-center space-x-1 px-3 py-2 rounded-lg ${getStatusColor(status)}`}>
+                  {getStatusIcon(status)}
+                  <span className="text-sm font-medium">{count}</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">{status}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Active Orders Workflow */}
+          <div className="space-y-4">
+            <h3 className="font-medium text-gray-900">Órdenes Activas</h3>
+            {ordenesWorkflow.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No hay órdenes activas</p>
+            ) : (
+              <div className="space-y-3">
+                {ordenesWorkflow.map((orden) => (
+                  <div
+                    key={orden._id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(orden.estatus)}
+                        <div>
+                          <p className="font-medium text-gray-900">{orden.folio}</p>
+                          <p className="text-sm text-gray-600">{orden.mesa}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(orden.estatus)}`}>
+                          {orden.estatus}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {orden.tiempoTranscurrido}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        ${orden.total.toFixed(2)}
+                      </span>
+                      
+                      {canUserUpdateStatus(orden.estatus) && getNextStatus(orden.estatus) && (
+                        <button
+                          onClick={() => updateOrderStatus(orden._id, getNextStatus(orden.estatus)!)}
+                          disabled={updating === orden._id}
+                          className="flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-sm disabled:opacity-50"
+                        >
+                          {updating === orden._id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <ArrowRight className="w-4 h-4" />
+                              <span>{getNextStatus(orden.estatus)}</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                      
+                      <Link
+                        to="/editar-orden"
+                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Pending Orders */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-2 mb-6">

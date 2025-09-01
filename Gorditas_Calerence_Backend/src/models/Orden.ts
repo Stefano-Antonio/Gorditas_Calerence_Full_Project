@@ -16,6 +16,7 @@ const ordenSchema = new Schema<IOrdenDocument>({
   idMesa: { type: Number },
   nombreMesa: { type: String, trim: true },
   fechaHora: { type: Date, default: Date.now },
+  fechaPago: { type: Date },
   total: { type: Number, required: true, min: 0, default: 0 }
 }, {
   timestamps: true,

@@ -82,6 +82,7 @@ export interface IOrden {
   idMesa?: number;
   nombreMesa?: string;
   fechaHora: Date;
+  fechaPago?: Date;
   total: number;
 }
 

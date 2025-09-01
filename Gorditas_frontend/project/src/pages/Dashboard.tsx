@@ -75,16 +75,25 @@ const Dashboard: React.FC = () => {
       }
       if (ordenesResponse.success && ordenesResponse.data) {
         const ordenes: Orden[] = Array.isArray(ordenesResponse.data.ordenes) ? ordenesResponse.data.ordenes : [];
-        const hoy = new Date().toDateString();
-        
+
+        const hoy = new Date();
+        const esHoy = (d?: Date | string) => {
+          if (!d) return false;
+          const fecha = new Date(d);
+          return fecha.getFullYear() === hoy.getFullYear() &&
+                 fecha.getMonth() === hoy.getMonth() &&
+                 fecha.getDate() === hoy.getDate();
+        };
+
+        // Órdenes creadas hoy (por fechaHora)
         const ordenesHoy = ordenes.filter((orden: Orden) => 
-          new Date(orden.fechaHora ?? orden.fecha).toDateString() === hoy
+          esHoy(orden.fechaHora ?? orden.fecha)
         ).length;
-        
+
+        // Ventas de hoy: solo órdenes pagadas hoy (por fechaPago)
         const ventasHoy = ordenes
           .filter((orden: Orden) => 
-            new Date(orden.fechaHora ?? orden.fecha).toDateString() === hoy && 
-            orden.estatus === 'Pagada'
+            orden.estatus === 'Pagada' && esHoy((orden as any).fechaPago)
           )
           .reduce((sum, orden) => sum + orden.total, 0);
 
@@ -261,17 +270,19 @@ const Dashboard: React.FC = () => {
     const userRole = user?.nombreTipoUsuario;
     const currentStatus = orden.estatus;
     const isUpdating = updating === orden._id;
+    console.log('renderWorkflowActions:', { userRole, currentStatus, orden });
 
     // Admin can see all actions
     if (userRole === 'Admin') {
+      console.log('Render admin actions');
       return renderAdminActions(orden);
     }
 
     // Role-specific workflow actions
     switch (currentStatus) {
       case 'Pendiente':
-        // Mesero can verify and validate the order
         if (userRole === 'Mesero') {
+          console.log('Render Mesero -> Verificar');
           return (
             <div className="flex space-x-1">
               <button
@@ -289,8 +300,8 @@ const Dashboard: React.FC = () => {
         break;
 
       case 'Recepcion':
-        // Despachador can start preparation
         if (userRole === 'Despachador') {
+          console.log('Render Despachador -> Preparar');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Preparacion')}
@@ -306,8 +317,8 @@ const Dashboard: React.FC = () => {
         break;
 
       case 'Preparacion':
-        // Despachador can mark as ready (surtida)
         if (userRole === 'Despachador') {
+          console.log('Render Despachador -> Surtir');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Surtida')}
@@ -323,25 +334,31 @@ const Dashboard: React.FC = () => {
         break;
 
       case 'Surtida':
-        // Mesero can mark as delivered to customer
-        if (userRole === 'Mesero') {
+        if (userRole === 'Mesero' || userRole === 'Encargado') {
+          console.log('Render Mesero/Encargado -> Cobrar desde Surtida');
           return (
             <button
-              onClick={() => updateOrderStatus(orden._id, 'Entregada')}
+              onClick={async () => {
+                if (window.confirm('¿Confirmar cobro de la orden?')) {
+                  if (window.confirm('¿Estás seguro que deseas marcar la orden como pagada?')) {
+                    await updateOrderStatus(orden._id, 'Pagada');
+                  }
+                }
+              }}
               disabled={isUpdating}
-              className="flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200 transition-colors disabled:opacity-50"
-              title="Entregar al cliente"
+              className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+              title="Cobrar orden"
             >
-              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ArrowRight className="w-3 h-3" />}
-              <span>Entregar</span>
+              {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
+              <span>Cobrar</span>
             </button>
           );
         }
         break;
 
       case 'Entregada':
-        // Mesero or Encargado can mark as paid
         if (userRole === 'Mesero' || userRole === 'Encargado') {
+          console.log('Render Mesero/Encargado -> Cobrar');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Pagada')}
@@ -360,6 +377,7 @@ const Dashboard: React.FC = () => {
         break;
     }
 
+    console.log('No action rendered for', { userRole, currentStatus, orden });
     return null;
   };
 
@@ -386,6 +404,7 @@ const Dashboard: React.FC = () => {
       </button>
     );
   };
+
 
   if (loading) {
     return (

@@ -225,6 +225,10 @@ router.put('/:id/estatus', authenticate,
 
     // Update the order status
     orden.estatus = estatus;
+    // Si la orden se marca como Pagada, guardar la fecha de pago
+    if (estatus === 'Pagada') {
+      orden.fechaPago = new Date();
+    }
     await orden.save();
 
     res.json(createResponse(true, orden, 'Estatus actualizado exitosamente'));
@@ -267,7 +271,8 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
   const validTransitions: { [key: string]: { [key: string]: string[] } } = {
     'Mesero': {
       'Pendiente': ['Recepcion'],
-      'Entregada': ['Pagada']
+      'Entregada': ['Pagada'],
+      'Surtida': ['Pagada'] // Permitir cobrar desde Surtida
     },
     'Despachador': {
       'Recepcion': ['Preparacion'],
@@ -275,7 +280,8 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
       'Surtida': ['Entregada']
     },
     'Encargado': {
-      'Entregada': ['Pagada']
+      'Entregada': ['Pagada'],
+      'Surtida': ['Pagada'] // Permitir cobrar desde Surtida
     },
     'Cocinero': {
       'Recepcion': ['Preparacion'],

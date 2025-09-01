@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/restaurant-db');
+mongoose.connect('mongodb://localhost:27017/mi_tienda_gorditas');
 
 // Simple schemas for seeding
 const Usuario = mongoose.model('Usuario', new mongoose.Schema({

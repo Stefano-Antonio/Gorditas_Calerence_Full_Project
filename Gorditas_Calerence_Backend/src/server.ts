@@ -22,13 +22,30 @@ dotenv.config();
 
 
 
+async function ensureAdminUser() {
+  const adminEmail = 'Encargado@gorditas.com';
+  const adminExists = await Usuario.findOne({ email: adminEmail });
+  if (!adminExists) {
+    const admin = new Usuario({
+      nombre: 'Encargado',
+      email: adminEmail,
+      password: 'encargado123', // Se hashea automáticamente por el modelo
+      idTipoUsuario: 1,
+      nombreTipoUsuario: 'Encargado',
+      activo: true
+    });
+    await admin.save();
+    console.log('✅ Usuario encargado creado automáticamente');
+  } else {
+    console.log('ℹ️ Usuario encargado ya existe');
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
 connectDB();
-
 // Middleware
 app.use(helmet());
 app.use(cors());
@@ -56,7 +73,8 @@ app.get('/health', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await ensureAdminUser();
   console.log(`Server running on port ${PORT}`);
 
   console.log(`API documentation available at http://localhost:${PORT}/api/auth`);

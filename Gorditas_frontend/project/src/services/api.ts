@@ -1,6 +1,6 @@
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 const USE_MOCK_API = import.meta.env.DEV && !import.meta.env.VITE_DISABLE_MOCK;
 class ApiService {
   private token: string | null = localStorage.getItem('token');

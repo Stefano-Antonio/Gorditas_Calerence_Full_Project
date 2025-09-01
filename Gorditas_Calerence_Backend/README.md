@@ -38,9 +38,9 @@ cp .env.example .env
 
 4. Editar el archivo `.env` con tus configuraciones:
 ```env
-MONGODB_URI=mongodb://localhost:27017/restaurant-db
+MONGODB_URI=mongodb://localhost:27017/mi_tienda_gorditas
 JWT_SECRET=tu-jwt-secret-muy-seguro
-PORT=3000
+PORT=5000
 ```
 
 5. Construir el proyecto:

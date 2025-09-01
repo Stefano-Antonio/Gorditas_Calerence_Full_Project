@@ -46,6 +46,7 @@ export interface IPlatillo {
   nombre: string;
   descripcion?: string;
   costo: number;
+  precio: number; // Added for frontend compatibility
   activo: boolean;
 }
 

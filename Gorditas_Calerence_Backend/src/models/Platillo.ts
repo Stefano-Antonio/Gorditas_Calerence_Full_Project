@@ -10,6 +10,7 @@ const platilloSchema = new Schema<IPlatilloDocument>({
   nombre: { type: String, required: true, trim: true },
   descripcion: { type: String, trim: true },
   costo: { type: Number, required: true, min: 0 },
+  precio: { type: Number, required: true, min: 0 }, // Added for frontend compatibility
   activo: { type: Boolean, default: true }
 }, {
   timestamps: true,

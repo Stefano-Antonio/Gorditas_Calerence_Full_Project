@@ -55,7 +55,7 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
 }));
 
 // POST /api/ordenes/nueva - Crear nueva orden
-router.post('/nueva', authenticate, isMesero, validate(createOrdenSchema), 
+router.post('/nueva', authenticate, validate(createOrdenSchema), 
   asyncHandler(async (req: any, res: any) => {
     const folio = await generateFolio();
     
@@ -71,7 +71,7 @@ router.post('/nueva', authenticate, isMesero, validate(createOrdenSchema),
 );
 
 // POST /api/ordenes/:id/suborden - Agregar suborden
-router.post('/:id/suborden', authenticate, isMesero, 
+router.post('/:id/suborden', authenticate, 
   asyncHandler(async (req: any, res: any) => {
     const { nombre } = req.body;
     
@@ -95,7 +95,7 @@ router.post('/:id/suborden', authenticate, isMesero,
 );
 
 // POST /api/ordenes/suborden/:id/platillo - Agregar platillo
-router.post('/suborden/:id/platillo', authenticate, isMesero, 
+router.post('/suborden/:id/platillo', authenticate, 
   validate(addPlatilloToSubordenSchema),
   asyncHandler(async (req: any, res: any) => {
     const suborden = await Suborden.findById(req.params.id);

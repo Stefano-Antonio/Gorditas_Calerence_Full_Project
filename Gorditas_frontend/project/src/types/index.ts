@@ -33,10 +33,11 @@ export interface TipoPlatillo extends BaseEntity {
 
 export interface Platillo extends BaseEntity {
   nombre: string;
-  tipoPlatillo: string;
-  precio: number;
+  idTipoPlatillo: number;
+  nombreTipoPlatillo: string;
+  precio: number; // This will be mapped from costo in the backend
+  costo?: number; // Keep both for compatibility
   descripcion?: string;
-  guisos?: string[];
 }
 
 export interface TipoUsuario extends BaseEntity {

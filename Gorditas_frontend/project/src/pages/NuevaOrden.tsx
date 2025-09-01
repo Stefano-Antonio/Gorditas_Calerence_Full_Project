@@ -9,7 +9,7 @@ import {
   ChefHat
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Mesa, Platillo, Guiso, OrderStep } from '../types';
+import { Mesa, Platillo, Guiso, OrderStep, ApiResponse } from '../types';
 
 interface PlatilloSeleccionado {
   platillo: Platillo;
@@ -49,14 +49,14 @@ const NuevaOrden: React.FC = () => {
   const loadInitialData = async () => {
     try {
       const [mesasResponse, platillosResponse, guisosResponse] = await Promise.all([
-        apiService.getCatalog<Mesa>('mesa'),
-        apiService.getCatalog<Platillo>('platillo'),
-        apiService.getCatalog<Guiso>('guiso'),
+        apiService.getCatalog<ApiResponse<Mesa>>('mesa'),
+        apiService.getCatalog<ApiResponse<Platillo>>('platillo'),
+        apiService.getCatalog<ApiResponse<Guiso>>('guiso'),
       ]);
 
-      setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : []);
-      setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : []);
-      setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : []);
+      setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : []);
+      setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : Array.isArray(platillosResponse.data) ? platillosResponse.data : []);
+      setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : Array.isArray(guisosResponse.data) ? guisosResponse.data : []);
     } catch (error) {
       setError('Error cargando datos iniciales');
       setMesas([]);
@@ -88,89 +88,74 @@ const NuevaOrden: React.FC = () => {
   };
 
   const handleSubmitOrder = async () => {
-  if (!selectedMesa || !nombreSuborden || platillosSeleccionados.length === 0) {
-    setError('Completa todos los campos');
-    return;
-  }
-
-  setLoading(true);
-  setError('');
-  setSuccess('');
-
-  try {
-    const total = platillosSeleccionados.reduce(
-      (sum, item) => sum + (item.platillo.precio * item.cantidad), 
-      0
-    );
-
-    // 1. Crear la orden con estatus basado en validación
-    const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
-    const ordenData = {
-      idMesa: selectedMesa._id,
-      nombreMesa: selectedMesa.nombre,
-      idTipoOrden: 1, // Mesa type
-      nombreTipoOrden: 'Mesa',
-      total,
-      estatus,
-    };
-    const ordenResponse = await apiService.createOrden(ordenData);
-    // Add type assertion so TypeScript knows _id exists
-    const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
-    if (!ordenResponse.success || !ordenDataWithId?._id) {
-      setError('Error creando orden');
-      setLoading(false);
+    if (!selectedMesa || !nombreSuborden) {
+      setError('Completa todos los campos');
       return;
     }
-    const ordenId = ordenDataWithId._id;
 
-    // 2. Crear la suborden
-    const subordenData = { nombre: nombreSuborden };
-    const subordenResponse = await apiService.addSuborden(ordenId, subordenData);
-    if (
-      !subordenResponse.success ||
-      !(subordenResponse.data && (subordenResponse.data as { _id?: string })._id)
-    ) {
-      setError('Error creando suborden');
-      setLoading(false);
-      return;
-    }
-    const subordenId = (subordenResponse.data as { _id: string })._id;
+    setLoading(true);
+    setError('');
+    setSuccess('');
 
-    // 3. Agregar platillos
-    for (const item of platillosSeleccionados) {
-      const platilloData = {
-        idPlatillo: item.platillo._id,
-        nombrePlatillo: item.platillo.nombre,
-        idGuiso: item.guiso._id,
-        nombreGuiso: item.guiso.nombre,
-        costoPlatillo: item.platillo.precio,
-        cantidad: item.cantidad,
+    try {
+      // Solo calcula el total si hay platillos seleccionados, si no, total = 0
+      const total = platillosSeleccionados.reduce(
+        (sum, item) => sum + (item.platillo.precio * item.cantidad),
+        0
+      );
+
+      // 1. Crear la orden con estatus basado en validación
+      const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
+      const ordenData = {
+        idMesa: selectedMesa._id,
+        nombreMesa: selectedMesa.nombre,
+        idTipoOrden: 1, // Mesa type
+        nombreTipoOrden: 'Mesa',
+        total,
+        estatus,
       };
-      const platilloResponse = await apiService.addPlatillo(subordenId, platilloData);
-      if (!platilloResponse.success) {
-        setError('Error agregando platillo');
+
+      console.log('Payload enviado a createOrden:', ordenData); // Debugging log
+
+      const ordenResponse = await apiService.createOrden(ordenData);
+      const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
+      if (!ordenResponse.success || !ordenDataWithId?._id) {
+        setError('Error creando orden');
         setLoading(false);
         return;
       }
+      const ordenId = ordenDataWithId._id;
+
+      // 2. Crear la suborden
+      const subordenData = { nombre: nombreSuborden };
+      const subordenResponse = await apiService.addSuborden(ordenId, subordenData);
+      if (
+        !subordenResponse.success ||
+        !(subordenResponse.data && (subordenResponse.data as { _id?: string })._id)
+      ) {
+        setError('Error creando suborden');
+        setLoading(false);
+        return;
+      }
+
+      setSuccess('Orden creada exitosamente');
+      setTimeout(() => {
+        setCurrentStep(1);
+        setSelectedMesa(null);
+        setNombreSuborden('');
+        setPlatillosSeleccionados([]);
+        setSuccess('');
+        setError('');
+        loadInitialData(); // <-- Recarga los datos iniciales
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error al crear la orden:', error); // Debugging log
+      setError('Error creando la orden');
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess('Orden creada exitosamente');
-    setTimeout(() => {
-      setCurrentStep(1);
-      setSelectedMesa(null);
-      setNombreSuborden('');
-      setPlatillosSeleccionados([]);
-      setSuccess('');
-      setError('');
-      loadInitialData(); // <-- Recarga los datos iniciales
-    }, 2000);
-
-  } catch (error) {
-    setError('Error creando la orden');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   const canProceedToNext = () => {
@@ -203,6 +188,9 @@ const NuevaOrden: React.FC = () => {
       </div>
     );
   }
+
+  console.log('Platillos:', platillos);
+  console.log('Guisos:', guisos);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -316,9 +304,9 @@ const NuevaOrden: React.FC = () => {
                     Platillo
                   </label>
                   <select
-                    value={selectedPlatillo?._id || ''}
+                    value={selectedPlatillo ? String(selectedPlatillo._id) : ''}
                     onChange={(e) => {
-                      const platillo = platillos.find(p => p._id === e.target.value);
+                      const platillo = platillos.find(p => String(p._id) === e.target.value);
                       setSelectedPlatillo(platillo || null);
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -337,9 +325,9 @@ const NuevaOrden: React.FC = () => {
                     Guiso
                   </label>
                   <select
-                    value={selectedGuiso?._id || ''}
+                    value={selectedGuiso ? String(selectedGuiso._id) : ''}
                     onChange={(e) => {
-                      const guiso = guisos.find(g => g._id === e.target.value);
+                      const guiso = guisos.find(g => String(g._id) === e.target.value);
                       setSelectedGuiso(guiso || null);
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"

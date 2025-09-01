@@ -55,7 +55,7 @@ const Cobrar: React.FC = () => {
         const ordenesMesa = ordenesArray.filter(
           (orden: Orden) =>
             orden.mesa?.toString() === mesa._id?.toString() &&
-            orden.estatus === 'Finalizada' // Only show orders ready for payment
+            orden.estatus === 'Entregada' // Only show orders ready for payment
         );
 
         const ordenesConDetalles: OrdenCompleta[] = ordenesMesa.map(orden => ({

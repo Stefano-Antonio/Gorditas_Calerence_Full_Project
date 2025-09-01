@@ -4,7 +4,6 @@ import { ISuborden } from '../types';
 export interface ISubordenDocument extends Omit<ISuborden, '_id'>, Document {}
 
 const subordenSchema = new Schema<ISubordenDocument>({
-  _id: mongoose.Types.ObjectId,
   nombre: { type: String, required: true, trim: true }
 }, {
   timestamps: true,

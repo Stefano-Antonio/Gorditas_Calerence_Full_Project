@@ -102,6 +102,9 @@ const Catalogos: React.FC = () => {
     if (selectedModel.hasActivo) {
       initialData.activo = true;
     }
+    if (selectedModel.id === 'platillo') {
+      initialData.precio = 0; // Set default value for precio
+    }
     setFormData(initialData);
     setShowModal(true);
   };
@@ -115,22 +118,36 @@ const Catalogos: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      if (selectedModel.id === 'platillo') {
+        // Map 'costo' to 'precio' for platillo creation
+        formData.precio = formData.costo;
+        if (!formData.costo || formData.costo <= 0) {
+          setError('El campo "costo" es obligatorio y debe ser mayor a 0.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      console.log('Payload enviado:', formData); // Debugging log
+
       let response;
-      
       if (editingItem) {
         response = await apiService.updateCatalogItem(selectedModel.id, editingItem._id!, formData);
       } else {
         response = await apiService.createCatalogItem(selectedModel.id, formData);
       }
-      
+
       if (response.success) {
         setSuccess(editingItem ? 'Item actualizado exitosamente' : 'Item creado exitosamente');
+        setError(''); // Clear error message after successful creation
         setShowModal(false);
         await loadItems();
       } else {
+        console.error('Error al guardar el item:', response.error); // Debugging log
         setError('Error guardando el item');
       }
     } catch (error) {
+      console.error('Error inesperado al guardar el item:', error); // Debugging log
       setError('Error guardando el item');
     } finally {
       setSaving(false);

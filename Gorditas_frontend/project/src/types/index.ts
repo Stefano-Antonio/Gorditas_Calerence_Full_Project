@@ -116,10 +116,8 @@ export interface Gasto extends BaseEntity {
 
 // API response types
 export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  error?: string;
+  items?: T[];
+  [key: string]: any;
 }
 
 // Auth types

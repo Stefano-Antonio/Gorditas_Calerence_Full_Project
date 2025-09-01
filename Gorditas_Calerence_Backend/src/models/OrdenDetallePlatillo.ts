@@ -3,11 +3,12 @@ import { IOrdenDetallePlatillo } from '../types';
 
 export interface IOrdenDetallePlatilloDocument extends Omit<IOrdenDetallePlatillo, '_id'>, Document {}
 
+
 const ordenDetallePlatilloSchema = new Schema<IOrdenDetallePlatilloDocument>({
-  _id: { type: String, ref: 'Suborden', required: true },
-  idPlatillo: { type: Number, required: true },
+  idSuborden: { type: String, ref: 'Suborden' },
+  idPlatillo: { type: Schema.Types.Mixed, required: true },
   nombrePlatillo: { type: String, required: true, trim: true },
-  idGuiso: { type: Number, required: true },
+  idGuiso: { type: Schema.Types.Mixed, required: true },
   nombreGuiso: { type: String, required: true, trim: true },
   costoPlatillo: { type: Number, required: true, min: 0 },
   cantidad: { type: Number, required: true, min: 1 },

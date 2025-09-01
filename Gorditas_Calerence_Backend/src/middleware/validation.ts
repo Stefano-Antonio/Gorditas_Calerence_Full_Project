@@ -5,6 +5,7 @@ export const validate = (schema: Joi.ObjectSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const { error } = schema.validate(req.body);
     if (error) {
+      console.error('Error de validación Joi:', error.details.map(detail => detail.message));
       return res.status(400).json({
         message: 'Error de validación',
         details: error.details.map(detail => detail.message)

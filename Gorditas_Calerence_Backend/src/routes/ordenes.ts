@@ -57,6 +57,8 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
 // POST /api/ordenes/nueva - Crear nueva orden
 router.post('/nueva', authenticate, validate(createOrdenSchema), 
   asyncHandler(async (req: any, res: any) => {
+    console.log('Datos recibidos para crear orden:', req.body); // Log para depuración
+
     const folio = await generateFolio();
     
     const orden = new Orden({
@@ -66,6 +68,7 @@ router.post('/nueva', authenticate, validate(createOrdenSchema),
     });
 
     await orden.save();
+    console.log('Orden creada:', orden); // Log para verificar el _id generado
     res.status(201).json(createResponse(true, orden, 'Orden creada exitosamente'));
   })
 );
@@ -98,6 +101,17 @@ router.post('/:id/suborden', authenticate,
 router.post('/suborden/:id/platillo', authenticate, 
   validate(addPlatilloToSubordenSchema),
   asyncHandler(async (req: any, res: any) => {
+    console.log('Datos recibidos para agregar platillo:', req.body); // Log para depuración
+
+    // Log para ver qué envía el frontend
+    console.log('Formulario recibido del frontend:', req.body);
+
+    // Log para ver los valores de idPlatillo e idGuiso antes de crear el documento
+    console.log('Valores para OrdenDetallePlatillo:', {
+      idPlatillo: req.body.idPlatillo,
+      idGuiso: req.body.idGuiso
+    });
+
     const suborden = await Suborden.findById(req.params.id);
     if (!suborden) {
       return res.status(404).json(createResponse(false, null, 'Suborden no encontrada'));
@@ -111,13 +125,30 @@ router.post('/suborden/:id/platillo', authenticate,
     const { costoPlatillo, cantidad } = req.body;
     const importe = calculateImporte(costoPlatillo, cantidad);
 
-    const detallePlatillo = new OrdenDetallePlatillo({
+    console.log('Importe calculado:', importe); // Log para verificar el importe calculado
+    console.log('Datos para OrdenDetallePlatillo:', {
       idSuborden: suborden._id,
       ...req.body,
       importe
     });
 
-    await detallePlatillo.save();
+    const detallePlatillo = new OrdenDetallePlatillo({
+      ...req.body,
+      idSuborden: suborden._id,
+      importe
+    });
+
+    console.log('Antes de intentar guardar OrdenDetallePlatillo');
+    try {
+      await detallePlatillo.save();
+      console.log('Guardado exitoso de OrdenDetallePlatillo');
+    } catch (error: any) {
+      console.error('Error real al guardar OrdenDetallePlatillo:', error);
+      return res.status(400).json({
+        message: 'Error al guardar platillo',
+        error: error?.message || error
+      });
+    }
 
     // Actualizar total de la orden
     await updateOrdenTotal(suborden.idOrden);

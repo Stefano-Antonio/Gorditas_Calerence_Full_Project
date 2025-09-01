@@ -8,37 +8,40 @@ class ApiService {
   private token: string | null = localStorage.getItem('token');
 
   private async request<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-  // Use mock API if enabled and in development mode
-  if (USE_MOCK_API) {
-    console.log('🔄 Using mock API for:', endpoint);
-    return this.handleMockRequest<T>(endpoint, options);
-  }
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    // Use mock API if enabled and in development mode
+    if (USE_MOCK_API) {
+      console.log('🔄 Using mock API for:', endpoint);
+      return this.handleMockRequest<T>(endpoint, options);
+    }
 
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
+    const url = `${API_BASE_URL}${endpoint}`;
 
-  if (this.token) {
-    headers['Authorization'] = `Bearer ${this.token}`;
-  }
+    // Siempre obtener el token actualizado de localStorage
+    this.token = localStorage.getItem('token');
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
 
-    const data = await response.json();
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
 
-    // Cambia aquí: respeta el campo success del backend
-    if (!data.success) {
-      return {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const data = await response.json();
+
+      // Cambia aquí: respeta el campo success del backend
+      if (!data.success) {
+        return {
         success: false,
         error: data.message || 'Request failed',
         data: data.data,
@@ -70,7 +73,14 @@ class ApiService {
 
     if (endpoint.startsWith('/catalogos/') && method === 'GET') {
       const modelo = endpoint.split('/')[2];
-      return mockApiService.getCatalog<T>(modelo);
+      const response = await mockApiService.getCatalog<T>(modelo);
+      // If T is not an array, just return the first element or handle as needed
+      return {
+        ...response,
+        data: (Array.isArray(response.data) ? response.data[0] : response.data) as T,
+        // Remove or fix 'items' property if present
+        items: Array.isArray(response.data) ? response.data as T[] : undefined
+      };
     }
 
     if (endpoint.startsWith('/catalogos/') && method === 'POST') {
@@ -108,7 +118,9 @@ class ApiService {
 
   if (response.success && response.data?.token) {
     this.token = response.data.token;
-    localStorage.setItem('token', this.token);
+    if (this.token !== null) {
+      localStorage.setItem('token', this.token);
+    }
   }
 
   return response;

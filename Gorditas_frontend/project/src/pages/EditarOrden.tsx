@@ -74,13 +74,23 @@ const EditarOrden: React.FC = () => {
   const loadOrdenDetails = async (orden: Orden) => {
     try {
       setSelectedOrden(orden);
-      // In a real implementation, you would load suborders and details from the API
-      // For now, we'll simulate this data
+      const response = await apiService.getOrdenDetails(orden._id!);
+      
+      if (response.success) {
+        setSubordenes(response.data.subordenes || []);
+        setPlatillosDetalle(response.data.platillos || []);
+        setProductosDetalle(response.data.productos || []);
+      } else {
+        setError('Error cargando detalles de la orden');
+        setSubordenes([]);
+        setPlatillosDetalle([]);
+        setProductosDetalle([]);
+      }
+    } catch (error) {
+      setError('Error cargando detalles de la orden');
       setSubordenes([]);
       setPlatillosDetalle([]);
       setProductosDetalle([]);
-    } catch (error) {
-      setError('Error cargando detalles de la orden');
     }
   };
 
@@ -93,23 +103,52 @@ const EditarOrden: React.FC = () => {
     setSaving(true);
     try {
       const platillo = platillos.find(p => p._id === selectedPlatillo);
-      if (!platillo) return;
+      const guiso = guisos.find(g => g._id === selectedGuiso);
+      if (!platillo || !guiso) return;
+
+      // Get or create suborder
+      let subordenId = '';
+      if (subordenes.length === 0) {
+        // Create a suborder first
+        const subordenData = {
+          nombre: `Suborden 1`
+        };
+        const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
+        if (subordenResponse.success) {
+          subordenId = subordenResponse.data._id;
+          // Add to local state
+          setSubordenes([subordenResponse.data]);
+        } else {
+          setError('Error creando suborden');
+          return;
+        }
+      } else {
+        subordenId = subordenes[0]._id!;
+      }
 
       const platilloData = {
-        platillo: selectedPlatillo,
-        guiso: selectedGuiso,
-        cantidad,
-        precio: platillo.precio,
+        idPlatillo: selectedPlatillo,
+        nombrePlatillo: platillo.nombre,
+        idGuiso: selectedGuiso,
+        nombreGuiso: guiso.nombre,
+        costoPlatillo: platillo.precio,
+        cantidad
       };
 
-      // In a real implementation, you would call the API to add the platillo
-      // await apiService.addPlatillo(subordenId, platilloData);
+      const response = await apiService.addPlatillo(subordenId, platilloData);
       
-      setSuccess('Platillo agregado exitosamente');
-      setShowAddPlatillo(false);
-      setSelectedPlatillo('');
-      setSelectedGuiso('');
-      setCantidad(1);
+      if (response.success) {
+        setSuccess('Platillo agregado exitosamente');
+        // Refresh order details
+        await loadOrdenDetails(selectedOrden);
+        setShowAddPlatillo(false);
+        setSelectedPlatillo('');
+        setSelectedGuiso('');
+        setCantidad(1);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error agregando platillo');
+      }
     } catch (error) {
       setError('Error agregando platillo');
     } finally {
@@ -129,18 +168,25 @@ const EditarOrden: React.FC = () => {
       if (!producto) return;
 
       const productoData = {
-        producto: selectedProducto,
-        cantidad,
-        precio: producto.precio,
+        idProducto: selectedProducto,
+        nombreProducto: producto.nombre,
+        costoProducto: producto.precio,
+        cantidad
       };
 
-      // In a real implementation, you would call the API to add the producto
-      // await apiService.addProducto(selectedOrden._id, productoData);
+      const response = await apiService.addProducto(selectedOrden._id!, productoData);
       
-      setSuccess('Producto agregado exitosamente');
-      setShowAddProducto(false);
-      setSelectedProducto('');
-      setCantidad(1);
+      if (response.success) {
+        setSuccess('Producto agregado exitosamente');
+        // Refresh order details
+        await loadOrdenDetails(selectedOrden);
+        setShowAddProducto(false);
+        setSelectedProducto('');
+        setCantidad(1);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error agregando producto');
+      }
     } catch (error) {
       setError('Error agregando producto');
     } finally {

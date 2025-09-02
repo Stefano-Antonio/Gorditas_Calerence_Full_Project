@@ -8,13 +8,16 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, OrdenDetalleProducto } from '../types';
+import { Orden, Mesa, OrdenDetalleProducto } from '../types';
 
 interface OrdenCompleta extends Orden {
   productos?: OrdenDetalleProducto[];
+  platillos?: any[];
 }
 
 const Cobrar: React.FC = () => {
+  const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
   const [ordenesActivas, setOrdenesActivas] = useState<OrdenCompleta[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -22,26 +25,67 @@ const Cobrar: React.FC = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    loadOrdenesActivas();
+    loadMesas();
   }, []);
 
-  const loadOrdenesActivas = async () => {
+  const loadMesas = async () => {
     try {
+      const response = await apiService.getCatalog<Mesa>('mesa');
+      if (response.success && Array.isArray(response.data)) {
+        setMesas(response.data);
+      } else {
+        setMesas([]);
+      }
+    } catch (err) {
+      setError('Error cargando mesas');
+      setMesas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOrdenesActivas = async (mesa: Mesa) => {
+    try {
+      setSelectedMesa(mesa);
       const response = await apiService.getOrdenes();
-      let ordenes: Orden[] = [];
-      if (response.success && response.data) {
+      
+      if (response.success) {
+        let ordenesArray: Orden[] = [];
         if (Array.isArray(response.data.ordenes)) {
-          ordenes = response.data.ordenes;
+          ordenesArray = response.data.ordenes;
         } else if (Array.isArray(response.data)) {
-          ordenes = response.data;
+          ordenesArray = response.data;
         }
-        // Filtrar por estatus Surtida
-        const ordenesSurtidas = ordenes.filter((orden: Orden) => orden.estatus === 'Surtida');
-        const ordenesConDetalles: OrdenCompleta[] = ordenesSurtidas.map(orden => ({
-          ...orden,
-          platillos: (orden as any).platillos || [],
-          productos: (orden as any).productos || [],
-        }));
+        
+        const ordenesMesa = ordenesArray.filter(
+          (orden: Orden) =>
+            orden.mesa?.toString() === mesa._id?.toString() &&
+            orden.estatus === 'Entregada' // Only show orders ready for payment
+        );
+
+        // Load order details for each order
+        const ordenesConDetalles: OrdenCompleta[] = [];
+        for (const orden of ordenesMesa) {
+          try {
+            const detailsResponse = await apiService.getOrdenDetails(orden._id!);
+            if (detailsResponse.success) {
+              ordenesConDetalles.push(detailsResponse.data);
+            } else {
+              ordenesConDetalles.push({
+                ...orden,
+                productos: [],
+                platillos: []
+              });
+            }
+          } catch {
+            ordenesConDetalles.push({
+              ...orden,
+              productos: [],
+              platillos: []
+            });
+          }
+        }
+
         setOrdenesActivas(ordenesConDetalles);
       } else {
         setOrdenesActivas([]);
@@ -49,62 +93,178 @@ const Cobrar: React.FC = () => {
     } catch (err) {
       setError('Error cargando órdenes');
       setOrdenesActivas([]);
-      console.error('[Cobrar] Error al cargar órdenes:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Dummy implementations for missing functions
   const handleGenerateTicket = (orden: OrdenCompleta) => {
-    // Implement ticket generation logic here
+    const ticketContent = generateTicketContent(orden);
+    const blob = new Blob([ticketContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ticket-${orden._id?.toString().slice(-6)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handlePrintTicket = (orden: OrdenCompleta) => {
-    // Implement print logic here
+    const ticketContent = generateTicketContent(orden);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Ticket - Orden ${orden._id?.toString().slice(-6)}</title>
+            <style>
+              body { font-family: monospace; font-size: 12px; margin: 20px; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .line { border-bottom: 1px dashed #000; margin: 10px 0; }
+              .total { font-weight: bold; font-size: 14px; }
+            </style>
+          </head>
+          <body>${ticketContent}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
   };
 
-  const handleFinalizarOrden = (orden: OrdenCompleta) => {
-    // Implement finalize logic here
+  const handleFinalizarOrden = async (orden: OrdenCompleta) => {
+    setProcessing(true);
+    try {
+      const response = await apiService.updateOrdenStatus(orden._id?.toString() || '', 'Pagada');
+      if (response.success) {
+        setSuccess('Orden cobrada exitosamente');
+        if (selectedMesa) {
+          await loadOrdenesActivas(selectedMesa);
+        }
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error al cobrar la orden');
+      }
+    } catch (err) {
+      setError('Error al cobrar la orden');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const generateTicketContent = (orden: OrdenCompleta) => {
+    const mesa = selectedMesa;
+    const fecha = orden.fecha ? new Date(orden.fecha) : new Date();
+    
+    return `
+      <div class="header">
+        <h2>RESTAURANTE</h2>
+        <p>Ticket de Venta</p>
+        <div class="line"></div>
+      </div>
+      <p><strong>Mesa:</strong> ${mesa?.numero}</p>
+      <p><strong>Fecha:</strong> ${fecha.toLocaleDateString('es-ES')}</p>
+      <p><strong>Hora:</strong> ${fecha.toLocaleTimeString('es-ES')}</p>
+      <p><strong>Orden:</strong> #${orden._id?.toString().slice(-6)}</p>
+      <div class="line"></div>
+      <h3>PLATILLOS</h3>
+      ${orden.platillos?.length 
+        ? orden.platillos.map(p => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
+        : '<p>Sin platillos</p>'
+      }
+      <h3>PRODUCTOS</h3>
+      ${orden.productos?.length
+        ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombreProducto} - $${p.importe.toFixed(2)}</p>`).join('')
+        : '<p>Sin productos</p>'
+      }
+      <div class="line"></div>
+      <div class="total">
+        <p>TOTAL: $${orden.total?.toFixed(2)}</p>
+      </div>
+      <div class="line"></div>
+      <p style="text-align: center;">¡Gracias por su preferencia!</p>
+    `;
   };
 
   const getTotalMesa = () => {
     return ordenesActivas.reduce((acc, orden) => acc + (orden.total || 0), 0);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cobrar</h1>
           <p className="text-gray-600 mt-1">Procesa el pago y finaliza las órdenes</p>
         </div>
+        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-200">
+          <div className="flex items-center space-x-2">
+            <CreditCard className="w-5 h-5 text-orange-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {selectedMesa ? `Mesa ${selectedMesa.numero}` : 'Seleccionar Mesa'}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">{error}</div>}
-      {success && <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">{success}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mt-4">
-        <div className="flex items-center space-x-2 mb-6">
-          <CreditCard className="w-5 h-5 text-orange-600" />
-          <h2 className="text-lg font-semibold text-gray-900">
-            Órdenes activas
-          </h2>
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+          {success}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Mesas List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Seleccionar Mesa</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {mesas.map(mesa => (
+              <button
+                key={mesa._id}
+                onClick={() => loadOrdenesActivas(mesa)}
+                className={`p-3 rounded-lg border-2 transition-colors ${
+                  selectedMesa?._id === mesa._id
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                }`}
+              >
+                <div className="text-center">
+                  <p className="font-medium">Mesa {mesa.numero}</p>
+                  <p className="text-xs text-gray-500">{mesa.nombre}</p>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">Cargando órdenes...</p>
-          </div>
-        ) : ordenesActivas?.length === 0 ? (
-          <div className="text-center py-12">
-            <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-            <p className="text-gray-500">No hay órdenes activas</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <>
+        {/* Orders List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Órdenes Activas</h2>
+          
+          {!selectedMesa ? (
+            <div className="text-center py-12">
+              <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Selecciona una mesa para ver las órdenes activas</p>
+            </div>
+          ) : ordenesActivas?.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
+              <p className="text-gray-500">No hay órdenes activas en esta mesa</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
               {ordenesActivas.map(orden => (
                 <div key={orden._id?.toString()} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -114,13 +274,11 @@ const Cobrar: React.FC = () => {
                         <Clock className="w-4 h-4 mr-1" />
                         {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Mesa: {orden.mesa}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold text-green-600">${orden.total?.toFixed(2)}</p>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        orden.estatus === 'Surtida' ? 'bg-green-100 text-green-800'
-                        : orden.estatus === 'Preparacion' ? 'bg-yellow-100 text-yellow-800'
+                        orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
                         : 'bg-blue-100 text-blue-800'
                       }`}>{orden.estatus}</span>
                     </div>
@@ -143,17 +301,17 @@ const Cobrar: React.FC = () => {
               {ordenesActivas.length > 1 && (
                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-900">Total:</span>
+                    <span className="text-lg font-semibold text-gray-900">Total Mesa:</span>
                     <span className="text-xl font-bold text-orange-600">${getTotalMesa().toFixed(2)}</span>
                   </div>
                 </div>
               )}
-            </>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default Cobrar;

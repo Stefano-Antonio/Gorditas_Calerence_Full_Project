@@ -94,6 +94,31 @@ class ApiService {
       return mockApiService.updateOrdenStatus(ordenId, body.estatus) as Promise<ApiResponse<T>>;
     }
 
+    if (endpoint.includes('/ordenes/') && !endpoint.includes('/estatus') && method === 'GET') {
+      const ordenId = endpoint.split('/')[2];
+      return mockApiService.getOrdenDetails(ordenId) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/producto/') && endpoint.includes('/listo') && method === 'PUT') {
+      const productoId = endpoint.split('/')[3];
+      return mockApiService.markProductoListo(productoId) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/platillo/') && endpoint.includes('/listo') && method === 'PUT') {
+      const platilloId = endpoint.split('/')[3];
+      return mockApiService.markPlatilloListo(platilloId) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/producto/') && endpoint.includes('/entregado') && method === 'PUT') {
+      const productoId = endpoint.split('/')[3];
+      return mockApiService.markProductoEntregado(productoId) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.includes('/platillo/') && endpoint.includes('/entregado') && method === 'PUT') {
+      const platilloId = endpoint.split('/')[3];
+      return mockApiService.markPlatilloEntregado(platilloId) as Promise<ApiResponse<T>>;
+    }
+
     if (endpoint === '/inventario' && method === 'GET') {
       return mockApiService.getInventario() as Promise<ApiResponse<T>>;
     }
@@ -163,6 +188,34 @@ class ApiService {
     return this.request(`/ordenes/${ordenId}/verificar`, {
       method: 'PUT',
       body: JSON.stringify({ isComplete }),
+    });
+  }
+
+  async getOrdenDetails(ordenId: string) {
+    return this.request(`/ordenes/${ordenId}`);
+  }
+
+  async markProductoListo(productoId: string) {
+    return this.request(`/ordenes/producto/${productoId}/listo`, {
+      method: 'PUT',
+    });
+  }
+
+  async markPlatilloListo(platilloId: string) {
+    return this.request(`/ordenes/platillo/${platilloId}/listo`, {
+      method: 'PUT',
+    });
+  }
+
+  async markProductoEntregado(productoId: string) {
+    return this.request(`/ordenes/producto/${productoId}/entregado`, {
+      method: 'PUT',
+    });
+  }
+
+  async markPlatilloEntregado(platilloId: string) {
+    return this.request(`/ordenes/platillo/${platilloId}/entregado`, {
+      method: 'PUT',
     });
   }
   // Inventory methods

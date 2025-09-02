@@ -100,6 +100,8 @@ export interface IOrdenDetalleProducto {
   costoProducto: number;
   cantidad: number;
   importe: number;
+  listo?: boolean;
+  entregado?: boolean;
 }
 
 export interface IOrdenDetallePlatillo {
@@ -112,6 +114,8 @@ export interface IOrdenDetallePlatillo {
   costoPlatillo: number;
   cantidad: number;
   importe: number;
+  listo?: boolean;
+  entregado?: boolean;
 }
 
 export interface IGasto {

@@ -54,6 +54,35 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
   }));
 }));
 
+// GET /api/ordenes/:id - Obtener detalles de una orden específica
+router.get('/:id', authenticate, asyncHandler(async (req: any, res: any) => {
+  const orden = await Orden.findById(req.params.id);
+  if (!orden) {
+    return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
+  }
+
+  // Obtener subórdenes de la orden
+  const subordenes = await Suborden.find({ idOrden: req.params.id });
+  
+  // Obtener productos de la orden
+  const productos = await OrdenDetalleProducto.find({ idOrden: req.params.id });
+  
+  // Obtener platillos de las subórdenes
+  const subordenIds = subordenes.map(sub => sub._id);
+  const platillos = await OrdenDetallePlatillo.find({ 
+    idSuborden: { $in: subordenIds } 
+  });
+
+  const ordenConDetalles = {
+    ...orden.toObject(),
+    subordenes,
+    productos,
+    platillos
+  };
+
+  res.json(createResponse(true, ordenConDetalles));
+}));
+
 // POST /api/ordenes/nueva - Crear nueva orden
 router.post('/nueva', authenticate, validate(createOrdenSchema), 
   asyncHandler(async (req: any, res: any) => {
@@ -314,5 +343,63 @@ async function updateOrdenTotal(ordenId: string) {
   
   await Orden.findByIdAndUpdate(ordenId, { total });
 }
+
+// PUT /api/ordenes/producto/:id/listo - Marcar producto como listo
+router.put('/producto/:id/listo', authenticate, 
+  asyncHandler(async (req: any, res: any) => {
+    const producto = await OrdenDetalleProducto.findById(req.params.id);
+    if (!producto) {
+      return res.status(404).json(createResponse(false, null, 'Producto no encontrado'));
+    }
+
+    // Agregar campo 'listo' al schema si no existe
+    await OrdenDetalleProducto.findByIdAndUpdate(req.params.id, { listo: true });
+    
+    res.json(createResponse(true, null, 'Producto marcado como listo'));
+  })
+);
+
+// PUT /api/ordenes/platillo/:id/listo - Marcar platillo como listo  
+router.put('/platillo/:id/listo', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const platillo = await OrdenDetallePlatillo.findById(req.params.id);
+    if (!platillo) {
+      return res.status(404).json(createResponse(false, null, 'Platillo no encontrado'));
+    }
+
+    // Agregar campo 'listo' al schema si no existe
+    await OrdenDetallePlatillo.findByIdAndUpdate(req.params.id, { listo: true });
+    
+    res.json(createResponse(true, null, 'Platillo marcado como listo'));
+  })
+);
+
+// PUT /api/ordenes/producto/:id/entregado - Marcar producto como entregado
+router.put('/producto/:id/entregado', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const producto = await OrdenDetalleProducto.findById(req.params.id);
+    if (!producto) {
+      return res.status(404).json(createResponse(false, null, 'Producto no encontrado'));
+    }
+
+    await OrdenDetalleProducto.findByIdAndUpdate(req.params.id, { entregado: true });
+    
+    res.json(createResponse(true, null, 'Producto marcado como entregado'));
+  })
+);
+
+// PUT /api/ordenes/platillo/:id/entregado - Marcar platillo como entregado
+router.put('/platillo/:id/entregado', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const platillo = await OrdenDetallePlatillo.findById(req.params.id);
+    if (!platillo) {
+      return res.status(404).json(createResponse(false, null, 'Platillo no encontrado'));
+    }
+
+    await OrdenDetallePlatillo.findByIdAndUpdate(req.params.id, { entregado: true });
+    
+    res.json(createResponse(true, null, 'Platillo marcado como entregado'));
+  })
+);
 
 export default router;

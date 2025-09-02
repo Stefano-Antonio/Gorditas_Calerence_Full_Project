@@ -95,6 +95,7 @@ export interface OrdenDetallePlatillo extends BaseEntity {
   cantidad: number;
   precio: number;
   subtotal: number;
+  listo?: boolean;
   entregado: boolean;
 }
 
@@ -104,6 +105,7 @@ export interface OrdenDetalleProducto extends BaseEntity {
   cantidad: number;
   precio: number;
   subtotal: number;
+  listo?: boolean;
   entregado: boolean;
 }
 

@@ -42,9 +42,9 @@ const Despachar: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        // Mostrar solo órdenes en estado 'Recepcion', 'Pendiente' o 'Preparacion'
+        // Mostrar solo órdenes en estado 'Surtida' para despacho
         const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
-          ['Recepcion', 'Pendiente', 'Preparacion'].includes(orden.estatus)
+          orden.estatus === 'Surtida'
         );
         setOrdenes(ordenesParaDespachar);
       }
@@ -67,19 +67,13 @@ const Despachar: React.FC = () => {
 
   const loadOrdenDetails = async (orden: OrdenConDetalles) => {
     try {
-      // In a real implementation, you would load the order details from the API
-      // For now, we'll simulate this data
-      const ordenConDetalles: OrdenConDetalles = {
-        ...orden,
-        productos: [
-          // Simulated product details
-        ],
-        platillos: [
-          // Simulated dish details
-        ]
-      };
+      const response = await apiService.getOrdenDetails(orden._id!);
       
-      setSelectedOrden(ordenConDetalles);
+      if (response.success) {
+        setSelectedOrden(response.data);
+      } else {
+        setError('Error cargando detalles de la orden');
+      }
     } catch (error) {
       setError('Error cargando detalles de la orden');
     }
@@ -89,27 +83,36 @@ const Despachar: React.FC = () => {
     if (!selectedOrden) return;
 
     try {
-      // In a real implementation, you would update the delivery status via API
-      // For now, we'll simulate this
-      
+      let response;
       if (type === 'producto') {
-        setSelectedOrden(prev => ({
-          ...prev!,
-          productos: prev!.productos?.map(p => 
-            p._id === itemId ? { ...p, entregado: true } : p
-          )
-        }));
+        response = await apiService.markProductoEntregado(itemId);
       } else {
-        setSelectedOrden(prev => ({
-          ...prev!,
-          platillos: prev!.platillos?.map(p => 
-            p._id === itemId ? { ...p, entregado: true } : p
-          )
-        }));
+        response = await apiService.markPlatilloEntregado(itemId);
       }
 
-      setSuccess('Item marcado como entregado');
-      setTimeout(() => setSuccess(''), 3000);
+      if (response.success) {
+        // Update local state
+        if (type === 'producto') {
+          setSelectedOrden(prev => ({
+            ...prev!,
+            productos: prev!.productos?.map(p => 
+              p._id === itemId ? { ...p, entregado: true } : p
+            )
+          }));
+        } else {
+          setSelectedOrden(prev => ({
+            ...prev!,
+            platillos: prev!.platillos?.map(p => 
+              p._id === itemId ? { ...p, entregado: true } : p
+            )
+          }));
+        }
+
+        setSuccess('Item marcado como entregado');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error marcando item como entregado');
+      }
     } catch (error) {
       setError('Error marcando item como entregado');
     }
@@ -120,7 +123,7 @@ const Despachar: React.FC = () => {
 
     setDispatching(true);
     try {
-      const response = await apiService.updateOrdenStatus(selectedOrden._id!, 'Finalizada');
+      const response = await apiService.updateOrdenStatus(selectedOrden._id!, 'Entregada');
       
       if (response.success) {
         setSuccess('Orden despachada exitosamente');
@@ -165,7 +168,7 @@ const Despachar: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Truck className="w-4 sm:w-5 h-4 sm:h-5 text-orange-600" />
             <span className="text-xs sm:text-sm font-medium text-gray-700">
-              {ordenes.length} órdenes listas para despacho
+              {ordenes.length} órdenes surtidas para despacho
             </span>
           </div>
         </div>

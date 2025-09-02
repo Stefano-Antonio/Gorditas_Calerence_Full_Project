@@ -49,9 +49,9 @@ const SurtirOrden: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        // Mostrar solo órdenes en estado 'Pendiente' o 'Recepcion'
+        // Mostrar solo órdenes en estado 'Preparacion' para surtir
         const ordenesParaSurtir = ordenesArray.filter((orden: Orden) => 
-          ['Pendiente', 'Recepcion'].includes(orden.estatus)
+          orden.estatus === 'Preparacion'
         );
         setOrdenes(ordenesParaSurtir);
       }
@@ -74,19 +74,13 @@ const SurtirOrden: React.FC = () => {
 
   const loadOrdenDetails = async (orden: OrdenConDetalles) => {
     try {
-      // For now, we'll simulate loading order details
-      // In a real implementation, you would fetch from API
-      const ordenConDetalles: OrdenConDetalles = {
-        ...orden,
-        productos: [
-          // Simulated product details - replace with actual API call
-        ],
-        platillos: [
-          // Simulated dish details - replace with actual API call
-        ]
-      };
+      const response = await apiService.getOrdenDetails(orden._id!);
       
-      setSelectedOrden(ordenConDetalles);
+      if (response.success) {
+        setSelectedOrden(response.data);
+      } else {
+        setError('Error cargando detalles de la orden');
+      }
     } catch (error) {
       setError('Error cargando detalles de la orden');
     }
@@ -97,27 +91,36 @@ const SurtirOrden: React.FC = () => {
 
     setMarkingItem(itemId);
     try {
-      // In a real implementation, you would update the item status via API
-      // For now, we'll simulate this
-      
+      let response;
       if (type === 'producto') {
-        setSelectedOrden(prev => ({
-          ...prev!,
-          productos: prev!.productos?.map(p => 
-            p._id === itemId ? { ...p, entregado: true } : p
-          )
-        }));
+        response = await apiService.markProductoListo(itemId);
       } else {
-        setSelectedOrden(prev => ({
-          ...prev!,
-          platillos: prev!.platillos?.map(p => 
-            p._id === itemId ? { ...p, entregado: true } : p
-          )
-        }));
+        response = await apiService.markPlatilloListo(itemId);
       }
 
-      setSuccess('Item marcado como listo');
-      setTimeout(() => setSuccess(''), 3000);
+      if (response.success) {
+        // Update local state
+        if (type === 'producto') {
+          setSelectedOrden(prev => ({
+            ...prev!,
+            productos: prev!.productos?.map(p => 
+              p._id === itemId ? { ...p, listo: true } : p
+            )
+          }));
+        } else {
+          setSelectedOrden(prev => ({
+            ...prev!,
+            platillos: prev!.platillos?.map(p => 
+              p._id === itemId ? { ...p, listo: true } : p
+            )
+          }));
+        }
+
+        setSuccess('Item marcado como listo');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error marcando item como listo');
+      }
     } catch (error) {
       setError('Error marcando item como listo');
     } finally {
@@ -173,8 +176,8 @@ const SurtirOrden: React.FC = () => {
   };
 
   const isOrderReadyToComplete = (orden: OrdenConDetalles) => {
-    const allProductsReady = orden.productos?.every(p => p.entregado) ?? true;
-    const allDishesReady = orden.platillos?.every(p => p.entregado) ?? true;
+    const allProductsReady = orden.productos?.every(p => p.listo) ?? true;
+    const allDishesReady = orden.platillos?.every(p => p.listo) ?? true;
     return allProductsReady && allDishesReady;
   };
 
@@ -417,12 +420,12 @@ const SurtirOrden: React.FC = () => {
                       <div
                         key={producto._id}
                         className={`flex items-center justify-between p-3 rounded-lg border ${
-                          producto.entregado ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                          producto.listo ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            producto.entregado ? 'bg-green-500' : 'bg-gray-300'
+                            producto.listo ? 'bg-green-500' : 'bg-gray-300'
                           }`}></div>
                           <div>
                             <p className="font-medium text-gray-900">{producto.producto}</p>
@@ -433,7 +436,7 @@ const SurtirOrden: React.FC = () => {
                           <span className="text-sm font-medium text-gray-900">
                             ${producto.subtotal.toFixed(2)}
                           </span>
-                          {!producto.entregado && selectedOrden.estatus === 'Preparacion' && (
+                          {!producto.listo && selectedOrden.estatus === 'Preparacion' && (
                             <button
                               onClick={() => handleMarkItemAsReady(producto._id!, 'producto')}
                               disabled={markingItem === producto._id}
@@ -465,12 +468,12 @@ const SurtirOrden: React.FC = () => {
                       <div
                         key={platillo._id}
                         className={`flex items-center justify-between p-3 rounded-lg border ${
-                          platillo.entregado ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                          platillo.listo ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            platillo.entregado ? 'bg-green-500' : 'bg-gray-300'
+                            platillo.listo ? 'bg-green-500' : 'bg-gray-300'
                           }`}></div>
                           <div>
                             <p className="font-medium text-gray-900">{platillo.platillo}</p>
@@ -483,7 +486,7 @@ const SurtirOrden: React.FC = () => {
                           <span className="text-sm font-medium text-gray-900">
                             ${platillo.subtotal.toFixed(2)}
                           </span>
-                          {!platillo.entregado && selectedOrden.estatus === 'Preparacion' && (
+                          {!platillo.listo && selectedOrden.estatus === 'Preparacion' && (
                             <button
                               onClick={() => handleMarkItemAsReady(platillo._id!, 'platillo')}
                               disabled={markingItem === platillo._id}

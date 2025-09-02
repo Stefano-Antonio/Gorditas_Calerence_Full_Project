@@ -306,6 +306,97 @@ class MockApiService {
   async getProductosVendidos() {
     return { success: true, data: [] };
   }
+
+  async getOrdenDetails(ordenId: string) {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Mock order details with products and platillos
+    const mockOrderDetails = {
+      _id: ordenId,
+      mesa: 'Mesa 1',
+      nombreMesa: 'Mesa 1',
+      estatus: 'Preparacion',
+      total: 125.00,
+      fecha: new Date(Date.now() - 45 * 60 * 1000),
+      fechaHora: new Date(Date.now() - 45 * 60 * 1000),
+      folio: 'ORD-002',
+      subordenes: [
+        {
+          _id: 'sub1',
+          nombre: 'Suborden 1',
+          idOrden: ordenId
+        }
+      ],
+      productos: [
+        {
+          _id: 'prod1',
+          idOrden: ordenId,
+          nombreProducto: 'Coca Cola',
+          cantidad: 2,
+          precio: 15.00,
+          subtotal: 30.00,
+          listo: false,
+          entregado: false
+        },
+        {
+          _id: 'prod2',
+          idOrden: ordenId,
+          nombreProducto: 'Agua',
+          cantidad: 1,
+          precio: 10.00,
+          subtotal: 10.00,
+          listo: true,
+          entregado: false
+        }
+      ],
+      platillos: [
+        {
+          _id: 'plat1',
+          idSuborden: 'sub1',
+          nombrePlatillo: 'Gordita Sencilla',
+          nombreGuiso: 'Chicharrón Prensado',
+          cantidad: 2,
+          precio: 25.00,
+          subtotal: 50.00,
+          listo: false,
+          entregado: false
+        },
+        {
+          _id: 'plat2',
+          idSuborden: 'sub1',
+          nombrePlatillo: 'Quesadilla Grande',
+          nombreGuiso: 'Requesón',
+          cantidad: 1,
+          precio: 35.00,
+          subtotal: 35.00,
+          listo: true,
+          entregado: false
+        }
+      ]
+    };
+    
+    return { success: true, data: mockOrderDetails };
+  }
+
+  async markProductoListo(productoId: string) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return { success: true, data: { _id: productoId, listo: true } };
+  }
+
+  async markPlatilloListo(platilloId: string) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return { success: true, data: { _id: platilloId, listo: true } };
+  }
+
+  async markProductoEntregado(productoId: string) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return { success: true, data: { _id: productoId, entregado: true } };
+  }
+
+  async markPlatilloEntregado(platilloId: string) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return { success: true, data: { _id: platilloId, entregado: true } };
+  }
 }
 
 export const mockApiService = new MockApiService();

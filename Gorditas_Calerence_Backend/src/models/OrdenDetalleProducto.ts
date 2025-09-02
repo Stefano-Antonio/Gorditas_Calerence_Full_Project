@@ -9,7 +9,9 @@ const ordenDetalleProductoSchema = new Schema<IOrdenDetalleProductoDocument>({
   nombreProducto: { type: String, required: true, trim: true },
   costoProducto: { type: Number, required: true, min: 0 },
   cantidad: { type: Number, required: true, min: 1 },
-  importe: { type: Number, required: true, min: 0 }
+  importe: { type: Number, required: true, min: 0 },
+  listo: { type: Boolean, default: false },
+  entregado: { type: Boolean, default: false }
 }, {
   timestamps: true,
   versionKey: false

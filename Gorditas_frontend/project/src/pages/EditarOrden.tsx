@@ -50,8 +50,10 @@ const EditarOrden: React.FC = () => {
 
       if (ordenesRes.success) {
         const ordenesArray: Orden[] = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
-        const ordenesRecepcion = ordenesArray.filter((orden: Orden) => orden.estatus === 'Recepcion');
-        setOrdenes(ordenesRecepcion);
+        const ordenesEditables = ordenesArray.filter((orden: Orden) => 
+          ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
+        );
+        setOrdenes(ordenesEditables);
       }
       
       if (platillosRes.success) setPlatillos(platillosRes.data || []);
@@ -192,7 +194,7 @@ const EditarOrden: React.FC = () => {
             {ordenes.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay órdenes en recepción</p>
+                <p className="text-gray-500">No hay órdenes disponibles para editar</p>
               </div>
             ) : (
               ordenes.map((orden) => (

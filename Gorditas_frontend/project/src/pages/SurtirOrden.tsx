@@ -44,9 +44,9 @@ const SurtirOrden: React.FC = () => {
 
       if (ordenesRes.success) {
         const ordenesArray = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
-        // Show orders in "Recepcion" (ready to start) and "Preparacion" (in progress) status
+        // Show orders in "Pendiente" and "Recepcion" status (ready to start preparation)
         const ordenesParaSurtir = ordenesArray.filter((orden: Orden) => 
-          orden.estatus === 'Recepcion' || orden.estatus === 'Preparacion'
+          ['Pendiente', 'Recepcion'].includes(orden.estatus)
         );
         setOrdenes(ordenesParaSurtir);
       }
@@ -238,8 +238,8 @@ const SurtirOrden: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
           <div className="text-center">
             <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No hay órdenes pendientes</h2>
-            <p className="text-gray-600">No hay órdenes listas para preparar</p>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No hay órdenes para preparar</h2>
+            <p className="text-gray-600">No hay órdenes pendientes o en recepción</p>
           </div>
         </div>
       ) : (

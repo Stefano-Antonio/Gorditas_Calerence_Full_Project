@@ -37,10 +37,10 @@ const Despachar: React.FC = () => {
 
       if (ordenesRes.success) {
         const ordenesArray: Orden[] = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
-        const ordenesSurtidas = ordenesArray.filter((orden: Orden) => 
-          orden.estatus === 'Surtida'
+        const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
+          ['Recepcion', 'Pendiente', 'Preparacion'].includes(orden.estatus)
         );
-        setOrdenes(ordenesSurtidas);
+        setOrdenes(ordenesParaDespachar);
       }
 
       if (mesasRes.success) {
@@ -183,7 +183,7 @@ const Despachar: React.FC = () => {
             {ordenes.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay órdenes listas para despacho</p>
+                <p className="text-gray-500">No hay órdenes disponibles para despacho</p>
               </div>
             ) : (
               ordenes.map((orden) => {

@@ -43,8 +43,13 @@ const SurtirOrden: React.FC = () => {
       ]);
 
       if (ordenesRes.success) {
-        const ordenesArray = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
-        // Show orders in "Pendiente" and "Recepcion" status (ready to start preparation)
+        let ordenesArray: Orden[] = [];
+        if (Array.isArray(ordenesRes.data.ordenes)) {
+          ordenesArray = ordenesRes.data.ordenes;
+        } else if (Array.isArray(ordenesRes.data)) {
+          ordenesArray = ordenesRes.data;
+        }
+        // Mostrar solo órdenes en estado 'Pendiente' o 'Recepcion'
         const ordenesParaSurtir = ordenesArray.filter((orden: Orden) => 
           ['Pendiente', 'Recepcion'].includes(orden.estatus)
         );
@@ -52,7 +57,13 @@ const SurtirOrden: React.FC = () => {
       }
 
       if (mesasRes.success) {
-        setMesas(mesasRes.data || []);
+        let mesasArray: Mesa[] = [];
+        if (Array.isArray(mesasRes.data)) {
+          mesasArray = mesasRes.data;
+        } else if (Array.isArray(mesasRes.data?.items)) {
+          mesasArray = mesasRes.data.items;
+        }
+        setMesas(mesasArray);
       }
     } catch (error) {
       setError('Error cargando órdenes');

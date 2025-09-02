@@ -36,7 +36,13 @@ const Despachar: React.FC = () => {
       ]);
 
       if (ordenesRes.success) {
-        const ordenesArray: Orden[] = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
+        let ordenesArray: Orden[] = [];
+        if (Array.isArray(ordenesRes.data.ordenes)) {
+          ordenesArray = ordenesRes.data.ordenes;
+        } else if (Array.isArray(ordenesRes.data)) {
+          ordenesArray = ordenesRes.data;
+        }
+        // Mostrar solo órdenes en estado 'Recepcion', 'Pendiente' o 'Preparacion'
         const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
           ['Recepcion', 'Pendiente', 'Preparacion'].includes(orden.estatus)
         );
@@ -44,7 +50,13 @@ const Despachar: React.FC = () => {
       }
 
       if (mesasRes.success) {
-        setMesas(mesasRes.data || []);
+        let mesasArray: Mesa[] = [];
+        if (Array.isArray(mesasRes.data)) {
+          mesasArray = mesasRes.data;
+        } else if (Array.isArray(mesasRes.data?.items)) {
+          mesasArray = mesasRes.data.items;
+        }
+        setMesas(mesasArray);
       }
     } catch (error) {
       setError('Error cargando órdenes');

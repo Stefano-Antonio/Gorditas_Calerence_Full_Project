@@ -49,7 +49,12 @@ const EditarOrden: React.FC = () => {
       ]);
 
       if (ordenesRes.success) {
-        const ordenesArray: Orden[] = Array.isArray(ordenesRes.data) ? ordenesRes.data : [];
+        let ordenesArray: Orden[] = [];
+        if (Array.isArray(ordenesRes.data.ordenes)) {
+          ordenesArray = ordenesRes.data.ordenes;
+        } else if (Array.isArray(ordenesRes.data)) {
+          ordenesArray = ordenesRes.data;
+        }
         const ordenesEditables = ordenesArray.filter((orden: Orden) => 
           ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
         );

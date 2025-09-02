@@ -100,6 +100,8 @@ export interface OrdenDetallePlatillo extends BaseEntity {
 }
 
 export interface OrdenDetalleProducto extends BaseEntity {
+  importe: any;
+  nombre: any;
   orden: string;
   producto: string;
   cantidad: number;

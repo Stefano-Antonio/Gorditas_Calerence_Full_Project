@@ -115,7 +115,6 @@ const NuevaOrden: React.FC = () => {
         estatus,
       };
 
-      console.log('Payload enviado a createOrden:', ordenData); // Debugging log
 
       const ordenResponse = await apiService.createOrden(ordenData);
       const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
@@ -189,8 +188,6 @@ const NuevaOrden: React.FC = () => {
     );
   }
 
-  console.log('Platillos:', platillos);
-  console.log('Guisos:', guisos);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -56,7 +56,6 @@ const insertExamples = async () => {
       importe: 100,
     });
 
-    console.log('Ejemplos insertados correctamente');
   } catch (error) {
     console.error('Error al insertar ejemplos:', error);
   } finally {

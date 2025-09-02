@@ -63,12 +63,8 @@ const Dashboard: React.FC = () => {
     try {
       // Load orders
   const ordenesResponse = await apiService.getOrdenes();
-      console.log('Respuesta de la API de órdenes:', ordenesResponse);
       if (ordenesResponse?.data?.ordenes) {
-        console.log('Array de órdenes:', ordenesResponse.data.ordenes);
-        console.log('Cantidad de órdenes:', ordenesResponse.data.ordenes.length);
         if (ordenesResponse.data.ordenes.length > 0) {
-          console.log('Primeras órdenes:', ordenesResponse.data.ordenes.slice(0, 3));
         }
       } else {
         console.log('No se encontró el array de órdenes en la respuesta.');
@@ -270,7 +266,6 @@ const Dashboard: React.FC = () => {
     const userRole = user?.nombreTipoUsuario;
     const currentStatus = orden.estatus;
     const isUpdating = updating === orden._id;
-    console.log('renderWorkflowActions:', { userRole, currentStatus, orden });
 
     // Admin can see all actions
     if (userRole === 'Admin') {
@@ -377,7 +372,6 @@ const Dashboard: React.FC = () => {
         break;
     }
 
-    console.log('No action rendered for', { userRole, currentStatus, orden });
     return null;
   };
 

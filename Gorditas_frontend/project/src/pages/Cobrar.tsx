@@ -16,8 +16,7 @@ interface OrdenCompleta extends Orden {
 }
 
 const Cobrar: React.FC = () => {
-  const [mesas, setMesas] = useState<Mesa[]>([]);
-  const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
+  // Eliminamos mesas y selectedMesa
   const [ordenesActivas, setOrdenesActivas] = useState<OrdenCompleta[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -25,30 +24,12 @@ const Cobrar: React.FC = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    loadMesas();
+    loadOrdenesActivas();
   }, []);
 
-  const loadMesas = async () => {
+  const loadOrdenesActivas = async () => {
     try {
-      const response = await apiService.getCatalog<Mesa>('mesa');
-      if (response.success && Array.isArray(response.data)) {
-        setMesas(response.data);
-      } else {
-        setMesas([]);
-      }
-    } catch (err) {
-      setError('Error cargando mesas');
-      setMesas([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadOrdenesActivas = async (mesa: Mesa) => {
-    try {
-      setSelectedMesa(mesa);
       const response = await apiService.getOrdenes();
-      
       if (response.success) {
         let ordenesArray: Orden[] = [];
         if (Array.isArray(response.data.ordenes)) {
@@ -56,16 +37,13 @@ const Cobrar: React.FC = () => {
         } else if (Array.isArray(response.data)) {
           ordenesArray = response.data;
         }
-        
-        const ordenesMesa = ordenesArray.filter(
-          (orden: Orden) =>
-            orden.mesa?.toString() === mesa._id?.toString() &&
-            orden.estatus === 'Entregada' // Only show orders ready for payment
+        // Filtrar todas las órdenes con estatus Entregada o Surtida
+        const ordenesFiltradas = ordenesArray.filter(
+          (orden: Orden) => orden.estatus === 'Entregada' || orden.estatus === 'Surtida'
         );
-
-        // Load order details for each order
+        // Cargar detalles para cada orden
         const ordenesConDetalles: OrdenCompleta[] = [];
-        for (const orden of ordenesMesa) {
+        for (const orden of ordenesFiltradas) {
           try {
             const detailsResponse = await apiService.getOrdenDetails(orden._id!);
             if (detailsResponse.success) {
@@ -85,7 +63,6 @@ const Cobrar: React.FC = () => {
             });
           }
         }
-
         setOrdenesActivas(ordenesConDetalles);
       } else {
         setOrdenesActivas([]);
@@ -93,6 +70,8 @@ const Cobrar: React.FC = () => {
     } catch (err) {
       setError('Error cargando órdenes');
       setOrdenesActivas([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,9 +115,7 @@ const Cobrar: React.FC = () => {
       const response = await apiService.updateOrdenStatus(orden._id?.toString() || '', 'Pagada');
       if (response.success) {
         setSuccess('Orden cobrada exitosamente');
-        if (selectedMesa) {
-          await loadOrdenesActivas(selectedMesa);
-        }
+        await loadOrdenesActivas();
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError('Error al cobrar la orden');
@@ -151,16 +128,13 @@ const Cobrar: React.FC = () => {
   };
 
   const generateTicketContent = (orden: OrdenCompleta) => {
-    const mesa = selectedMesa;
     const fecha = orden.fecha ? new Date(orden.fecha) : new Date();
-    
     return `
       <div class="header">
         <h2>RESTAURANTE</h2>
         <p>Ticket de Venta</p>
         <div class="line"></div>
       </div>
-      <p><strong>Mesa:</strong> ${mesa?.numero}</p>
       <p><strong>Fecha:</strong> ${fecha.toLocaleDateString('es-ES')}</p>
       <p><strong>Hora:</strong> ${fecha.toLocaleTimeString('es-ES')}</p>
       <p><strong>Orden:</strong> #${orden._id?.toString().slice(-6)}</p>
@@ -172,7 +146,7 @@ const Cobrar: React.FC = () => {
       }
       <h3>PRODUCTOS</h3>
       ${orden.productos?.length
-        ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombreProducto} - $${p.importe.toFixed(2)}</p>`).join('')
+        ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombre} - $${p.importe.toFixed(2)}</p>`).join('')
         : '<p>Sin productos</p>'
       }
       <div class="line"></div>
@@ -184,7 +158,7 @@ const Cobrar: React.FC = () => {
     `;
   };
 
-  const getTotalMesa = () => {
+  const getTotal = () => {
     return ordenesActivas.reduce((acc, orden) => acc + (orden.total || 0), 0);
   };
 
@@ -203,14 +177,6 @@ const Cobrar: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cobrar</h1>
           <p className="text-gray-600 mt-1">Procesa el pago y finaliza las órdenes</p>
         </div>
-        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-200">
-          <div className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5 text-orange-600" />
-            <span className="text-sm font-medium text-gray-700">
-              {selectedMesa ? `Mesa ${selectedMesa.numero}` : 'Seleccionar Mesa'}
-            </span>
-          </div>
-        </div>
       </div>
 
       {error && (
@@ -225,90 +191,58 @@ const Cobrar: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mesas List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Seleccionar Mesa</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {mesas.map(mesa => (
-              <button
-                key={mesa._id}
-                onClick={() => loadOrdenesActivas(mesa)}
-                className={`p-3 rounded-lg border-2 transition-colors ${
-                  selectedMesa?._id === mesa._id
-                    ? 'border-orange-500 bg-orange-50 text-orange-700'
-                    : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                }`}
-              >
-                <div className="text-center">
-                  <p className="font-medium">Mesa {mesa.numero}</p>
-                  <p className="text-xs text-gray-500">{mesa.nombre}</p>
-                </div>
-              </button>
-            ))}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Órdenes para Cobrar</h2>
+        {ordenesActivas.length === 0 ? (
+          <div className="text-center py-12">
+            <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
+            <p className="text-gray-500">No hay órdenes para cobrar</p>
           </div>
-        </div>
-
-        {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Órdenes Activas</h2>
-          
-          {!selectedMesa ? (
-            <div className="text-center py-12">
-              <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Selecciona una mesa para ver las órdenes activas</p>
-            </div>
-          ) : ordenesActivas?.length === 0 ? (
-            <div className="text-center py-12">
-              <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-              <p className="text-gray-500">No hay órdenes activas en esta mesa</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {ordenesActivas.map(orden => (
-                <div key={orden._id?.toString()} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Orden #{orden._id?.toString().slice(-6)}</h3>
-                      <p className="text-sm text-gray-600 flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-green-600">${orden.total?.toFixed(2)}</p>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
-                        : 'bg-blue-100 text-blue-800'
-                      }`}>{orden.estatus}</span>
-                    </div>
+        ) : (
+          <div className="space-y-4">
+            {ordenesActivas.map(orden => (
+              <div key={orden._id?.toString()} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-medium text-gray-900">Orden #{orden._id?.toString().slice(-6)}</h3>
+                    <p className="text-sm text-gray-600 flex items-center">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </p>
                   </div>
-
-                  <div className="flex space-x-2">
-                    <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center">
-                      <Receipt className="w-4 h-4 mr-1" /> PDF
-                    </button>
-                    <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center">
-                      <Printer className="w-4 h-4 mr-1" /> Imprimir
-                    </button>
-                    <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 mr-1" /> Cobrar
-                    </button>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-green-600">${orden.total?.toFixed(2)}</p>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
+                      : 'bg-blue-100 text-blue-800'
+                    }`}>{orden.estatus}</span>
                   </div>
                 </div>
-              ))}
 
-              {ordenesActivas.length > 1 && (
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-900">Total Mesa:</span>
-                    <span className="text-xl font-bold text-orange-600">${getTotalMesa().toFixed(2)}</span>
-                  </div>
+                <div className="flex space-x-2">
+                  <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center">
+                    <Receipt className="w-4 h-4 mr-1" /> PDF
+                  </button>
+                  <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center">
+                    <Printer className="w-4 h-4 mr-1" /> Imprimir
+                  </button>
+                  <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 mr-1" /> Cobrar
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            ))}
+
+            {ordenesActivas.length > 1 && (
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-gray-900">Total:</span>
+                  <span className="text-xl font-bold text-orange-600">${getTotal().toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

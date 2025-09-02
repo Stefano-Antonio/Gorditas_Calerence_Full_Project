@@ -132,8 +132,7 @@ async function seedData() {
       }
     ]);
 
-    console.log('✅ Test data created successfully!');
-    console.log('Login credentials: test@test.com / password123');
+  
     
   } catch (error) {
     console.error('❌ Error seeding data:', error);

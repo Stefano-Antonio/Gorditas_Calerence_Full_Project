@@ -10,7 +10,6 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     // Use mock API if enabled and in development mode
     if (USE_MOCK_API) {
-      console.log('🔄 Using mock API for:', endpoint);
       return this.handleMockRequest<T>(endpoint, options);
     }
     const url = `${API_BASE_URL}${endpoint}`;

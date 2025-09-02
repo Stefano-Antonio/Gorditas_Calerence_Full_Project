@@ -23,7 +23,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req: any, res: 
       token,
       user: user.toJSON()
     }, 'Inicio de sesión exitoso'));
-    console.log(`Usuario ${user.email} inició sesión exitosamente`);
+    
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json(createResponse(false, null, 'Error interno en el servidor'));

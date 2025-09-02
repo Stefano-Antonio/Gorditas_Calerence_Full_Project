@@ -49,9 +49,9 @@ const SurtirOrden: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        // Mostrar solo órdenes en estado 'Preparacion' para surtir
+        // Mostrar solo órdenes en estado 'Recepcion' o 'Pendiente' (recién hechas)
         const ordenesParaSurtir = ordenesArray.filter((orden: Orden) => 
-          orden.estatus === 'Preparacion'
+          ['Recepcion', 'Pendiente'].includes(orden.estatus)
         );
         setOrdenes(ordenesParaSurtir);
       }
@@ -131,21 +131,18 @@ const SurtirOrden: React.FC = () => {
   const handleIniciarPreparacion = async (ordenId: string) => {
     setUpdating(ordenId);
     setError('');
-    
     try {
-      const response = await apiService.updateOrdenStatus(ordenId, 'Preparacion');
-      
+      // Usar la misma API que Dashboard para marcar como Surtida
+      const response = await apiService.updateOrdenStatus(ordenId, 'Surtida');
       if (response.success) {
-        setSuccess('Orden en preparación');
-        await loadData(); // Refresh the list
-        
-        // Clear success message after 3 seconds
+        setSuccess('Orden marcada como Surtida');
+        await loadData();
         setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError('Error al iniciar preparación');
+        setError('Error al marcar como Surtida');
       }
     } catch (error) {
-      setError('Error al iniciar preparación');
+      setError('Error al marcar como Surtida');
     } finally {
       setUpdating(null);
     }
@@ -221,8 +218,8 @@ const SurtirOrden: React.FC = () => {
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Preparar Órdenes</h1>
-          <p className="text-gray-600 mt-1">Gestiona las órdenes recibidas y en preparación</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Órdenes Recientes</h1>
+          <p className="text-gray-600 mt-1">Gestiona las órdenes que acaban de hacerse y están listas para preparar</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="bg-white rounded-lg px-3 sm:px-4 py-2 shadow-sm border border-gray-200">

@@ -10,14 +10,12 @@ useEffect(() => {
   const fetchInventario = async () => {
     try {
       const response = await apiService.getInventario();
-      console.log('Datos del inventario:', response); // Depuración
       if (response.success && Array.isArray(response.data)) {
         setProductos(response.data);
       } else {
         setError('No se pudieron cargar los datos del inventario.');
       }
     } catch (err) {
-      console.error('Error al cargar el inventario:', err); // Depuración
       setError('Error al cargar el inventario.');
     } finally {
       setLoading(false);

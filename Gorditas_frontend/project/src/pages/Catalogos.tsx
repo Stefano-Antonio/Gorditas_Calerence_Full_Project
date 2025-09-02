@@ -128,7 +128,6 @@ const Catalogos: React.FC = () => {
         }
       }
 
-      console.log('Payload enviado:', formData); // Debugging log
 
       let response;
       if (editingItem) {

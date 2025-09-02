@@ -15,8 +15,6 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   
-  // Agregar logs para depuración
-  console.log('Filtro aplicado:', filter);
 
   const [productos, total] = await Promise.all([
     Producto.find(filter)
@@ -26,8 +24,6 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
     Producto.countDocuments(filter)
   ]);
 
-  // Log para verificar los productos encontrados
-  console.log('Productos encontrados:', productos);
 
   // Agregar alertas de stock bajo
   const productosConAlertas = productos.map(producto => ({
@@ -103,9 +99,7 @@ router.put('/ajustar/:id', authenticate, isEncargado,
       return res.status(404).json(createResponse(false, null, 'Producto no encontrado'));
     }
 
-    // TODO: Registrar el ajuste en un log de auditoría
-    console.log(`Ajuste de inventario - Producto: ${producto.nombre}, Nueva cantidad: ${cantidad}, Motivo: ${motivo}`);
-
+   
     res.json(createResponse(true, producto, 'Inventario ajustado exitosamente'));
   })
 );

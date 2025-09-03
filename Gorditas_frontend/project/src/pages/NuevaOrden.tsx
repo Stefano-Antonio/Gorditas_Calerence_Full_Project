@@ -22,9 +22,14 @@ const NuevaOrden: React.FC = () => {
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
   const [nombreSuborden, setNombreSuborden] = useState('');
   const [platillosSeleccionados, setPlatillosSeleccionados] = useState<PlatilloSeleccionado[]>([]);
+  // Agrega estado para productos seleccionados
+  const [productosSeleccionados, setProductosSeleccionados] = useState<any[]>([]);
   
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
+  const [productos, setProductos] = useState<any[]>([]);
+  const [selectedProducto, setSelectedProducto] = useState<any | null>(null);
+  const [cantidadProducto, setCantidadProducto] = useState(1);
   const [guisos, setGuisos] = useState<Guiso[]>([]);
   const [selectedPlatillo, setSelectedPlatillo] = useState<Platillo | null>(null);
   const [selectedGuiso, setSelectedGuiso] = useState<Guiso | null>(null);
@@ -48,21 +53,39 @@ const NuevaOrden: React.FC = () => {
 
   const loadInitialData = async () => {
     try {
-      const [mesasResponse, platillosResponse, guisosResponse] = await Promise.all([
+      const [mesasResponse, platillosResponse, guisosResponse, productosResponse] = await Promise.all([
         apiService.getCatalog<ApiResponse<Mesa>>('mesa'),
         apiService.getCatalog<ApiResponse<Platillo>>('platillo'),
         apiService.getCatalog<ApiResponse<Guiso>>('guiso'),
+        apiService.getCatalog<ApiResponse<any>>('producto'),
       ]);
 
       setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : []);
       setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : Array.isArray(platillosResponse.data) ? platillosResponse.data : []);
       setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : Array.isArray(guisosResponse.data) ? guisosResponse.data : []);
+      setProductos(Array.isArray(productosResponse.data?.items) ? productosResponse.data.items : Array.isArray(productosResponse.data) ? productosResponse.data : []);
     } catch (error) {
       setError('Error cargando datos iniciales');
       setMesas([]);
       setPlatillos([]);
       setGuisos([]);
     }
+  };
+
+  const handleAddProducto = () => {
+    if (!selectedProducto) {
+      setError('Selecciona un producto');
+      return;
+    }
+    const nuevo = {
+      idProducto: selectedProducto._id,
+      nombreProducto: selectedProducto.nombre,
+      costoProducto: selectedProducto.costo,
+      cantidad: cantidadProducto
+    };
+    setProductosSeleccionados(prev => [...prev, nuevo]);
+    setSelectedProducto(null);
+    setCantidadProducto(1);
   };
 
   const handleAddPlatillo = () => {
@@ -98,23 +121,26 @@ const NuevaOrden: React.FC = () => {
     setSuccess('');
 
     try {
-      // Solo calcula el total si hay platillos seleccionados, si no, total = 0
-      const total = platillosSeleccionados.reduce(
-        (sum, item) => sum + (item.platillo.precio * item.cantidad),
+      // Calcula el total en el frontend justo antes de crear la orden, usando el estado actual
+      const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
+      // Calcula el total sumando platillos y productos seleccionados
+      const totalPlatillos = platillosSeleccionados.reduce(
+        (sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad),
         0
       );
-
-      // 1. Crear la orden con estatus basado en validación
-      const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
+      const totalProductos = productosSeleccionados.reduce(
+        (sum, item) => sum + (item.costoProducto * item.cantidad),
+        0
+      );
+      const totalCalculado = totalPlatillos + totalProductos;
       const ordenData = {
         idMesa: selectedMesa._id,
         nombreMesa: selectedMesa.nombre,
         idTipoOrden: 1, // Mesa type
         nombreTipoOrden: 'Mesa',
-        total,
+        total: totalCalculado,
         estatus,
       };
-
 
       const ordenResponse = await apiService.createOrden(ordenData);
       const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
@@ -142,11 +168,11 @@ const NuevaOrden: React.FC = () => {
       // 3. Agregar los platillos seleccionados a la suborden
       for (const item of platillosSeleccionados) {
         const platilloData = {
-          idPlatillo: item.platillo._id,
+          idPlatillo: Number(item.platillo._id),
           nombrePlatillo: item.platillo.nombre,
-          idGuiso: item.guiso._id,
+          idGuiso: Number(item.guiso._id),
           nombreGuiso: item.guiso.nombre,
-          costoPlatillo: item.platillo.precio,
+          costoPlatillo: item.platillo.costo,
           cantidad: item.cantidad
         };
 
@@ -158,7 +184,32 @@ const NuevaOrden: React.FC = () => {
         }
       }
 
-      setSuccess('Orden creada exitosamente');
+      // 4. Agregar los productos seleccionados a la orden
+      for (const producto of productosSeleccionados) {
+        const productoData = {
+          ...producto,
+          idOrden: ordenId
+        };
+        const productoResponse = await apiService.addProducto(ordenId, productoData);
+        if (!productoResponse.success) {
+          setError(`Error agregando producto: ${producto.nombreProducto || producto.nombre}`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Consultar la orden para obtener el total actualizado
+      let totalFinal = 0;
+      try {
+        const ordenFinalResponse = await apiService.getOrden(ordenId);
+        if (ordenFinalResponse.success && ordenFinalResponse.data) {
+          totalFinal = ordenFinalResponse.data.total ?? 0;
+        }
+      } catch (e) {
+        // Si falla, deja el total en 0
+      }
+
+      setSuccess(`Orden creada exitosamente. Total: $${(totalFinal ?? 0).toFixed(2)}`);
       setTimeout(() => {
         setCurrentStep(1);
         setSelectedMesa(null);
@@ -189,9 +240,15 @@ const NuevaOrden: React.FC = () => {
   };
 
   const getTotalOrden = () => {
-    return platillosSeleccionados.reduce(
-      (sum, item) => sum + (item.platillo.precio * item.cantidad),
-      0
+    return (
+      platillosSeleccionados.reduce(
+        (sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad),
+        0
+      ) +
+      productosSeleccionados.reduce(
+        (sum, item) => sum + (item.costoProducto * item.cantidad),
+        0
+      )
     );
   };
 
@@ -312,11 +369,11 @@ const NuevaOrden: React.FC = () => {
         {/* Step 3: Add Dishes */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Agregar Platillos</h2>
-            
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Agregar Platillos y Productos</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Add Dish Form */}
               <div className="space-y-4">
+                {/* Platillo Form */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Platillo
@@ -332,12 +389,11 @@ const NuevaOrden: React.FC = () => {
                     <option value="">Seleccionar platillo</option>
                     {platillos.filter(p => p.activo).map((platillo) => (
                       <option key={platillo._id} value={platillo._id}>
-                        {platillo.nombre} - ${platillo.precio}
+                        {platillo.nombre} - ${platillo.costo}
                       </option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Guiso
@@ -358,7 +414,6 @@ const NuevaOrden: React.FC = () => {
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cantidad
@@ -381,7 +436,6 @@ const NuevaOrden: React.FC = () => {
                     </button>
                   </div>
                 </div>
-
                 <button
                   onClick={handleAddPlatillo}
                   disabled={!selectedPlatillo || !selectedGuiso}
@@ -390,9 +444,61 @@ const NuevaOrden: React.FC = () => {
                   <Plus className="w-5 h-5 inline mr-2" />
                   Agregar Platillo
                 </button>
+
+                {/* Producto Form */}
+                <div className="mt-8">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Producto
+                  </label>
+                  <select
+                    value={selectedProducto ? String(selectedProducto._id) : ''}
+                    onChange={(e) => {
+                      const prod = productos.find(p => String(p._id) === e.target.value);
+                      setSelectedProducto(prod || null);
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Seleccionar producto</option>
+                    {productos.filter(p => p.activo).map((producto) => (
+                      <option key={producto._id} value={producto._id}>
+                        {producto.nombre} - ${producto.costo}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cantidad
+                  </label>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setCantidadProducto(Math.max(1, cantidadProducto - 1))}
+                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="text-lg font-semibold w-12 text-center">{cantidadProducto}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCantidadProducto(cantidadProducto + 1)}
+                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddProducto}
+                  disabled={!selectedProducto}
+                  className="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus className="w-5 h-5 inline mr-2" />
+                  Agregar Producto
+                </button>
               </div>
 
-              {/* Selected Dishes List */}
+              {/* Selected Items List */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Platillos Seleccionados ({platillosSeleccionados.length})
@@ -409,7 +515,7 @@ const NuevaOrden: React.FC = () => {
                           {item.guiso.nombre} • Cantidad: {item.cantidad}
                         </p>
                         <p className="text-sm font-medium text-green-600">
-                          ${(item.platillo.precio * item.cantidad).toFixed(2)}
+                          ${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}
                         </p>
                       </div>
                       <button
@@ -421,13 +527,42 @@ const NuevaOrden: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                
-                {platillosSeleccionados.length > 0 && (
+                <h3 className="text-lg font-medium text-gray-900 mt-8 mb-4">
+                  Productos Seleccionados ({productosSeleccionados.length})
+                </h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {productosSeleccionados.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{item.nombreProducto}</h4>
+                        <p className="text-sm text-gray-600">
+                          Cantidad: {item.cantidad}
+                        </p>
+                        <p className="text-sm font-medium text-green-600">
+                          ${(item.costoProducto * item.cantidad).toFixed(2)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setProductosSeleccionados(prev => prev.filter((_, i) => i !== index))}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
                   <div className="mt-4 p-4 bg-orange-50 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-900">Total:</span>
                       <span className="text-xl font-bold text-orange-600">
-                        ${getTotalOrden().toFixed(2)}
+                        ${(
+                          platillosSeleccionados.reduce((sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad), 0) +
+                          productosSeleccionados.reduce((sum, item) => sum + (item.costoProducto * item.cantidad), 0)
+                        ).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -517,7 +652,7 @@ const NuevaOrden: React.FC = () => {
                   {platillosSeleccionados.map((item, index) => (
                     <div key={index} className="flex justify-between items-center text-sm">
                       <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
-                      <span className="font-medium">${(item.platillo.precio * item.cantidad).toFixed(2)}</span>
+                      <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -525,7 +660,7 @@ const NuevaOrden: React.FC = () => {
 
               <button
                 onClick={handleSubmitOrder}
-                disabled={loading}
+                disabled={loading || !selectedMesa || !nombreSuborden || platillosSeleccionados.length === 0}
                 className="w-full bg-green-600 text-white px-6 py-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {loading ? (
@@ -553,7 +688,7 @@ const NuevaOrden: React.FC = () => {
           {currentStep < 4 && (
             <button
               onClick={() => setCurrentStep(currentStep + 1)}
-              disabled={!canProceedToNext()}
+              disabled={!canProceedToNext() || (currentStep === 3 && platillosSeleccionados.length === 0)}
               className="flex items-center px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Siguiente

@@ -3,8 +3,9 @@ import { IOrdenDetalleProducto } from '../types';
 
 export interface IOrdenDetalleProductoDocument extends Document, Omit<IOrdenDetalleProducto, '_id'> {}
 
+
 const ordenDetalleProductoSchema = new Schema<IOrdenDetalleProductoDocument>({
-  _id: { type: String, ref: 'Orden', required: true },
+  idOrden: { type: String, ref: 'Orden', required: true },
   idProducto: { type: Number, required: true },
   nombreProducto: { type: String, required: true, trim: true },
   costoProducto: { type: Number, required: true, min: 0 },
@@ -14,7 +15,9 @@ const ordenDetalleProductoSchema = new Schema<IOrdenDetalleProductoDocument>({
   entregado: { type: Boolean, default: false }
 }, {
   timestamps: true,
-  versionKey: false
+  versionKey: false,
+  toObject: { transform: (doc, ret) => { ret.idOrden = String(ret.idOrden); return ret; } },
+  toJSON: { transform: (doc, ret) => { ret.idOrden = String(ret.idOrden); return ret; } },
 });
 
 ordenDetalleProductoSchema.index({ idOrden: 1 });

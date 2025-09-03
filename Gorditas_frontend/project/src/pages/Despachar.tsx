@@ -70,7 +70,21 @@ const Despachar: React.FC = () => {
       const response = await apiService.getOrdenDetails(orden._id!);
       
       if (response.success) {
-        setSelectedOrden(response.data);
+        const data = response.data;
+        // Mapear platillos al formato esperado
+        const platillos = (data.platillos || []).map((p: any) => ({
+          ...p,
+          platillo: p.nombrePlatillo,
+          guiso: p.nombreGuiso,
+          subtotal: p.importe,
+        }));
+        // Mapear productos si es necesario (ajusta si los campos no coinciden)
+        // const productos = (data.productos || []).map((prod: any) => ({ ...prod }));
+        setSelectedOrden({
+          ...data,
+          platillos,
+          // productos, // descomenta si necesitas mapear productos
+        });
       } else {
         setError('Error cargando detalles de la orden');
       }

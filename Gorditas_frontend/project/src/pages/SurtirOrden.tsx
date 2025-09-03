@@ -447,7 +447,7 @@ const SurtirOrden: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900">
-                            ${producto.subtotal.toFixed(2)}
+                            ${(producto.subtotal || (producto.precio || 0) * (producto.cantidad || 0)).toFixed(2)}
                           </span>
                           {!producto.listo && selectedOrden.estatus === 'Preparacion' && (
                             <button
@@ -497,7 +497,7 @@ const SurtirOrden: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900">
-                            ${platillo.subtotal.toFixed(2)}
+                            ${(platillo.subtotal || (platillo.precio || 0) * (platillo.cantidad || 0)).toFixed(2)}
                           </span>
                           {!platillo.listo && selectedOrden.estatus === 'Preparacion' && (
                             <button

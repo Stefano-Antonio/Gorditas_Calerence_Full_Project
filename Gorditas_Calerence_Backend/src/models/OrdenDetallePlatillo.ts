@@ -5,7 +5,7 @@ export interface IOrdenDetallePlatilloDocument extends Omit<IOrdenDetallePlatill
 
 
 const ordenDetallePlatilloSchema = new Schema<IOrdenDetallePlatilloDocument>({
-  idSuborden: { type: String, ref: 'Suborden' },
+  idSuborden: { type: String, ref: 'Suborden', required: true },
   idPlatillo: { type: Schema.Types.Mixed, required: true },
   nombrePlatillo: { type: String, required: true, trim: true },
   idGuiso: { type: Schema.Types.Mixed, required: true },
@@ -17,7 +17,9 @@ const ordenDetallePlatilloSchema = new Schema<IOrdenDetallePlatilloDocument>({
   entregado: { type: Boolean, default: false }
 }, {
   timestamps: true,
-  versionKey: false
+  versionKey: false,
+  toObject: { transform: (doc, ret) => { ret.idSuborden = String(ret.idSuborden); return ret; } },
+  toJSON: { transform: (doc, ret) => { ret.idSuborden = String(ret.idSuborden); return ret; } },
 });
 
 ordenDetallePlatilloSchema.index({ idSuborden: 1 });

@@ -131,7 +131,7 @@ const EditarOrden: React.FC = () => {
         nombrePlatillo: platillo.nombre,
         idGuiso: selectedGuiso,
         nombreGuiso: guiso.nombre,
-        costoPlatillo: platillo.precio,
+        costoPlatillo: platillo.costo,
         cantidad
       };
 
@@ -170,7 +170,7 @@ const EditarOrden: React.FC = () => {
       const productoData = {
         idProducto: selectedProducto,
         nombreProducto: producto.nombre,
-        costoProducto: producto.precio,
+        costoProducto: producto.costo,
         cantidad
       };
 
@@ -392,7 +392,7 @@ const EditarOrden: React.FC = () => {
                   <option value="">Seleccionar platillo</option>
                   {platillos.filter(p => p.activo).map((platillo) => (
                     <option key={platillo._id} value={platillo._id}>
-                      {platillo.nombre} - ${platillo.precio}
+                      {platillo.nombre} - ${platillo.costo}
                     </option>
                   ))}
                 </select>
@@ -470,7 +470,7 @@ const EditarOrden: React.FC = () => {
                   <option value="">Seleccionar producto</option>
                   {productos.filter(p => p.activo).map((producto) => (
                     <option key={producto._id} value={producto._id}>
-                      {producto.nombre} - ${producto.precio}
+                      {producto.nombre} - ${producto.costo}
                     </option>
                   ))}
                 </select>

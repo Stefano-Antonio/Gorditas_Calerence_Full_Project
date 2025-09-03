@@ -3,6 +3,9 @@ import { mockApiService } from './mockApi';
 const API_BASE_URL = 'http://localhost:5000/api';
 const USE_MOCK_API = import.meta.env.DEV && !import.meta.env.VITE_DISABLE_MOCK;
 class ApiService {
+  async getOrden(ordenId: string) {
+    return this.request(`/ordenes/${ordenId}`);
+  }
   private token: string | null = localStorage.getItem('token');
   private async request<T>(
     endpoint: string,

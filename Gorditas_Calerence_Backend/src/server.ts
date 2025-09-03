@@ -7,7 +7,7 @@ import { connectDB } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import mongoose from 'mongoose';
-import Usuario from '../src/models/Usuario';
+import Usuario from './models/Usuario';
 
 // Routes
 import authRoutes from './routes/auth';
@@ -15,8 +15,8 @@ import ordenesRoutes from './routes/ordenes';
 import inventarioRoutes from './routes/inventario';
 import reportesRoutes from './routes/reportes';
 import catalogosRoutes from './routes/catalogos';
-import Mesa from '../src/models/Mesa'; // Ajusta la ruta si es necesario
-import Orden from '../src/models/Orden'; // Ajusta la ruta si es necesario
+import Mesa from './models/Mesa';
+import Orden from './models/Orden';
 dotenv.config();
 
 

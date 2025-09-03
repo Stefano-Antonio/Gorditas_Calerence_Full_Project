@@ -137,6 +137,27 @@ const NuevaOrden: React.FC = () => {
         return;
       }
 
+      const subordenId = (subordenResponse.data as { _id: string })._id;
+
+      // 3. Agregar los platillos seleccionados a la suborden
+      for (const item of platillosSeleccionados) {
+        const platilloData = {
+          idPlatillo: item.platillo._id,
+          nombrePlatillo: item.platillo.nombre,
+          idGuiso: item.guiso._id,
+          nombreGuiso: item.guiso.nombre,
+          costoPlatillo: item.platillo.precio,
+          cantidad: item.cantidad
+        };
+
+        const platilloResponse = await apiService.addPlatillo(subordenId, platilloData);
+        if (!platilloResponse.success) {
+          setError(`Error agregando platillo: ${item.platillo.nombre}`);
+          setLoading(false);
+          return;
+        }
+      }
+
       setSuccess('Orden creada exitosamente');
       setTimeout(() => {
         setCurrentStep(1);

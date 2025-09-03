@@ -110,8 +110,8 @@ router.post('/:id/suborden', authenticate,
       return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
     }
 
-    if (orden.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
+    if (orden.estatus !== OrdenStatus.RECEPCION && orden.estatus !== OrdenStatus.PENDIENTE) {
+      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción o pendientes'));
     }
 
     const suborden = new Suborden({
@@ -134,8 +134,8 @@ router.post('/suborden/:id/platillo', authenticate,
     }
 
     const orden = await Orden.findById(suborden.idOrden);
-    if (orden?.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
+    if (orden?.estatus !== OrdenStatus.RECEPCION && orden?.estatus !== OrdenStatus.PENDIENTE) {
+      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción o pendientes'));
     }
 
     const { costoPlatillo, cantidad } = req.body;
@@ -173,8 +173,8 @@ router.post('/:id/producto', authenticate, isMesero,
       return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
     }
 
-    if (orden.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
+    if (orden.estatus !== OrdenStatus.RECEPCION && orden.estatus !== OrdenStatus.PENDIENTE) {
+      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción o pendientes'));
     }
 
     const { idProducto, costoProducto, cantidad } = req.body;

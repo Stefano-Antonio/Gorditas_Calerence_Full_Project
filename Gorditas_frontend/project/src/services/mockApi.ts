@@ -14,7 +14,8 @@ const mockPlatillos: Platillo[] = [
     nombre: 'Gordita Sencilla', 
     idTipoPlatillo: 1,
     nombreTipoPlatillo: 'Gorditas',
-    precio: 25, 
+    precio: 25,
+    costo: 25, 
     descripcion: 'Gordita de maíz rellena',
     activo: true,
     fechaCreacion: new Date(),
@@ -25,7 +26,8 @@ const mockPlatillos: Platillo[] = [
     nombre: 'Gordita Especial', 
     idTipoPlatillo: 1,
     nombreTipoPlatillo: 'Gorditas',
-    precio: 35, 
+    precio: 35,
+    costo: 35, 
     descripcion: 'Gordita con extra ingredientes',
     activo: true,
     fechaCreacion: new Date(),
@@ -36,7 +38,8 @@ const mockPlatillos: Platillo[] = [
     nombre: 'Quesadilla Chica', 
     idTipoPlatillo: 2,
     nombreTipoPlatillo: 'Quesadillas',
-    precio: 20, 
+    precio: 20,
+    costo: 20, 
     descripcion: 'Quesadilla pequeña',
     activo: true,
     fechaCreacion: new Date(),
@@ -47,7 +50,8 @@ const mockPlatillos: Platillo[] = [
     nombre: 'Quesadilla Grande', 
     idTipoPlatillo: 2,
     nombreTipoPlatillo: 'Quesadillas',
-    precio: 30, 
+    precio: 30,
+    costo: 30, 
     descripcion: 'Quesadilla familiar',
     activo: true,
     fechaCreacion: new Date(),
@@ -60,6 +64,45 @@ const mockGuisos: Guiso[] = [
   { _id: '2', nombre: 'Pollo en Mole', descripcion: 'Pollo bañado en mole poblano', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
   { _id: '3', nombre: 'Carnitas', descripcion: 'Carne de cerdo confitada', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
   { _id: '4', nombre: 'Requesón', descripcion: 'Queso requesón con hierbas', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() }
+];
+
+const mockProductos: any[] = [
+  { 
+    _id: '1', 
+    nombre: 'Coca Cola', 
+    codigoBarras: '12345',
+    tipoProducto: 'Bebidas',
+    cantidad: 50,
+    costo: 12.00,
+    precio: 15.00,
+    activo: true,
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
+  },
+  { 
+    _id: '2', 
+    nombre: 'Agua Natural', 
+    codigoBarras: '12346',
+    tipoProducto: 'Bebidas',
+    cantidad: 30,
+    costo: 8.00,
+    precio: 10.00,
+    activo: true,
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
+  },
+  { 
+    _id: '3', 
+    nombre: 'Jugo de Naranja', 
+    codigoBarras: '12347',
+    tipoProducto: 'Bebidas',
+    cantidad: 20,
+    costo: 15.00,
+    precio: 18.00,
+    activo: true,
+    fechaCreacion: new Date(),
+    fechaActualizacion: new Date()
+  }
 ];
 
 class MockApiService {
@@ -151,6 +194,9 @@ class MockApiService {
         break;
       case 'guiso':
         items = mockGuisos;
+        break;
+      case 'producto':
+        items = mockProductos;
         break;
       default:
         items = [];

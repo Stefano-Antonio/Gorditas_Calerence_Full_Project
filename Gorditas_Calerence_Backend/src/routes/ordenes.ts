@@ -306,20 +306,22 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
 
 // Helper function to update orden total
 async function updateOrdenTotal(ordenId: string) {
+  // Obtener los subordenes de la orden
+  const subordenes = await Suborden.find({ idOrden: ordenId }).select('_id');
+  const subordenIds = subordenes.map(s => String(s._id));
+
   const [productosTotal, platillosTotal] = await Promise.all([
     OrdenDetalleProducto.aggregate([
       { $match: { idOrden: ordenId } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
     ]),
     OrdenDetallePlatillo.aggregate([
-      { $lookup: { from: 'subordenes', localField: 'idSuborden', foreignField: '_id', as: 'suborden' } },
-      { $match: { 'suborden.idOrden': ordenId } },
+      { $match: { idSuborden: { $in: subordenIds } } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
     ])
   ]);
 
   const total = (productosTotal[0]?.total || 0) + (platillosTotal[0]?.total || 0);
-  
   await Orden.findByIdAndUpdate(ordenId, { total });
 }
 

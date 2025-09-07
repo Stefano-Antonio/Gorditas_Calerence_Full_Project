@@ -71,20 +71,26 @@ const Despachar: React.FC = () => {
       
       if (response.success) {
         const data = response.data;
-        // Mapear platillos al formato esperado
-        const platillos = (data.platillos || []).map((p: any) => ({
-          ...p,
-          platillo: p.nombrePlatillo,
-          guiso: p.nombreGuiso,
-          subtotal: p.importe,
-        }));
-        // Mapear productos si es necesario (ajusta si los campos no coinciden)
-        // const productos = (data.productos || []).map((prod: any) => ({ ...prod }));
-        setSelectedOrden({
-          ...data,
-          platillos,
-          // productos, // descomenta si necesitas mapear productos
-        });
+          // Mapear platillos al formato esperado
+          const platillos = (data.platillos || []).map((p: any) => ({
+            ...p,
+            platillo: p.nombrePlatillo,
+            guiso: p.nombreGuiso,
+            subtotal: p.importe,
+          }));
+
+          // Mapear productos al formato esperado
+          const productos = (data.productos || []).map((prod: any) => ({
+            ...prod,
+            producto: prod.nombreProducto,
+            subtotal: prod.importe,
+          }));
+
+          setSelectedOrden({
+            ...data,
+            platillos,
+            productos,
+          });
       } else {
         setError('Error cargando detalles de la orden');
       }

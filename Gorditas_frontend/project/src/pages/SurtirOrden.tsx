@@ -87,12 +87,17 @@ const SurtirOrden: React.FC = () => {
         subtotal: p.importe,
       }));
 
-      // Map productos if needed (similar logic if field names differ)
+      // Map productos to expected format
+      const productos = (data.productos || []).map((prod: any) => ({
+        ...prod,
+        producto: prod.nombreProducto,
+        subtotal: prod.importe,
+      }));
 
       setSelectedOrden({
         ...data,
         platillos,
-        // productos: productos, // Si necesitas mapear productos, hazlo aquí
+        productos,
       });
     } else {
       setError('Error cargando detalles de la orden');

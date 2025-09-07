@@ -315,29 +315,31 @@ const EditarOrden: React.FC = () => {
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
                 <div className="space-y-2">
-                  {platillosDetalle.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No hay platillos agregados</p>
-                  ) : (
-                    platillosDetalle.map((detalle, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-900">Platillo {index + 1}</p>
-                          <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                    {platillosDetalle.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No hay platillos agregados</p>
+                    ) : (
+                      platillosDetalle.map((detalle, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                              <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
+                              <p className="text-sm text-gray-600">Guiso: {detalle.guiso}</p>
+                              <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-green-600">
+                                ${Number(detalle.subtotal ?? 0).toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => handleRemovePlatillo(detalle._id!)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-600">
-                            ${detalle.subtotal.toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => handleRemovePlatillo(detalle._id!)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
                 </div>
               </div>
 
@@ -345,29 +347,30 @@ const EditarOrden: React.FC = () => {
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
                 <div className="space-y-2">
-                  {productosDetalle.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No hay productos agregados</p>
-                  ) : (
-                    productosDetalle.map((detalle, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-900">Producto {index + 1}</p>
-                          <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                    {productosDetalle.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No hay productos agregados</p>
+                    ) : (
+                      productosDetalle.map((detalle, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">{detalle.nombre || `Producto ${index + 1}`}</p>
+                              <p className="font-medium text-gray-900">{detalle.producto || `Producto ${index + 1}`}</p>
+                              <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-green-600">
+                                ${Number(detalle.subtotal ?? 0).toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveProducto(detalle._id!)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-600">
-                            ${detalle.subtotal.toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveProducto(detalle._id!)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
                 </div>
               </div>
             </div>

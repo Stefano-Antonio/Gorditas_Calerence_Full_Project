@@ -73,18 +73,39 @@ const SurtirOrden: React.FC = () => {
   };
 
   const loadOrdenDetails = async (orden: OrdenConDetalles) => {
-    try {
-      const response = await apiService.getOrdenDetails(orden._id!);
-      
-      if (response.success) {
-        setSelectedOrden(response.data);
-      } else {
-        setError('Error cargando detalles de la orden');
-      }
-    } catch (error) {
+  try {
+    const response = await apiService.getOrdenDetails(orden._id!);
+
+    if (response.success) {
+      const data = response.data;
+
+      // Map platillos to expected format
+      const platillos = (data.platillos || []).map((p: any) => ({
+        ...p,
+        platillo: p.nombrePlatillo,
+        guiso: p.nombreGuiso,
+        subtotal: p.importe,
+      }));
+
+      // Map productos to expected format
+      const productos = (data.productos || []).map((prod: any) => ({
+        ...prod,
+        producto: prod.nombreProducto,
+        subtotal: prod.importe,
+      }));
+
+      setSelectedOrden({
+        ...data,
+        platillos,
+        productos,
+      });
+    } else {
       setError('Error cargando detalles de la orden');
     }
-  };
+  } catch (error) {
+    setError('Error cargando detalles de la orden');
+  }
+};
 
   const handleMarkItemAsReady = async (itemId: string, type: 'producto' | 'platillo') => {
     if (!selectedOrden) return;
@@ -425,7 +446,7 @@ const SurtirOrden: React.FC = () => {
                             producto.listo ? 'bg-green-500' : 'bg-gray-300'
                           }`}></div>
                           <div>
-                            <p className="font-medium text-gray-900">{producto.producto}</p>
+                            <p className="font-medium text-gray-900">{producto.producto || producto.nombre}</p>
                             <p className="text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
                           </div>
                         </div>

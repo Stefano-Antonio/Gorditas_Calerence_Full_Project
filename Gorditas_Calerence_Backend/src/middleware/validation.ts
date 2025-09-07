@@ -39,6 +39,7 @@ export const createOrdenSchema = Joi.object({
 });
 
 export const addProductToOrdenSchema = Joi.object({
+  idOrden: Joi.string().required(),
   idProducto: Joi.number().required(),
   nombreProducto: Joi.string().required(),
   costoProducto: Joi.number().min(0).required(),

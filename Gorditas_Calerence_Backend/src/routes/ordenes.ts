@@ -110,9 +110,7 @@ router.post('/:id/suborden', authenticate,
       return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
     }
 
-    if (orden.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
-    }
+    // Permitir modificar órdenes en cualquier estado, así que se elimina el filtro de estatus
 
     const suborden = new Suborden({
       idOrden: orden._id,
@@ -121,61 +119,64 @@ router.post('/:id/suborden', authenticate,
 
     await suborden.save();
     res.status(201).json(createResponse(true, suborden, 'Suborden creada exitosamente'));
-  })
-);
+    })
+  );
 
-// POST /api/ordenes/suborden/:id/platillo - Agregar platillo
-router.post('/suborden/:id/platillo', authenticate, 
-  validate(addPlatilloToSubordenSchema),
-  asyncHandler(async (req: any, res: any) => {
-    const suborden = await Suborden.findById(req.params.id);
-    if (!suborden) {
-      return res.status(404).json(createResponse(false, null, 'Suborden no encontrada'));
-    }
+  // POST /api/ordenes/suborden/:id/platillo - Agregar platillo
+  router.post('/suborden/:id/platillo', authenticate, 
+    validate(addPlatilloToSubordenSchema),
+    asyncHandler(async (req: any, res: any) => {
+      const suborden = await Suborden.findById(req.params.id);
+      if (!suborden) {
+        return res.status(404).json(createResponse(false, null, 'Suborden no encontrada'));
+      }
 
-    const orden = await Orden.findById(suborden.idOrden);
-    if (orden?.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
-    }
+      // Permitir modificar órdenes en cualquier estado, así que se elimina el filtro de estatus
 
-    const { costoPlatillo, cantidad } = req.body;
-    const importe = calculateImporte(costoPlatillo, cantidad);
+      let { costoPlatillo, cantidad } = req.body;
+      costoPlatillo = Number(costoPlatillo);
+      cantidad = Number(cantidad);
+      if (isNaN(costoPlatillo) || isNaN(cantidad) || costoPlatillo <= 0 || cantidad <= 0) {
+        return res.status(400).json(createResponse(false, null, 'Costo y cantidad deben ser números mayores a 0'));
+      }
 
-    const detallePlatillo = new OrdenDetallePlatillo({
-      ...req.body,
-      idSuborden: suborden._id,
-      importe
-    });
+      const importe = calculateImporte(costoPlatillo, cantidad);
 
-    try {
-      await detallePlatillo.save();
-    } catch (error: any) {
-      console.error('Error real al guardar OrdenDetallePlatillo:', error);
-      return res.status(400).json({
-        message: 'Error al guardar platillo',
-        error: error?.message || error
+      const detallePlatillo = new OrdenDetallePlatillo({
+        ...req.body,
+        costoPlatillo,
+        cantidad,
+        idSuborden: suborden._id,
+        importe
       });
-    }
 
-    // Actualizar total de la orden
-    await updateOrdenTotal(suborden.idOrden);
+      try {
+        await detallePlatillo.save();
+      } catch (error: any) {
+        console.error('Error real al guardar OrdenDetallePlatillo:', error);
+        return res.status(400).json({
+          message: 'Error al guardar platillo',
+          error: error?.message || error
+        });
+      }
 
-    res.status(201).json(createResponse(true, detallePlatillo, 'Platillo agregado exitosamente'));
-  })
-);
+      // Actualizar total de la orden
+      await updateOrdenTotal(suborden.idOrden);
 
-// POST /api/ordenes/:id/producto - Agregar producto
-router.post('/:id/producto', authenticate, isMesero, 
-  validate(addProductToOrdenSchema),
-  asyncHandler(async (req: any, res: any) => {
+      res.status(201).json(createResponse(true, detallePlatillo, 'Platillo agregado exitosamente'));
+    })
+  );
+
+  // POST /api/ordenes/:id/producto - Agregar producto
+  router.post('/:id/producto', authenticate, 
+    validate(addProductToOrdenSchema),
+    asyncHandler(async (req: any, res: any) => {
     const orden = await Orden.findById(req.params.id);
     if (!orden) {
       return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
     }
 
-    if (orden.estatus !== OrdenStatus.RECEPCION) {
-      return res.status(400).json(createResponse(false, null, 'Solo se pueden modificar órdenes en recepción'));
-    }
+    // Permitir modificar órdenes en cualquier estado, así que se elimina el filtro de estatus
 
     const { idProducto, costoProducto, cantidad } = req.body;
     
@@ -305,20 +306,22 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
 
 // Helper function to update orden total
 async function updateOrdenTotal(ordenId: string) {
+  // Obtener los subordenes de la orden
+  const subordenes = await Suborden.find({ idOrden: ordenId }).select('_id');
+  const subordenIds = subordenes.map(s => String(s._id));
+
   const [productosTotal, platillosTotal] = await Promise.all([
     OrdenDetalleProducto.aggregate([
       { $match: { idOrden: ordenId } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
     ]),
     OrdenDetallePlatillo.aggregate([
-      { $lookup: { from: 'subordenes', localField: 'idSuborden', foreignField: '_id', as: 'suborden' } },
-      { $match: { 'suborden.idOrden': ordenId } },
+      { $match: { idSuborden: { $in: subordenIds } } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
     ])
   ]);
 
   const total = (productosTotal[0]?.total || 0) + (platillosTotal[0]?.total || 0);
-  
   await Orden.findByIdAndUpdate(ordenId, { total });
 }
 

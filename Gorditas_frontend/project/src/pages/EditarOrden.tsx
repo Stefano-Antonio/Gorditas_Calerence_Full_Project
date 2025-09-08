@@ -131,13 +131,18 @@ const EditarOrden: React.FC = () => {
         nombrePlatillo: platillo.nombre,
         idGuiso: selectedGuiso,
         nombreGuiso: guiso.nombre,
-        costoPlatillo: platillo.costo,
+        costoPlatillo: platillo.precio || platillo.costo,
         cantidad
       };
 
       const response = await apiService.addPlatillo(subordenId, platilloData);
       
       if (response.success) {
+        // Update order status to Recepcion when adding items
+        if (selectedOrden.estatus !== 'Recepcion') {
+          await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
+        }
+        
         setSuccess('Platillo agregado exitosamente');
         // Refresh order details
         await loadOrdenDetails(selectedOrden);
@@ -177,6 +182,11 @@ const EditarOrden: React.FC = () => {
       const response = await apiService.addProducto(selectedOrden._id!, productoData);
       
       if (response.success) {
+        // Update order status to Recepcion when adding items
+        if (selectedOrden.estatus !== 'Recepcion') {
+          await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
+        }
+        
         setSuccess('Producto agregado exitosamente');
         // Refresh order details
         await loadOrdenDetails(selectedOrden);
@@ -260,9 +270,11 @@ const EditarOrden: React.FC = () => {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-gray-900">Mesa {orden.mesa}</h3>
+                      <h3 className="font-medium text-gray-900">
+                        Mesa {orden.nombreMesa || orden.idMesa || 'Sin Mesa'}
+                      </h3>
                       <p className="text-sm text-gray-600">
-                        {new Date(orden.fecha).toLocaleDateString()}
+                        {new Date(orden.fechaHora || orden.fecha).toLocaleDateString()}
                       </p>
                       <p className="text-sm font-medium text-green-600">
                         Total: ${orden.total.toFixed(2)}
@@ -282,7 +294,7 @@ const EditarOrden: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${selectedOrden.mesa}` : 'Selecciona una orden'}
+              {selectedOrden ? `Detalles - Mesa ${selectedOrden.nombreMesa || selectedOrden.idMesa || 'Sin Mesa'}` : 'Selecciona una orden'}
             </h2>
             {selectedOrden && (
               <div className="flex space-x-2">
@@ -321,14 +333,13 @@ const EditarOrden: React.FC = () => {
                       platillosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
-                              <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
-                              <p className="text-sm text-gray-600">Guiso: {detalle.guiso}</p>
-                              <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600">Guiso: {detalle.nombreGuiso}</p>
+                            <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-green-600">
-                                ${Number(detalle.subtotal ?? 0).toFixed(2)}
+                              ${Number(detalle.importe ?? 0).toFixed(2)}
                             </span>
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
@@ -353,13 +364,12 @@ const EditarOrden: React.FC = () => {
                       productosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.nombre || `Producto ${index + 1}`}</p>
-                              <p className="font-medium text-gray-900">{detalle.producto || `Producto ${index + 1}`}</p>
-                              <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                            <p className="font-medium text-gray-900">{detalle.nombreProducto || `Producto ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-green-600">
-                                ${Number(detalle.subtotal ?? 0).toFixed(2)}
+                              ${Number(detalle.importe ?? 0).toFixed(2)}
                             </span>
                             <button
                               onClick={() => handleRemoveProducto(detalle._id!)}
@@ -395,7 +405,7 @@ const EditarOrden: React.FC = () => {
                   <option value="">Seleccionar platillo</option>
                   {platillos.filter(p => p.activo).map((platillo) => (
                     <option key={platillo._id} value={platillo._id}>
-                      {platillo.nombre} - ${platillo.costo}
+                      {platillo.nombre} - ${platillo.precio || platillo.costo}
                     </option>
                   ))}
                 </select>

@@ -40,47 +40,49 @@ const EditarOrden: React.FC = () => {
   }, []);
 
   const loadData = async () => {
-    try {
-      const [ordenesRes, platillosRes, guisosRes, productosRes] = await Promise.all([
-        apiService.getOrdenes(),
-        apiService.getCatalog<Platillo>('platillo'),
-        apiService.getCatalog<Guiso>('guiso'),
-        apiService.getCatalog<Producto>('producto')
-      ]);
+  try {
+    const [ordenesRes, platillosRes, guisosRes, productosRes] = await Promise.all([
+      apiService.getOrdenes(),
+      apiService.getCatalog<Platillo>('platillo'),
+      apiService.getCatalog<Guiso>('guiso'),
+      apiService.getCatalog<Producto>('producto')
+    ]);
 
-      // Filter orders that can be edited (Recepcion or Pendiente status)
-      if (ordenesRes.success) {
-        let ordenesArray: Orden[] = [];
-        if (Array.isArray(ordenesRes.data?.ordenes)) {
-          ordenesArray = ordenesRes.data.ordenes;
-        } else if (Array.isArray(ordenesRes.data)) {
-          ordenesArray = ordenesRes.data;
-        }
-        const ordenesEditables = ordenesArray.filter((orden: Orden) => 
-          ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
-        );
-        setOrdenes(ordenesEditables);
-      }
-      
-      // Handle catalog data that might come in different formats
-      if (platillosRes.success) {
-        const platillosData = platillosRes.data?.items || platillosRes.data || [];
-        setPlatillos(Array.isArray(platillosData) ? platillosData : []);
-      }
-      if (guisosRes.success) {
-        const guisosData = guisosRes.data?.items || guisosRes.data || [];
-        setGuisos(Array.isArray(guisosData) ? guisosData : []);
-      }
-      if (productosRes.success) {
-        const productosData = productosRes.data?.items || productosRes.data || [];
-        setProductos(Array.isArray(productosData) ? productosData : []);
-      }
-    } catch (error) {
-      setError('Error cargando datos');
-    } finally {
-      setLoading(false);
+    // Filtrar órdenes editables
+    if (ordenesRes.success) {
+      const ordenesArray = Array.isArray(ordenesRes.data?.ordenes)
+        ? ordenesRes.data.ordenes
+        : Array.isArray(ordenesRes.data)
+        ? ordenesRes.data
+        : [];
+      const ordenesEditables = ordenesArray.filter((orden: Orden) =>
+        ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
+      );
+      setOrdenes(ordenesEditables);
     }
-  };
+
+    // Filtrar y adaptar catálogos
+    if (platillosRes.success) {
+      const platillosData = platillosRes.data?.items || platillosRes.data || [];
+      setPlatillos(platillosData.filter((p: Platillo) => p.activo));
+    }
+
+    if (guisosRes.success) {
+      const guisosData = guisosRes.data?.items || guisosRes.data || [];
+      setGuisos(guisosData.filter((g: Guiso) => g.activo));
+    }
+
+    if (productosRes.success) {
+      const productosData = productosRes.data?.items || productosRes.data || [];
+      setProductos(productosData.filter((p: Producto) => p.activo));
+    }
+  } catch (error) {
+    setError('Error cargando datos');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const loadOrdenDetails = async (orden: Orden) => {
     try {
@@ -105,29 +107,38 @@ const EditarOrden: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    console.log('Platillos disponibles:', platillos);
+    console.log('Guisos disponibles:', guisos);
+  }, [platillos, guisos]);
+
   const handleAddPlatillo = async () => {
+    console.log('Inicio de handleAddPlatillo');
+    console.log('Platillo seleccionado:', selectedPlatillo);
+    console.log('Guiso seleccionado:', selectedGuiso);
+    console.log('Cantidad seleccionada:', cantidad);
+
     if (!selectedOrden || !selectedPlatillo || !selectedGuiso) {
+      console.warn('No se encontró platillo o guiso:', { selectedPlatillo, selectedGuiso, platillos, guisos });
       setError('Selecciona platillo y guiso');
       return;
     }
 
     setSaving(true);
     try {
-      const platillo = (platillos || []).find(p => p._id === selectedPlatillo);
-      const guiso = (guisos || []).find(g => g._id === selectedGuiso);
-      if (!platillo || !guiso) return;
+      const platillo = platillos.find(p => p._id === selectedPlatillo);
+      const guiso = guisos.find(g => g._id === selectedGuiso);
+      if (!platillo || !guiso) {
+        setError('Platillo o guiso no válido');
+        return;
+      }
 
-      // Get or create suborder
       let subordenId = '';
       if (subordenes.length === 0) {
-        // Create a suborder first
-        const subordenData = {
-          nombre: `Suborden 1`
-        };
+        const subordenData = { nombre: 'Suborden 1' };
         const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
         if (subordenResponse.success) {
           subordenId = subordenResponse.data._id;
-          // Add to local state
           setSubordenes([subordenResponse.data]);
         } else {
           setError('Error creando suborden');
@@ -146,16 +157,16 @@ const EditarOrden: React.FC = () => {
         cantidad
       };
 
+      console.log('Llamando a apiService.addPlatillo con:', subordenId, platilloData);
       const response = await apiService.addPlatillo(subordenId, platilloData);
-      
+      console.log('Respuesta del backend:', response);
+
       if (response.success) {
-        // Update order status to Recepcion when adding items
         if (selectedOrden.estatus !== 'Recepcion') {
           await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
         }
-        
+
         setSuccess('Platillo agregado exitosamente');
-        // Refresh order details
         await loadOrdenDetails(selectedOrden);
         setShowAddPlatillo(false);
         setSelectedPlatillo('');
@@ -169,6 +180,7 @@ const EditarOrden: React.FC = () => {
       setError('Error agregando platillo');
     } finally {
       setSaving(false);
+      console.log('Fin de handleAddPlatillo');
     }
   };
 
@@ -215,14 +227,12 @@ const EditarOrden: React.FC = () => {
     }
   };
 
-  const handleRemovePlatillo = async (platilloId: string) => {
-    // Implementation for removing platillo
-    setSuccess('Platillo eliminado');
+  const handleRemovePlatillo = async (id: string) => {
+    console.warn('Función handleRemovePlatillo aún no implementada. Platillo ID:', id);
   };
 
-  const handleRemoveProducto = async (productoId: string) => {
-    // Implementation for removing producto
-    setSuccess('Producto eliminado');
+  const handleRemoveProducto = async () => {
+    console.warn('Función handleRemoveProducto aún no implementada');
   };
 
   if (loading) {
@@ -282,7 +292,7 @@ const EditarOrden: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-gray-900">
-                        Mesa {orden.nombreMesa || orden.idMesa || 'Sin Mesa'}
+                        Mesa {orden.mesa || 'Sin Mesa'}
                       </h3>
                       <p className="text-sm text-gray-600">
                         {new Date(orden.fechaHora || orden.fecha).toLocaleDateString()}
@@ -305,7 +315,7 @@ const EditarOrden: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${selectedOrden.nombreMesa || selectedOrden.idMesa || 'Sin Mesa'}` : 'Selecciona una orden'}
+              {selectedOrden ? `Detalles - Mesa ${selectedOrden.mesa || 'Sin Mesa'}` : 'Selecciona una orden'}
             </h2>
             {selectedOrden && (
               <div className="flex space-x-2">
@@ -344,13 +354,13 @@ const EditarOrden: React.FC = () => {
                       platillosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || `Platillo ${index + 1}`}</p>
-                            <p className="text-sm text-gray-600">Guiso: {detalle.nombreGuiso}</p>
+                            <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600">Guiso: {detalle.guiso}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-green-600">
-                              ${Number(detalle.importe ?? 0).toFixed(2)}
+                              ${Number(detalle.precio ?? 0).toFixed(2)}
                             </span>
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
@@ -375,7 +385,7 @@ const EditarOrden: React.FC = () => {
                       productosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.nombreProducto || `Producto ${index + 1}`}</p>
+                            <p className="font-medium text-gray-900">{detalle.producto || `Producto ${index + 1}`}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -383,7 +393,7 @@ const EditarOrden: React.FC = () => {
                               ${Number(detalle.importe ?? 0).toFixed(2)}
                             </span>
                             <button
-                              onClick={() => handleRemoveProducto(detalle._id!)}
+                              onClick={handleRemoveProducto}
                               className="p-1 text-red-600 hover:bg-red-50 rounded"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -466,7 +476,10 @@ const EditarOrden: React.FC = () => {
                 Cancelar
               </button>
               <button
-                onClick={handleAddPlatillo}
+                onClick={() => {
+                  console.log('Botón Agregar Platillo presionado');
+                  handleAddPlatillo();
+                }}
                 disabled={saving || !selectedPlatillo || !selectedGuiso}
                 className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
               >

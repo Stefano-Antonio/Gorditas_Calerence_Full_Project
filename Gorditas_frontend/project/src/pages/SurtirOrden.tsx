@@ -278,8 +278,9 @@ const SurtirOrden: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {ordenes.map((orden) => {
             const mesa = getMesaInfo(orden.mesa);
-            const timeElapsed = getTimeElapsed(orden.fecha);
-            const priorityColor = getPriorityColor(orden.fecha);
+            const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
+            const timeElapsed = getTimeElapsed(horaOrden);
+            const priorityColor = getPriorityColor(horaOrden);
             
             return (
               <div
@@ -326,7 +327,7 @@ const SurtirOrden: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Hora de orden:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(orden.fecha).toLocaleTimeString('es-ES', {
+                      {new Date(orden.fechaHora ?? orden.fecha ?? new Date()).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -365,7 +366,7 @@ const SurtirOrden: React.FC = () => {
                       ) : (
                         <>
                           <ChefHat className="w-5 h-5 mr-2" />
-                          Iniciar Preparación
+                          Preparacion completa
                         </>
                       )}
                     </button>
@@ -438,12 +439,12 @@ const SurtirOrden: React.FC = () => {
                       <div
                         key={producto._id}
                         className={`flex items-center justify-between p-3 rounded-lg border ${
-                          producto.listo ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                          producto.entregado ? 'bg-green-50 border-green-200' : producto.listo ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            producto.listo ? 'bg-green-500' : 'bg-gray-300'
+                            producto.entregado ? 'bg-green-500' : producto.listo ? 'bg-yellow-500' : 'bg-gray-300'
                           }`}></div>
                           <div>
                             <p className="font-medium text-gray-900">{producto.producto || producto.nombre}</p>
@@ -452,21 +453,11 @@ const SurtirOrden: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900">
-                            ${producto.subtotal.toFixed(2)}
+                            ${(producto.subtotal ?? 0).toFixed(2)}
                           </span>
-                          {!producto.listo && selectedOrden.estatus === 'Preparacion' && (
-                            <button
-                              onClick={() => handleMarkItemAsReady(producto._id!, 'producto')}
-                              disabled={markingItem === producto._id}
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50"
-                            >
-                              {markingItem === producto._id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                'Listo'
-                              )}
-                            </button>
-                          )}
+                          {producto.entregado ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -486,12 +477,12 @@ const SurtirOrden: React.FC = () => {
                       <div
                         key={platillo._id}
                         className={`flex items-center justify-between p-3 rounded-lg border ${
-                          platillo.listo ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                          platillo.entregado ? 'bg-green-50 border-green-200' : platillo.listo ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            platillo.listo ? 'bg-green-500' : 'bg-gray-300'
+                            platillo.entregado ? 'bg-green-500' : platillo.listo ? 'bg-yellow-500' : 'bg-gray-300'
                           }`}></div>
                           <div>
                             <p className="font-medium text-gray-900">{platillo.platillo}</p>
@@ -502,21 +493,11 @@ const SurtirOrden: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900">
-                            ${platillo.subtotal.toFixed(2)}
+                            ${(platillo.subtotal ?? 0).toFixed(2)}
                           </span>
-                          {!platillo.listo && selectedOrden.estatus === 'Preparacion' && (
-                            <button
-                              onClick={() => handleMarkItemAsReady(platillo._id!, 'platillo')}
-                              disabled={markingItem === platillo._id}
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 disabled:opacity-50"
-                            >
-                              {markingItem === platillo._id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                'Listo'
-                              )}
-                            </button>
-                          )}
+                          {platillo.entregado ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : null}
                         </div>
                       </div>
                     ))}

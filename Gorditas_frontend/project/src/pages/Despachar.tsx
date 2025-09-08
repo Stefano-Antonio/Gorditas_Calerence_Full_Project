@@ -244,7 +244,7 @@ const Despachar: React.FC = () => {
                             Mesa {mesa?.numero || orden.mesa}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {new Date(orden.fecha).toLocaleTimeString('es-ES', {
+                            {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -316,7 +316,7 @@ const Despachar: React.FC = () => {
                   <div>
                     <span className="text-gray-600">Hora:</span>
                     <span className="ml-2 font-medium">
-                      {new Date(selectedOrden.fecha).toLocaleTimeString('es-ES', {
+                      {new Date(selectedOrden.fechaHora ?? selectedOrden.fecha ?? '').toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -330,7 +330,7 @@ const Despachar: React.FC = () => {
               </div>
 
               {/* Products */}
-              {selectedOrden.productos && selectedOrden.productos.length > 0 && (
+              {selectedOrden.productos && selectedOrden.productos.length > 0 ? (
                 <div>
                   <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
                   <div className="space-y-2">
@@ -342,12 +342,12 @@ const Despachar: React.FC = () => {
                         }`}
                       >
                         <div>
-                          <p className="font-medium text-gray-900">Producto {index + 1}</p>
+                          <p className="font-medium text-gray-900">{producto.producto || producto.nombreProducto || `Producto ${index + 1}`}</p>
                           <p className="text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-green-600">
-                            ${producto.subtotal.toFixed(2)}
+                            ${producto.subtotal?.toFixed(2) ?? producto.importe?.toFixed(2) ?? '0.00'}
                           </span>
                           {producto.entregado ? (
                             <CheckCircle className="w-5 h-5 text-green-600" />
@@ -364,10 +364,15 @@ const Despachar: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
+                  <div className="text-sm text-gray-500">No hay productos en esta orden.</div>
+                </div>
               )}
 
               {/* Dishes */}
-              {selectedOrden.platillos && selectedOrden.platillos.length > 0 && (
+              {selectedOrden.platillos && selectedOrden.platillos.length > 0 ? (
                 <div>
                   <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
                   <div className="space-y-2">
@@ -379,12 +384,13 @@ const Despachar: React.FC = () => {
                         }`}
                       >
                         <div>
-                          <p className="font-medium text-gray-900">Platillo {index + 1}</p>
+                          <p className="font-medium text-gray-900">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                          <p className="text-sm text-gray-600">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
                           <p className="text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-green-600">
-                            ${platillo.subtotal.toFixed(2)}
+                            ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
                           </span>
                           {platillo.entregado ? (
                             <CheckCircle className="w-5 h-5 text-green-600" />
@@ -400,6 +406,11 @@ const Despachar: React.FC = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
+                  <div className="text-sm text-gray-500">No hay platillos en esta orden.</div>
                 </div>
               )}
 

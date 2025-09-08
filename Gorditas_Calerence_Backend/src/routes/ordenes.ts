@@ -288,8 +288,8 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
       'Surtida': ['Entregada']
     },
     'Encargado': {
-      'Entregada': ['Pagada'],
-      'Surtida': ['Pagada'] // Permitir cobrar desde Surtida
+      'Entregada': ['Pagada','Recepcion'],
+      'Surtida': ['Pagada','Recepcion'] // Permitir cobrar desde Surtida
     },
     'Cocinero': {
       'Recepcion': ['Preparacion', 'Surtida'], // Ahora puede ir directo a Surtida
@@ -382,5 +382,32 @@ router.put('/platillo/:id/entregado', authenticate,
     res.json(createResponse(true, null, 'Platillo marcado como entregado'));
   })
 );
+
+// DELETE /api/ordenes/platillo/:id - Eliminar platillo de una suborden
+router.delete('/platillo/:id', authenticate, asyncHandler(async (req: any, res: any) => {
+  const platillo = await OrdenDetallePlatillo.findById(req.params.id);
+  if (!platillo) {
+    return res.status(404).json(createResponse(false, null, 'Platillo no encontrado'));
+  }
+  await OrdenDetallePlatillo.findByIdAndDelete(req.params.id);
+  // Actualizar total de la orden
+  const suborden = await Suborden.findById(platillo.idSuborden);
+  if (suborden) {
+    await updateOrdenTotal(suborden.idOrden);
+  }
+  res.json(createResponse(true, null, 'Platillo eliminado exitosamente'));
+}));
+
+// DELETE /api/ordenes/producto/:id - Eliminar producto de una orden
+router.delete('/producto/:id', authenticate, asyncHandler(async (req: any, res: any) => {
+  const producto = await OrdenDetalleProducto.findById(req.params.id);
+  if (!producto) {
+    return res.status(404).json(createResponse(false, null, 'Producto no encontrado'));
+  }
+  await OrdenDetalleProducto.findByIdAndDelete(req.params.id);
+  // Actualizar total de la orden
+  await updateOrdenTotal(producto.idOrden);
+  res.json(createResponse(true, null, 'Producto eliminado exitosamente'));
+}));
 
 export default router;

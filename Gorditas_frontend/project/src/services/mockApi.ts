@@ -2,15 +2,15 @@ import { ApiResponse, Mesa, Platillo, Guiso } from '../types';
 
 // Mock data for testing
 const mockMesas: Mesa[] = [
-  { _id: '1', nombre: 'Mesa 1', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '2', nombre: 'Mesa 2', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '3', nombre: 'Mesa 3', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '4', nombre: 'Mesa 4', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8b1', nombre: 'Mesa 1', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8b2', nombre: 'Mesa 2', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8b3', nombre: 'Mesa 3', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8b4', nombre: 'Mesa 4', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
 ];
 
 const mockPlatillos: Platillo[] = [
   { 
-    _id: '1', 
+    _id: '64f8c2e1a2b3c4d5e6f7a8c1', 
     nombre: 'Gordita Sencilla', 
     idTipoPlatillo: 1,
     nombreTipoPlatillo: 'Gorditas',
@@ -21,7 +21,7 @@ const mockPlatillos: Platillo[] = [
     fechaActualizacion: new Date()
   },
   { 
-    _id: '2', 
+    _id: '64f8c2e1a2b3c4d5e6f7a8c2', 
     nombre: 'Gordita Especial', 
     idTipoPlatillo: 1,
     nombreTipoPlatillo: 'Gorditas',
@@ -32,7 +32,7 @@ const mockPlatillos: Platillo[] = [
     fechaActualizacion: new Date()
   },
   { 
-    _id: '3', 
+    _id: '64f8c2e1a2b3c4d5e6f7a8c3', 
     nombre: 'Quesadilla Chica', 
     idTipoPlatillo: 2,
     nombreTipoPlatillo: 'Quesadillas',
@@ -43,7 +43,7 @@ const mockPlatillos: Platillo[] = [
     fechaActualizacion: new Date()
   },
   { 
-    _id: '4', 
+    _id: '64f8c2e1a2b3c4d5e6f7a8c4', 
     nombre: 'Quesadilla Grande', 
     idTipoPlatillo: 2,
     nombreTipoPlatillo: 'Quesadillas',
@@ -56,10 +56,10 @@ const mockPlatillos: Platillo[] = [
 ];
 
 const mockGuisos: Guiso[] = [
-  { _id: '1', nombre: 'Chicharrón Prensado', descripcion: 'Chicharrón en salsa verde', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '2', nombre: 'Pollo en Mole', descripcion: 'Pollo bañado en mole poblano', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '3', nombre: 'Carnitas', descripcion: 'Carne de cerdo confitada', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
-  { _id: '4', nombre: 'Requesón', descripcion: 'Queso requesón con hierbas', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() }
+  { _id: '64f8c2e1a2b3c4d5e6f7a8d1', nombre: 'Chicharrón Prensado', descripcion: 'Chicharrón en salsa verde', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8d2', nombre: 'Pollo en Mole', descripcion: 'Pollo bañado en mole poblano', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8d3', nombre: 'Carnitas', descripcion: 'Carne de cerdo confitada', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() },
+  { _id: '64f8c2e1a2b3c4d5e6f7a8d4', nombre: 'Requesón', descripcion: 'Queso requesón con hierbas', activo: true, fechaCreacion: new Date(), fechaActualizacion: new Date() }
 ];
 
 class MockApiService {
@@ -322,14 +322,14 @@ class MockApiService {
       folio: 'ORD-002',
       subordenes: [
         {
-          _id: 'sub1',
+          _id: '64f8c2e1a2b3c4d5e6f7e01',
           nombre: 'Suborden 1',
           idOrden: ordenId
         }
       ],
       productos: [
         {
-          _id: 'prod1',
+          _id: '64f8c2e1a2b3c4d5e6f7e11',
           idOrden: ordenId,
           nombreProducto: 'Coca Cola',
           cantidad: 2,
@@ -339,7 +339,7 @@ class MockApiService {
           entregado: false
         },
         {
-          _id: 'prod2',
+          _id: '64f8c2e1a2b3c4d5e6f7e12',
           idOrden: ordenId,
           nombreProducto: 'Agua',
           cantidad: 1,
@@ -351,8 +351,8 @@ class MockApiService {
       ],
       platillos: [
         {
-          _id: 'plat1',
-          idSuborden: 'sub1',
+          _id: '64f8c2e1a2b3c4d5e6f7e21',
+          idSuborden: '64f8c2e1a2b3c4d5e6f7e01',
           nombrePlatillo: 'Gordita Sencilla',
           nombreGuiso: 'Chicharrón Prensado',
           cantidad: 2,
@@ -362,8 +362,8 @@ class MockApiService {
           entregado: false
         },
         {
-          _id: 'plat2',
-          idSuborden: 'sub1',
+          _id: '64f8c2e1a2b3c4d5e6f7e22',
+          idSuborden: '64f8c2e1a2b3c4d5e6f7e01',
           nombrePlatillo: 'Quesadilla Grande',
           nombreGuiso: 'Requesón',
           cantidad: 1,

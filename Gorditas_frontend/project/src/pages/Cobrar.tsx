@@ -146,7 +146,7 @@ const Cobrar: React.FC = () => {
       }
       <h3>PRODUCTOS</h3>
       ${orden.productos?.length
-        ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombre} - $${p.importe.toFixed(2)}</p>`).join('')
+        ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
         : '<p>Sin productos</p>'
       }
       <div class="line"></div>

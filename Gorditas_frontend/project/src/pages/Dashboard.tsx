@@ -109,7 +109,8 @@ const Dashboard: React.FC = () => {
             orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
           )
           .map((orden: Orden) => {
-            const fechaHora = orden.fechaHora ?? orden.fecha;
+            const fechaHoraRaw = orden.fechaHora ?? orden.fecha;
+            const fechaHora: Date = fechaHoraRaw ? new Date(fechaHoraRaw) : new Date();
             return {
               _id: orden._id || '',
               folio: `#${(orden as any).folio || 'N/A'}`,
@@ -120,7 +121,9 @@ const Dashboard: React.FC = () => {
               tiempoTranscurrido: calculateTimeElapsed(fechaHora)
             };
           })
-          .sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
+          .sort((a, b) => 
+            a.fechaHora.getTime() - b.fechaHora.getTime()
+          );
 
         setStats(prev => ({
           ...prev,

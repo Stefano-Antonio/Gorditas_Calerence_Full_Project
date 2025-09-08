@@ -26,13 +26,60 @@ const catalogModels = [
   { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'nombreTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
   { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'idTipoUsuario', 'nombreTipoUsuario'], hasActivo: true },
-  { id: 'tipoorden', name: 'Tipos de Orden', fields: ['nombre'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },
-  { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre'], hasActivo: true },
 ];
 
 const Catalogos: React.FC = () => {
+  // Tipos dinámicos para selects
+  const [tiposPlatillo, setTiposPlatillo] = useState<any[]>([]);
+  const [tiposProducto, setTiposProducto] = useState<any[]>([]);
+  // Tipos fijos para usuarios
+  const tiposUsuarioFijos = [
+    { value: 'Despachador', label: 'Despachador', descripcion: 'Atiende y despacha órdenes.' },
+    { value: 'Mesero', label: 'Mesero', descripcion: 'Toma pedidos y atiende mesas.' },
+    { value: 'Encargado', label: 'Encargado', descripcion: 'Gestiona inventario y reportes.' },
+    { value: 'Admin', label: 'Administrador', descripcion: 'Acceso total al sistema.' }
+  ];
+  const [tiposUsuario, setTiposUsuario] = useState<any[]>(tiposUsuarioFijos);
+
   const [selectedModel, setSelectedModel] = useState(catalogModels[0]);
+  useEffect(() => {
+    // Cargar tipos para selects dinámicos
+    const fetchTipos = async () => {
+      if (selectedModel.id === 'platillo') {
+        const res = await apiService.getCatalog('tipoplatillo');
+        if (res.success && res.data) {
+          if (Array.isArray(res.data.items)) {
+            setTiposPlatillo(res.data.items);
+          } else if (Array.isArray(res.data)) {
+            setTiposPlatillo(res.data);
+          } else {
+            setTiposPlatillo([]);
+          }
+        } else {
+          setTiposPlatillo([]);
+        }
+      }
+      if (selectedModel.id === 'producto') {
+        const res = await apiService.getCatalog('tipoproducto');
+        if (res.success && res.data) {
+          if (Array.isArray(res.data.items)) {
+            setTiposProducto(res.data.items);
+          } else if (Array.isArray(res.data)) {
+            setTiposProducto(res.data);
+          } else {
+            setTiposProducto([]);
+          }
+        } else {
+          setTiposProducto([]);
+        }
+      }
+      if (selectedModel.id === 'usuario') {
+        setTiposUsuario(tiposUsuarioFijos);
+      }
+    };
+    fetchTipos();
+  }, [selectedModel]);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<CatalogItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -128,6 +175,14 @@ const Catalogos: React.FC = () => {
         }
       }
 
+      // Validación de contraseña para usuarios
+      if (selectedModel.id === 'usuario') {
+        if (formData.password && formData.password.length < 6) {
+          setError('La contraseña debe tener al menos 6 caracteres.');
+          setSaving(false);
+          return;
+        }
+      }
 
       let response;
       if (editingItem) {
@@ -142,8 +197,13 @@ const Catalogos: React.FC = () => {
         setShowModal(false);
         await loadItems();
       } else {
+        // Mostrar advertencia específica si la contraseña es demasiado corta
+        if (response.error && response.error.toString().includes('Path `password`') && response.error.toString().includes('minimum allowed length')) {
+          setError('La contraseña debe tener al menos 6 caracteres.');
+        } else {
+          setError('Error guardando el item');
+        }
         console.error('Error al guardar el item:', response.error); // Debugging log
-        setError('Error guardando el item');
       }
     } catch (error) {
       console.error('Error inesperado al guardar el item:', error); // Debugging log
@@ -189,7 +249,52 @@ const Catalogos: React.FC = () => {
   };
 
   const renderField = (field: string, value: any) => {
-    switch (field) {
+  switch (field) {
+      case 'nombreTipoUsuario': {
+        // Solo los 4 tipos fijos para usuarios
+        return (
+          <select
+            value={value || ''}
+            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">Selecciona tipo de usuario</option>
+            {tiposUsuario.map(tipo => (
+              <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+            ))}
+          </select>
+        );
+      }
+      case 'idTipoPlatillo': {
+        // Mostrar solo tipos de platillo existentes
+        return (
+          <select
+            value={value || ''}
+            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">Selecciona tipo de platillo</option>
+            {(Array.isArray(tiposPlatillo) ? tiposPlatillo : []).map(tipo => (
+              <option key={tipo._id} value={tipo._id}>{tipo.nombre}</option>
+            ))}
+          </select>
+        );
+      }
+      case 'idTipoProducto': {
+        // Mostrar solo tipos de producto existentes
+        return (
+          <select
+            value={value || ''}
+            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">Selecciona tipo de producto</option>
+            {(Array.isArray(tiposProducto) ? tiposProducto : []).map(tipo => (
+              <option key={tipo._id} value={tipo._id}>{tipo.nombre}</option>
+            ))}
+          </select>
+        );
+      }
       case 'activo':
         return (
           <div className="flex items-center">
@@ -204,13 +309,18 @@ const Catalogos: React.FC = () => {
         );
       case 'password':
         return (
-          <input
-            type="password"
-            value={value || ''}
-            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder={`Ingresa ${field}`}
-          />
+          <div>
+            <input
+              type="password"
+              value={value || ''}
+              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder={`Ingresa ${field}`}
+            />
+            {selectedModel.id === 'usuario' && value && value.length > 0 && value.length < 6 && (
+              <div className="text-xs text-red-600 mt-1">La contraseña debe tener al menos 6 caracteres.</div>
+            )}
+          </div>
         );
       case 'email':
         return (
@@ -291,222 +401,233 @@ const Catalogos: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Catálogos</h1>
-          <p className="text-gray-600 mt-1">Gestiona los catálogos maestros del sistema</p>
-        </div>
-        <button
-          onClick={handleCreate}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo {selectedModel.name.slice(0, -1)}
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
-          {success}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Model Selection */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Settings className="w-5 h-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Catálogos</h2>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Catálogos</h1>
+            <p className="text-gray-600 mt-1">Gestiona los catálogos maestros del sistema</p>
           </div>
-          
-          <div className="space-y-2">
-            {catalogModels.map((model) => (
-              <button
-                key={model.id}
-                onClick={() => setSelectedModel(model)}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                  selectedModel.id === model.id
-                    ? 'bg-orange-100 text-orange-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {model.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Items List */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">{selectedModel.name}</h2>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="Buscar..."
-                />
-              </div>
-              {selectedModel.hasActivo && (
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={showActiveOnly}
-                      onChange={(e) => setShowActiveOnly(e.target.checked)}
-                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Solo activos</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => (
-                    <tr key={item._id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="font-medium text-gray-900">{item.nombre}</p>
-                          {item.descripcion && (
-                            <p className="text-sm text-gray-600">{item.descripcion}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        {selectedModel.hasActivo ? (
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              item.activo
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {item.activo ? 'Activo' : 'Inactivo'}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                            N/A
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          {selectedModel.hasActivo && (
-                            <button
-                              onClick={() => handleToggleActive(item)}
-                              className={`p-1 rounded ${
-                                item.activo
-                                  ? 'text-red-600 hover:bg-red-50'
-                                  : 'text-green-600 hover:bg-green-50'
-                              }`}
-                            >
-                              {item.activo ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(item)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              {filteredItems.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No se encontraron items</p>
-                </div>
-              )}
-            </div>
+          {/* Solo mostrar botón de nuevo si NO es tipos de usuario */}
+          {selectedModel.id !== 'tipousuario' && (
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo {selectedModel.name.slice(0, -1)}
+            </button>
           )}
         </div>
-      </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingItem ? 'Editar' : 'Crear'} {selectedModel.name.slice(0, -1)}
-            </h3>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+            {success}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Model Selection */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Settings className="w-5 h-5 text-orange-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Catálogos</h2>
+            </div>
             
-            <div className="space-y-4">
-              {selectedModel.fields.map((field) => (
-                <div key={field}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {getFieldLabel(field)}
-                  </label>
-                  {renderField(field, formData[field])}
-                </div>
+            <div className="space-y-2">
+              {catalogModels.map((model) => (
+                <button
+                  key={model.id}
+                  onClick={() => setSelectedModel(model)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                    selectedModel.id === model.id
+                      ? 'bg-orange-100 text-orange-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {model.name}
+                </button>
               ))}
-              
-              {selectedModel.hasActivo && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado
-                  </label>
-                  {renderField('activo', formData.activo)}
+            </div>
+          </div>
+
+          {/* Items List */}
+          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">{selectedModel.name}</h2>
+              {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
+              {selectedModel.id !== 'tipousuario' && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Search className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Buscar..."
+                    />
+                  </div>
+                  {selectedModel.hasActivo && (
+                    <div className="flex items-center space-x-2">
+                      <Filter className="w-4 h-4 text-gray-400" />
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={showActiveOnly}
+                          onChange={(e) => setShowActiveOnly(e.target.checked)}
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Solo activos</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-              >
-                {saving ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
+            {/* Panel especial para tipos de usuario */}
+            {selectedModel.id === 'tipousuario' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo de Usuario</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tiposUsuarioFijos.map(tipo => (
+                      <tr key={tipo.value} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium text-gray-900">{tipo.label}</td>
+                        <td className="py-3 px-4 text-gray-700">{tipo.descripcion}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              // ...existing code for other models...
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => (
+                      <tr key={item._id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{item.nombre}</p>
+                            {item.descripcion && (
+                              <p className="text-sm text-gray-600">{item.descripcion}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {selectedModel.hasActivo ? (
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                item.activo
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {item.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                              N/A
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {filteredItems.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No se encontraron items</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Modal solo si NO es tipos de usuario */}
+        {showModal && selectedModel.id !== 'tipousuario' && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {editingItem ? 'Editar' : 'Crear'} {selectedModel.name.slice(0, -1)}
+              </h3>
+              
+              <div className="space-y-4">
+                {selectedModel.fields.map((field) => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {getFieldLabel(field)}
+                    </label>
+                    {renderField(field, formData[field])}
+                  </div>
+                ))}
+                
+                {selectedModel.hasActivo && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado
+                    </label>
+                    {renderField('activo', formData.activo)}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {saving ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
   );
 };
 

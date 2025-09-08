@@ -35,6 +35,9 @@ const EditarOrden: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Confirmación para eliminar platillo/producto
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -113,78 +116,90 @@ const EditarOrden: React.FC = () => {
   }, [platillos, guisos]);
 
   const handleAddPlatillo = async () => {
-    console.log('Inicio de handleAddPlatillo');
-    console.log('Platillo seleccionado:', selectedPlatillo);
-    console.log('Guiso seleccionado:', selectedGuiso);
-    console.log('Cantidad seleccionada:', cantidad);
+  console.log('Inicio de handleAddPlatillo');
+  console.log('Platillos disponibles:', platillos);
+  console.log('Guisos disponibles:', guisos);
+  console.log('Platillo seleccionado:', selectedPlatillo);
+  console.log('Guiso seleccionado:', selectedGuiso);
+  console.log('Cantidad seleccionada:', cantidad);
 
-    if (!selectedOrden || !selectedPlatillo || !selectedGuiso) {
-      console.warn('No se encontró platillo o guiso:', { selectedPlatillo, selectedGuiso, platillos, guisos });
-      setError('Selecciona platillo y guiso');
+  if (!selectedOrden || !selectedPlatillo || !selectedGuiso) {
+    console.warn('No se encontró platillo o guiso:', { selectedPlatillo, selectedGuiso, platillos, guisos });
+    setError('Selecciona platillo y guiso');
+    return;
+  }
+
+  setSaving(true);
+  try {
+    // Convertir los valores seleccionados a números
+    const platilloId = Number(selectedPlatillo);
+    const guisoId = Number(selectedGuiso);
+
+    const platillo = platillos.find(p => Number(p._id) === platilloId);
+    const guiso = guisos.find(g => Number(g._id) === guisoId);
+
+    if (!platillo || !guiso) {
+      setError('Platillo o guiso no válido');
       return;
     }
 
-    setSaving(true);
-    try {
-      const platillo = platillos.find(p => p._id === selectedPlatillo);
-      const guiso = guisos.find(g => g._id === selectedGuiso);
-      if (!platillo || !guiso) {
-        setError('Platillo o guiso no válido');
+    let subordenId = '';
+    if (subordenes.length === 0) {
+      const subordenData = { nombre: 'Suborden 1' };
+      const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
+      if (subordenResponse.success) {
+        subordenId = subordenResponse.data._id;
+        setSubordenes([subordenResponse.data]);
+      } else {
+        setError('Error creando suborden');
         return;
       }
-
-      let subordenId = '';
-      if (subordenes.length === 0) {
-        const subordenData = { nombre: 'Suborden 1' };
-        const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
-        if (subordenResponse.success) {
-          subordenId = subordenResponse.data._id;
-          setSubordenes([subordenResponse.data]);
-        } else {
-          setError('Error creando suborden');
-          return;
-        }
-      } else {
-        subordenId = subordenes[0]._id!;
-      }
-
-      const platilloData = {
-        idPlatillo: selectedPlatillo,
-        nombrePlatillo: platillo.nombre,
-        idGuiso: selectedGuiso,
-        nombreGuiso: guiso.nombre,
-        costoPlatillo: platillo.precio || platillo.costo,
-        cantidad
-      };
-
-      console.log('Llamando a apiService.addPlatillo con:', subordenId, platilloData);
-      const response = await apiService.addPlatillo(subordenId, platilloData);
-      console.log('Respuesta del backend:', response);
-
-      if (response.success) {
-        if (selectedOrden.estatus !== 'Recepcion') {
-          await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
-        }
-
-        setSuccess('Platillo agregado exitosamente');
-        await loadOrdenDetails(selectedOrden);
-        setShowAddPlatillo(false);
-        setSelectedPlatillo('');
-        setSelectedGuiso('');
-        setCantidad(1);
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError('Error agregando platillo');
-      }
-    } catch (error) {
-      setError('Error agregando platillo');
-    } finally {
-      setSaving(false);
-      console.log('Fin de handleAddPlatillo');
+    } else {
+      subordenId = subordenes[0]._id!;
     }
-  };
+
+    const platilloData = {
+      idPlatillo: platilloId,
+      nombrePlatillo: platillo.nombre,
+      idGuiso: guisoId,
+      nombreGuiso: guiso.nombre,
+      costoPlatillo: platillo.precio || platillo.costo,
+      cantidad
+    };
+
+    console.log('Llamando a apiService.addPlatillo con:', subordenId, platilloData);
+    const response = await apiService.addPlatillo(subordenId, platilloData);
+    console.log('Respuesta del backend:', response);
+
+    if (response.success) {
+      if (selectedOrden.estatus !== 'Recepcion') {
+        await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
+      }
+
+      setSuccess('Platillo agregado exitosamente');
+      await loadOrdenDetails(selectedOrden);
+      setShowAddPlatillo(false);
+      setSelectedPlatillo('');
+      setSelectedGuiso('');
+      setCantidad(1);
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError('Error agregando platillo');
+    }
+  } catch (error) {
+    setError('Error agregando platillo');
+  } finally {
+    setSaving(false);
+    console.log('Fin de handleAddPlatillo');
+  }
+};
 
   const handleAddProducto = async () => {
+    console.log('Inicio de handleAddProducto');
+    console.log('Productos disponibles:', productos);
+    console.log('Producto seleccionado:', selectedProducto);
+    console.log('Cantidad seleccionada:', cantidad);
+
     if (!selectedOrden || !selectedProducto) {
       setError('Selecciona un producto');
       return;
@@ -192,26 +207,32 @@ const EditarOrden: React.FC = () => {
 
     setSaving(true);
     try {
-      const producto = (productos || []).find(p => p._id === selectedProducto);
-      if (!producto) return;
+      // Convertir el valor seleccionado a número
+      const productoId = Number(selectedProducto);
+      const producto = productos.find(p => Number(p._id) === productoId);
+      if (!producto) {
+        setError('Producto no válido');
+        return;
+      }
 
       const productoData = {
-        idProducto: selectedProducto,
+        idOrden: selectedOrden._id!,
+        idProducto: productoId,
         nombreProducto: producto.nombre,
         costoProducto: producto.costo,
         cantidad
       };
 
+      console.log('Llamando a apiService.addProducto con:', selectedOrden._id, productoData);
       const response = await apiService.addProducto(selectedOrden._id!, productoData);
-      
+      console.log('Respuesta del backend:', response);
+
       if (response.success) {
-        // Update order status to Recepcion when adding items
         if (selectedOrden.estatus !== 'Recepcion') {
           await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
         }
-        
+
         setSuccess('Producto agregado exitosamente');
-        // Refresh order details
         await loadOrdenDetails(selectedOrden);
         setShowAddProducto(false);
         setSelectedProducto('');
@@ -224,15 +245,54 @@ const EditarOrden: React.FC = () => {
       setError('Error agregando producto');
     } finally {
       setSaving(false);
+      console.log('Fin de handleAddProducto');
     }
   };
 
   const handleRemovePlatillo = async (id: string) => {
-    console.warn('Función handleRemovePlatillo aún no implementada. Platillo ID:', id);
+    setConfirmDelete({ type: 'platillo', id });
   };
 
-  const handleRemoveProducto = async () => {
-    console.warn('Función handleRemoveProducto aún no implementada');
+  const handleRemoveProducto = async (id: string) => {
+    setConfirmDelete({ type: 'producto', id });
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!selectedOrden || !confirmDelete) return;
+    setSaving(true);
+    setError('');
+    try {
+      let response;
+      if (confirmDelete.type === 'platillo') {
+        response = await apiService.removePlatillo(confirmDelete.id);
+      } else {
+        response = await apiService.removeProducto(confirmDelete.id);
+      }
+      if (response.success) {
+        setSuccess(
+          confirmDelete.type === 'platillo'
+            ? 'Platillo eliminado exitosamente'
+            : 'Producto eliminado exitosamente'
+        );
+        await loadOrdenDetails(selectedOrden);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(
+          confirmDelete.type === 'platillo'
+            ? 'Error eliminando platillo'
+            : 'Error eliminando producto'
+        );
+      }
+    } catch (error) {
+      setError(
+        confirmDelete.type === 'platillo'
+          ? 'Error eliminando platillo'
+          : 'Error eliminando producto'
+      );
+    } finally {
+      setSaving(false);
+      setConfirmDelete(null);
+    }
   };
 
   if (loading) {
@@ -248,7 +308,7 @@ const EditarOrden: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Editar Orden</h1>
-          <p className="text-gray-600 mt-1">Modifica órdenes en recepción</p>
+          <p className="text-gray-600 mt-1">Selecciona una orden para ver detalles y modificar</p>
         </div>
       </div>
 
@@ -292,10 +352,10 @@ const EditarOrden: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-gray-900">
-                        Mesa {orden.mesa || 'Sin Mesa'}
+                        {orden.nombreMesa || 'Sin Mesa'}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {new Date(orden.fechaHora || orden.fecha).toLocaleDateString()}
+                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleDateString()}
                       </p>
                       <p className="text-sm font-medium text-green-600">
                         Total: ${orden.total.toFixed(2)}
@@ -315,7 +375,9 @@ const EditarOrden: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${selectedOrden.mesa || 'Sin Mesa'}` : 'Selecciona una orden'}
+              {selectedOrden
+                ? `Detalles - ${selectedOrden.nombreMesa || selectedOrden.mesa || 'Sin nombre'} | Folio: ${selectedOrden.folio}`
+                : 'Selecciona una orden'}
             </h2>
             {selectedOrden && (
               <div className="flex space-x-2">
@@ -354,14 +416,12 @@ const EditarOrden: React.FC = () => {
                       platillosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
-                            <p className="text-sm text-gray-600">Guiso: {detalle.guiso}</p>
+                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
+                            <p className="text-sm text-gray-600">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-green-600">
-                              ${Number(detalle.precio ?? 0).toFixed(2)}
-                            </span>
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded"
@@ -385,19 +445,40 @@ const EditarOrden: React.FC = () => {
                       productosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.producto || `Producto ${index + 1}`}</p>
+                            <p className="font-medium text-gray-900">{detalle.nombreProducto || detalle.producto || `Producto ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600">Tipo: {detalle.idProducto ? detalle.idProducto : 'N/A'}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-green-600">
-                              ${Number(detalle.importe ?? 0).toFixed(2)}
-                            </span>
                             <button
-                              onClick={handleRemoveProducto}
+                              onClick={() => handleRemoveProducto(detalle._id!)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+      {/* Modal de confirmación para eliminar platillo/producto */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">¿Estás seguro que deseas eliminar este {confirmDelete.type === 'platillo' ? 'platillo' : 'producto'}?</h3>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteAction}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {saving ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
                           </div>
                         </div>
                       ))

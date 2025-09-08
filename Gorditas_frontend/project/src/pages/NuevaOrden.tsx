@@ -352,7 +352,7 @@ const NuevaOrden: React.FC = () => {
             </div>
             <div>
               <label htmlFor="nombreSuborden" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la Suborden
+                Nombre del cliente
               </label>
               <input
                 id="nombreSuborden"
@@ -360,7 +360,7 @@ const NuevaOrden: React.FC = () => {
                 value={nombreSuborden}
                 onChange={(e) => setNombreSuborden(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Ej: Orden principal, Entrada, Postres, etc."
+                placeholder="Nombre del cliente"
               />
             </div>
           </div>
@@ -655,6 +655,19 @@ const NuevaOrden: React.FC = () => {
                       <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
                     </div>
                   ))}
+                </div>
+                <h4 className="font-medium text-gray-900 mt-6 mb-3">Detalle de Productos</h4>
+                <div className="space-y-2">
+                  {productosSeleccionados.length === 0 ? (
+                    <span className="text-sm text-gray-500">No hay productos agregados</span>
+                  ) : (
+                    productosSeleccionados.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center text-sm">
+                        <span>{item.cantidad}x {item.nombreProducto}</span>
+                        <span className="font-medium">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

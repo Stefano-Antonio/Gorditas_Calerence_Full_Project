@@ -73,13 +73,15 @@ export interface TipoGasto extends BaseEntity {
 // Transactional models
 export interface Orden extends BaseEntity {
   mesa: string;
-  tipoOrden: string;
-  usuario: string;
+  tipoOrden?: string;
+  usuario?: string;
   estatus: 'Pendiente' | 'Recepcion' | 'Preparacion' | 'Surtida' | 'Entregada' | 'Pagada' | 'Cancelado';
   total: number;
-  fecha: Date;
+  fecha?: Date;
   fechaHora?: Date;
   subordenes?: string[];
+  nombreMesa?: string;
+  folio?: string;
 }
 
 export interface Suborden extends BaseEntity {
@@ -89,26 +91,31 @@ export interface Suborden extends BaseEntity {
 }
 
 export interface OrdenDetallePlatillo extends BaseEntity {
-  suborden: string;
-  platillo: string;
-  guiso: string;
+  suborden?: string;
+  platillo?: string;
+  guiso?: string;
   cantidad: number;
-  precio: number;
-  subtotal: number;
+  precio?: number;
+  subtotal?: number;
   listo?: boolean;
-  entregado: boolean;
+  entregado?: boolean;
+  nombrePlatillo?: string;
+  idPlatillo?: number;
+  nombreGuiso?: string;
 }
 
 export interface OrdenDetalleProducto extends BaseEntity {
-  importe: any;
-  nombre: any;
-  orden: string;
-  producto: string;
+  importe?: number;
+  nombre?: string;
+  orden?: string;
+  producto?: string;
   cantidad: number;
-  precio: number;
-  subtotal: number;
+  precio?: number;
+  subtotal?: number;
   listo?: boolean;
-  entregado: boolean;
+  entregado?: boolean;
+  nombreProducto?: string;
+  idProducto?: number;
 }
 
 export interface Gasto extends BaseEntity {

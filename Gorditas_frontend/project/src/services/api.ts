@@ -278,5 +278,17 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  async removePlatillo(platilloId: string) {
+    return this.request(`/ordenes/platillo/${platilloId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async removeProducto(productoId: string) {
+    return this.request(`/ordenes/producto/${productoId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 export const apiService = new ApiService();

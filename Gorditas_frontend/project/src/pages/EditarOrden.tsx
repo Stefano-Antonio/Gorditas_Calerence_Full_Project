@@ -48,9 +48,10 @@ const EditarOrden: React.FC = () => {
         apiService.getCatalog<Producto>('producto')
       ]);
 
+      // Filter orders that can be edited (Recepcion or Pendiente status)
       if (ordenesRes.success) {
         let ordenesArray: Orden[] = [];
-        if (Array.isArray(ordenesRes.data.ordenes)) {
+        if (Array.isArray(ordenesRes.data?.ordenes)) {
           ordenesArray = ordenesRes.data.ordenes;
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
@@ -61,9 +62,19 @@ const EditarOrden: React.FC = () => {
         setOrdenes(ordenesEditables);
       }
       
-      if (platillosRes.success) setPlatillos(platillosRes.data || []);
-      if (guisosRes.success) setGuisos(guisosRes.data || []);
-      if (productosRes.success) setProductos(productosRes.data || []);
+      // Handle catalog data that might come in different formats
+      if (platillosRes.success) {
+        const platillosData = platillosRes.data?.items || platillosRes.data || [];
+        setPlatillos(Array.isArray(platillosData) ? platillosData : []);
+      }
+      if (guisosRes.success) {
+        const guisosData = guisosRes.data?.items || guisosRes.data || [];
+        setGuisos(Array.isArray(guisosData) ? guisosData : []);
+      }
+      if (productosRes.success) {
+        const productosData = productosRes.data?.items || productosRes.data || [];
+        setProductos(Array.isArray(productosData) ? productosData : []);
+      }
     } catch (error) {
       setError('Error cargando datos');
     } finally {
@@ -102,8 +113,8 @@ const EditarOrden: React.FC = () => {
 
     setSaving(true);
     try {
-      const platillo = platillos.find(p => p._id === selectedPlatillo);
-      const guiso = guisos.find(g => g._id === selectedGuiso);
+      const platillo = (platillos || []).find(p => p._id === selectedPlatillo);
+      const guiso = (guisos || []).find(g => g._id === selectedGuiso);
       if (!platillo || !guiso) return;
 
       // Get or create suborder
@@ -169,7 +180,7 @@ const EditarOrden: React.FC = () => {
 
     setSaving(true);
     try {
-      const producto = productos.find(p => p._id === selectedProducto);
+      const producto = (productos || []).find(p => p._id === selectedProducto);
       if (!producto) return;
 
       const productoData = {
@@ -403,7 +414,7 @@ const EditarOrden: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Seleccionar platillo</option>
-                  {platillos.filter(p => p.activo).map((platillo) => (
+                  {(platillos || []).filter(p => p.activo).map((platillo) => (
                     <option key={platillo._id} value={platillo._id}>
                       {platillo.nombre} - ${platillo.precio || platillo.costo}
                     </option>
@@ -419,7 +430,7 @@ const EditarOrden: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Seleccionar guiso</option>
-                  {guisos.filter(g => g.activo).map((guiso) => (
+                  {(guisos || []).filter(g => g.activo).map((guiso) => (
                     <option key={guiso._id} value={guiso._id}>
                       {guiso.nombre}
                     </option>
@@ -481,7 +492,7 @@ const EditarOrden: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Seleccionar producto</option>
-                  {productos.filter(p => p.activo).map((producto) => (
+                  {(productos || []).filter(p => p.activo).map((producto) => (
                     <option key={producto._id} value={producto._id}>
                       {producto.nombre} - ${producto.costo}
                     </option>

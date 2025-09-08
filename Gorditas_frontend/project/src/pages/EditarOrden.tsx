@@ -321,7 +321,7 @@ const EditarOrden: React.FC = () => {
                       platillosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                            <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
                               <p className="font-medium text-gray-900">{detalle.platillo || `Platillo ${index + 1}`}</p>
                               <p className="text-sm text-gray-600">Guiso: {detalle.guiso}</p>
                               <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>

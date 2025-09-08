@@ -1,14 +1,17 @@
-FROM node:18
-
+# Etapa 1: Build
+FROM node:18 AS build
 WORKDIR /app
 
-# Instalar dependencias
 COPY package*.json ./
 RUN npm install
 
-# Copiar el resto del código
-COPY . .
+COPY . ./
+# Si usas TypeScript, compila aquí:
+# RUN npm run build
 
+# Etapa 2: Producción
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=build /app ./
 EXPOSE 5000
-
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

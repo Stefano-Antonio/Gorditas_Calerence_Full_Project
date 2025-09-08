@@ -1,34 +1,36 @@
 services:
-  frontend:
-    build: ./Gorditas_frontend
+  mongo:
+    image: mongo:6.0
+    container_name: calerence_mongo
+    restart: always
     ports:
-      - "5173:5173"   # si usas Vite
-    command: npm run dev -- --host 0.0.0.0
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: calerence_db
     volumes:
-      - ./Gorditas_frontend/project:/app
-      - /app/node_modules
-    depends_on:
-      - backend
+      - mongo_data:/data/db
 
   backend:
     build: ./Gorditas_Calerence_Backend
+    container_name: calerence_back
     ports:
       - "5000:5000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/mi_tienda_gorditas
-    volumes:
-      - ./Gorditas_Calerence_Backend:/app
-      - /app/node_modules
+      MONGO_URI: mongodb://admin:admin123@calerence_mongo:27017/calerence_db?authSource=admin
     depends_on:
       - mongo
 
-  mongo:
-    image: mongo:6
-    container_name: mongo_db
+  frontend:
+    build: ./Gorditas_frontend
+    container_name: calerence_front
     ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
+      - "80:80"
+    environment:
+      VITE_API_URL: http://calerence_back:5000
+    depends_on:
+      - backend
 
 volumes:
   mongo_data:

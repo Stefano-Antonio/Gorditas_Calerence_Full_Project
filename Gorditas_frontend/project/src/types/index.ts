@@ -162,6 +162,32 @@ export interface ProductoVendido {
   totalVendido: number;
 }
 
+export interface ReporteUsuario {
+  usuario: string;
+  cantidadOrdenes: number;
+  totalVentas: number;
+  promedioVenta: number;
+  cantidadGastos: number;
+  totalGastos: number;
+}
+
+export interface ReporteMesa {
+  mesa: string;
+  cantidadOrdenes: number;
+  totalVentas: number;
+  promedioVenta: number;
+  tiempoPromedioMinutos: number;
+}
+
+export interface ReporteGasto {
+  _id: string;
+  fecha: Date;
+  tipoGasto: string;
+  descripcion: string;
+  monto: number;
+  usuario: string;
+}
+
 // UI types
 export interface MenuItem {
   id: string;

@@ -7,10 +7,19 @@ import {
   Calendar,
   Download,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Table
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { ReporteVentas, ReporteInventario, ProductoVendido } from '../types';
+import { 
+  ReporteVentas, 
+  ReporteInventario, 
+  ProductoVendido, 
+  ReporteUsuario, 
+  ReporteMesa, 
+  ReporteGasto 
+} from '../types';
 
 const Reportes: React.FC = () => {
   const [activeTab, setActiveTab] = useState('ventas');
@@ -20,7 +29,9 @@ const Reportes: React.FC = () => {
   const [reporteVentas, setReporteVentas] = useState<ReporteVentas[]>([]);
   const [reporteInventario, setReporteInventario] = useState<ReporteInventario[]>([]);
   const [productosVendidos, setProductosVendidos] = useState<ProductoVendido[]>([]);
-  const [reporteGastos, setReporteGastos] = useState<any[]>([]);
+  const [reporteGastos, setReporteGastos] = useState<ReporteGasto[]>([]);
+  const [reporteUsuarios, setReporteUsuarios] = useState<ReporteUsuario[]>([]);
+  const [reporteMesas, setReporteMesas] = useState<ReporteMesa[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,29 +48,43 @@ const Reportes: React.FC = () => {
       switch (activeTab) {
         case 'ventas':
           const ventasRes = await apiService.getReporteVentas(fechaInicio, fechaFin);
-          if (ventasRes.success) {
-            setReporteVentas(Array.isArray(ventasRes.data) ? ventasRes.data : []);
+          if (ventasRes.success && ventasRes.data) {
+            setReporteVentas(Array.isArray(ventasRes.data.data) ? ventasRes.data.data : []);
           }
           break;
           
         case 'inventario':
           const inventarioRes = await apiService.getReporteInventario();
-          if (inventarioRes.success) {
-            setReporteInventario(Array.isArray(inventarioRes.data) ? inventarioRes.data : []);
+          if (inventarioRes.success && inventarioRes.data) {
+            setReporteInventario(Array.isArray(inventarioRes.data.data) ? inventarioRes.data.data : []);
           }
           break;
           
         case 'productos':
-          const productosRes = await apiService.getProductosVendidos();
-          if (productosRes.success) {
-            setProductosVendidos(Array.isArray(productosRes.data) ? productosRes.data : []);
+          const productosRes = await apiService.getProductosVendidos(fechaInicio, fechaFin);
+          if (productosRes.success && productosRes.data) {
+            setProductosVendidos(Array.isArray(productosRes.data.data) ? productosRes.data.data : []);
           }
           break;
           
         case 'gastos':
           const gastosRes = await apiService.getReporteGastos(fechaInicio, fechaFin);
-          if (gastosRes.success) {
-            setReporteGastos(Array.isArray(gastosRes.data) ? gastosRes.data : []);
+          if (gastosRes.success && gastosRes.data) {
+            setReporteGastos(Array.isArray(gastosRes.data.data) ? gastosRes.data.data : []);
+          }
+          break;
+
+        case 'usuarios':
+          const usuariosRes = await apiService.getReporteUsuarios(fechaInicio, fechaFin);
+          if (usuariosRes.success && usuariosRes.data) {
+            setReporteUsuarios(Array.isArray(usuariosRes.data.data) ? usuariosRes.data.data : []);
+          }
+          break;
+
+        case 'mesas':
+          const mesasRes = await apiService.getReporteMesas(fechaInicio, fechaFin);
+          if (mesasRes.success && mesasRes.data) {
+            setReporteMesas(Array.isArray(mesasRes.data.data) ? mesasRes.data.data : []);
           }
           break;
       }
@@ -71,8 +96,73 @@ const Reportes: React.FC = () => {
   };
 
   const handleExportReport = () => {
-    // In a real implementation, you would generate and download a CSV/PDF
-    alert('Funcionalidad de exportación en desarrollo');
+    let csvContent = '';
+    let filename = '';
+    
+    switch (activeTab) {
+      case 'ventas':
+        filename = 'reporte-ventas.csv';
+        csvContent = 'Fecha,Ventas Totales,Gastos Totales,Utilidad,Ordenes\n';
+        reporteVentas.forEach(venta => {
+          csvContent += `${venta.fecha},${venta.ventasTotales},${venta.gastosTotales},${venta.utilidad},${venta.ordenes}\n`;
+        });
+        break;
+        
+      case 'inventario':
+        filename = 'reporte-inventario.csv';
+        csvContent = 'Producto,Cantidad,Costo Unitario,Valor Total,Estado\n';
+        reporteInventario.forEach(item => {
+          csvContent += `${item.producto.nombre},${item.producto.cantidad},${item.producto.costo},${item.valorTotal},${item.stockMinimo ? 'Stock Bajo' : 'Normal'}\n`;
+        });
+        break;
+        
+      case 'productos':
+        filename = 'productos-vendidos.csv';
+        csvContent = 'Producto,Cantidad Vendida,Total Vendido\n';
+        productosVendidos.forEach(producto => {
+          csvContent += `${producto.nombre},${producto.cantidadVendida},${producto.totalVendido}\n`;
+        });
+        break;
+        
+      case 'gastos':
+        filename = 'reporte-gastos.csv';
+        csvContent = 'Fecha,Tipo,Descripción,Monto,Usuario\n';
+        reporteGastos.forEach(gasto => {
+          csvContent += `${new Date(gasto.fecha).toLocaleDateString()},${gasto.tipoGasto},${gasto.descripcion},${gasto.monto},${gasto.usuario}\n`;
+        });
+        break;
+        
+      case 'usuarios':
+        filename = 'reporte-usuarios.csv';
+        csvContent = 'Usuario,Ordenes,Total Ventas,Promedio Venta,Gastos,Total Gastos\n';
+        reporteUsuarios.forEach(usuario => {
+          csvContent += `${usuario.usuario},${usuario.cantidadOrdenes},${usuario.totalVentas},${usuario.promedioVenta},${usuario.cantidadGastos},${usuario.totalGastos}\n`;
+        });
+        break;
+        
+      case 'mesas':
+        filename = 'reporte-mesas.csv';
+        csvContent = 'Mesa,Ordenes,Total Ventas,Promedio Venta,Tiempo Promedio (min)\n';
+        reporteMesas.forEach(mesa => {
+          csvContent += `${mesa.mesa},${mesa.cantidadOrdenes},${mesa.totalVentas},${mesa.promedioVenta},${mesa.tiempoPromedioMinutos}\n`;
+        });
+        break;
+        
+      default:
+        alert('No hay datos para exportar');
+        return;
+    }
+    
+    // Crear y descargar el archivo CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const tabs = [
@@ -80,6 +170,8 @@ const Reportes: React.FC = () => {
     { id: 'inventario', name: 'Inventario', icon: Package },
     { id: 'productos', name: 'Productos Vendidos', icon: BarChart3 },
     { id: 'gastos', name: 'Gastos', icon: DollarSign },
+    { id: 'usuarios', name: 'Usuarios', icon: Users },
+    { id: 'mesas', name: 'Mesas', icon: Table },
   ];
 
   const getTotalVentas = () => {
@@ -87,7 +179,7 @@ const Reportes: React.FC = () => {
   };
 
   const getTotalGastos = () => {
-    return reporteVentas.reduce((total, reporte) => total + reporte.gastosTotales, 0);
+    return reporteGastos.reduce((total, gasto) => total + gasto.monto, 0);
   };
 
   const getTotalUtilidad = () => {
@@ -154,7 +246,7 @@ const Reportes: React.FC = () => {
         </div>
 
         {/* Date Filter */}
-        {(activeTab === 'ventas' || activeTab === 'gastos') && (
+        {(activeTab === 'ventas' || activeTab === 'gastos' || activeTab === 'productos' || activeTab === 'usuarios' || activeTab === 'mesas') && (
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -367,6 +459,102 @@ const Reportes: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Users Report */}
+              {activeTab === 'usuarios' && (
+                <div className="space-y-6">
+                  <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-purple-600">Usuarios Activos</p>
+                        <p className="text-2xl font-bold text-purple-900">
+                          {reporteUsuarios.length}
+                        </p>
+                      </div>
+                      <Users className="w-8 h-8 text-purple-600" />
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Usuario</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Órdenes</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Total Ventas</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Promedio Venta</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Gastos</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Total Gastos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reporteUsuarios.map((usuario, index) => (
+                          <tr key={index} className="border-b border-gray-100">
+                            <td className="py-3 px-4 font-medium">{usuario.usuario}</td>
+                            <td className="py-3 px-4">{usuario.cantidadOrdenes}</td>
+                            <td className="py-3 px-4 text-green-600 font-medium">
+                              ${usuario.totalVentas.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4">
+                              ${usuario.promedioVenta.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4">{usuario.cantidadGastos}</td>
+                            <td className="py-3 px-4 text-red-600 font-medium">
+                              ${usuario.totalGastos.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tables Report */}
+              {activeTab === 'mesas' && (
+                <div className="space-y-6">
+                  <div className="bg-indigo-50 p-6 rounded-lg border border-indigo-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-indigo-600">Mesas con Actividad</p>
+                        <p className="text-2xl font-bold text-indigo-900">
+                          {reporteMesas.length}
+                        </p>
+                      </div>
+                      <Table className="w-8 h-8 text-indigo-600" />
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Mesa</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Órdenes</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Total Ventas</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Promedio Venta</th>
+                          <th className="text-left py-3 px-4 font-medium text-gray-900">Tiempo Promedio (min)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reporteMesas.map((mesa, index) => (
+                          <tr key={index} className="border-b border-gray-100">
+                            <td className="py-3 px-4 font-medium">{mesa.mesa}</td>
+                            <td className="py-3 px-4">{mesa.cantidadOrdenes}</td>
+                            <td className="py-3 px-4 text-green-600 font-medium">
+                              ${mesa.totalVentas.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4">
+                              ${mesa.promedioVenta.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4">{mesa.tiempoPromedioMinutos}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </>

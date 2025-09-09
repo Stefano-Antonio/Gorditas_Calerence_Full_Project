@@ -244,9 +244,11 @@ class ApiService {
     
     return this.request(`/reportes/ventas?${params.toString()}`);
   }
+  
   async getReporteInventario() {
     return this.request('/reportes/inventario');
   }
+  
   async getReporteGastos(fechaInicio?: string, fechaFin?: string) {
     const params = new URLSearchParams();
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
@@ -254,8 +256,38 @@ class ApiService {
     
     return this.request(`/reportes/gastos?${params.toString()}`);
   }
-  async getProductosVendidos() {
-    return this.request('/reportes/productos-vendidos');
+  
+  async getProductosVendidos(fechaInicio?: string, fechaFin?: string, limit?: number) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    if (limit) params.append('limit', limit.toString());
+    
+    return this.request(`/reportes/productos-vendidos?${params.toString()}`);
+  }
+
+  async getReporteUsuarios(fechaInicio?: string, fechaFin?: string) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    
+    return this.request(`/reportes/usuarios?${params.toString()}`);
+  }
+
+  async getReporteMesas(fechaInicio?: string, fechaFin?: string) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    
+    return this.request(`/reportes/mesas?${params.toString()}`);
+  }
+
+  async getReporteResumen(fechaInicio?: string, fechaFin?: string) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    
+    return this.request(`/reportes/resumen?${params.toString()}`);
   }
   // Catalogs methods
   async getCatalog<T>(modelo: string): Promise<ApiResponse<T[]>> {

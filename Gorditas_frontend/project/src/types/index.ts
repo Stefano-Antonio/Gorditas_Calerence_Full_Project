@@ -149,17 +149,43 @@ export interface AuthUser {
 
 // Report types
 export interface ReporteVentas {
-  fecha: string;
-  ventasTotales: number;
-  gastosTotales: number;
-  utilidad: number;
-  ordenes: number;
+  ordenes: Orden[];
+  resumen: {
+    totalVentas: number;
+    cantidadOrdenes: number;
+    promedioVenta: number;
+  };
+  ventasPorDia: {
+    _id: string;
+    ventas: number;
+    ordenes: number;
+  }[];
+  ventasPorTipo: {
+    _id: string;
+    ventas: number;
+    ordenes: number;
+  }[];
+  pagination: PaginationInfo;
 }
 
 export interface ReporteInventario {
-  producto: Producto;
-  valorTotal: number;
-  stockMinimo: boolean;
+  productos: {
+    producto: Producto;
+    valorTotal: number;
+    stockMinimo: boolean;
+    stockAgotado: boolean;
+  }[];
+  resumen: {
+    totalProductos: number;
+    stockBajo: number;
+    stockAgotado: number;
+    valorInventario: number;
+  };
+  alertas: {
+    stockBajo: Producto[];
+    stockAlto: Producto[];
+  };
+  pagination: PaginationInfo;
 }
 
 export interface ProductoVendido {
@@ -167,6 +193,92 @@ export interface ProductoVendido {
   nombre: string;
   cantidadVendida: number;
   totalVendido: number;
+  vecesVendido: number;
+}
+
+export interface PlatilloVendido {
+  platillo: string;
+  nombre: string;
+  cantidadVendida: number;
+  totalVendido: number;
+  vecesVendido: number;
+}
+
+export interface ReporteProductosVendidos {
+  productos: ProductoVendido[];
+  platillos: PlatilloVendido[];
+  resumen: {
+    totalProductosVendidos: number;
+    totalPlatillosVendidos: number;
+    ingresosTotalProductos: number;
+    ingresosTotalPlatillos: number;
+  };
+}
+
+export interface ReporteGastos {
+  gastos: Gasto[];
+  resumen: {
+    totalGastos: number;
+    cantidadGastos: number;
+    promedioGasto: number;
+  };
+  gastosPorTipo: {
+    _id: string;
+    gastos: number;
+    cantidad: number;
+  }[];
+  gastosPorDia: {
+    _id: string;
+    gastos: number;
+    cantidad: number;
+  }[];
+  gastosPorUsuario: {
+    _id: string;
+    gastos: number;
+    cantidad: number;
+  }[];
+  pagination: PaginationInfo;
+}
+
+export interface ReporteUsuarios {
+  usuarios: {
+    idUsuario: number;
+    nombreUsuario: string;
+    totalOrdenes: number;
+    totalVentas: number;
+    promedioVenta: number;
+  }[];
+  resumen: {
+    totalUsuariosActivos: number;
+    ventasTotales: number;
+    ordenesTotales: number;
+  };
+  pagination: PaginationInfo;
+}
+
+export interface ReporteMesas {
+  mesas: {
+    idMesa: number;
+    nombreMesa: string;
+    totalOrdenes: number;
+    totalVentas: number;
+    promedioVenta: number;
+    ultimaOrden: Date;
+  }[];
+  resumen: {
+    totalMesas: number;
+    ventasTotales: number;
+    ordenesTotales: number;
+    mesaMasVentas: any;
+  };
+  pagination: PaginationInfo;
+}
+
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 // UI types

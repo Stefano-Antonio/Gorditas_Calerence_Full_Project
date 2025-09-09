@@ -125,6 +125,43 @@ class ApiService {
       return mockApiService.getInventario() as Promise<ApiResponse<T>>;
     }
 
+    // Reports endpoints
+    if (endpoint.startsWith('/reportes/ventas') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const fechaInicio = params.get('fechaInicio');
+      const fechaFin = params.get('fechaFin');
+      return mockApiService.getReporteVentas(fechaInicio || undefined, fechaFin || undefined) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/inventario') && method === 'GET') {
+      return mockApiService.getReporteInventario() as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/gastos') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const fechaInicio = params.get('fechaInicio');
+      const fechaFin = params.get('fechaFin');
+      return mockApiService.getReporteGastos(fechaInicio || undefined, fechaFin || undefined) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/productos-vendidos') && method === 'GET') {
+      return mockApiService.getProductosVendidos() as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/usuarios') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const fechaInicio = params.get('fechaInicio');
+      const fechaFin = params.get('fechaFin');
+      return mockApiService.getReporteUsuarios(fechaInicio || undefined, fechaFin || undefined) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/mesas') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      const fechaInicio = params.get('fechaInicio');
+      const fechaFin = params.get('fechaFin');
+      return mockApiService.getReporteMesas(fechaInicio || undefined, fechaFin || undefined) as Promise<ApiResponse<T>>;
+    }
+
     // Default mock response
     return {
       success: true,
@@ -237,25 +274,69 @@ class ApiService {
     });
   }
   // Reports methods
-  async getReporteVentas(fechaInicio?: string, fechaFin?: string) {
+  async getReporteVentas(fechaInicio?: string, fechaFin?: string, tipoOrden?: string, mesa?: string, page = 1, limit = 50) {
     const params = new URLSearchParams();
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
     if (fechaFin) params.append('fechaFin', fechaFin);
+    if (tipoOrden) params.append('tipoOrden', tipoOrden);
+    if (mesa) params.append('mesa', mesa);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
     
     return this.request(`/reportes/ventas?${params.toString()}`);
   }
-  async getReporteInventario() {
-    return this.request('/reportes/inventario');
+  
+  async getReporteInventario(categoria?: string, stockMinimo?: number, page = 1, limit = 50) {
+    const params = new URLSearchParams();
+    if (categoria) params.append('categoria', categoria);
+    if (stockMinimo) params.append('stockMinimo', stockMinimo.toString());
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    return this.request(`/reportes/inventario?${params.toString()}`);
   }
-  async getReporteGastos(fechaInicio?: string, fechaFin?: string) {
+  
+  async getReporteGastos(fechaInicio?: string, fechaFin?: string, tipoGasto?: string, usuario?: string, page = 1, limit = 50) {
     const params = new URLSearchParams();
     if (fechaInicio) params.append('fechaInicio', fechaInicio);
     if (fechaFin) params.append('fechaFin', fechaFin);
+    if (tipoGasto) params.append('tipoGasto', tipoGasto);
+    if (usuario) params.append('usuario', usuario);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
     
     return this.request(`/reportes/gastos?${params.toString()}`);
   }
-  async getProductosVendidos() {
-    return this.request('/reportes/productos-vendidos');
+  
+  async getProductosVendidos(fechaInicio?: string, fechaFin?: string, limit = 10, tipoProducto?: string) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    if (tipoProducto) params.append('tipoProducto', tipoProducto);
+    params.append('limit', limit.toString());
+    
+    return this.request(`/reportes/productos-vendidos?${params.toString()}`);
+  }
+
+  async getReporteUsuarios(fechaInicio?: string, fechaFin?: string, tipoUsuario?: string, page = 1, limit = 50) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    if (tipoUsuario) params.append('tipoUsuario', tipoUsuario);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    return this.request(`/reportes/usuarios?${params.toString()}`);
+  }
+
+  async getReporteMesas(fechaInicio?: string, fechaFin?: string, page = 1, limit = 50) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fechaInicio', fechaInicio);
+    if (fechaFin) params.append('fechaFin', fechaFin);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    return this.request(`/reportes/mesas?${params.toString()}`);
   }
   // Catalogs methods
   async getCatalog<T>(modelo: string): Promise<ApiResponse<T[]>> {

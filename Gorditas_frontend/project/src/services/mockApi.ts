@@ -292,19 +292,286 @@ class MockApiService {
   }
 
   async getReporteVentas(fechaInicio?: string, fechaFin?: string) {
-    return { success: true, data: [] };
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        ordenes: [
+          {
+            _id: '1',
+            fechaHora: new Date(),
+            total: 250.00,
+            nombreMesa: 'Mesa 1',
+            estatus: 'Entregada'
+          },
+          {
+            _id: '2',
+            fechaHora: new Date(),
+            total: 180.50,
+            nombreMesa: 'Mesa 2',
+            estatus: 'Entregada'
+          }
+        ],
+        resumen: {
+          totalVentas: 430.50,
+          cantidadOrdenes: 2,
+          promedioVenta: 215.25
+        },
+        ventasPorDia: [
+          { _id: '2023-12-01', ventas: 430.50, ordenes: 2 }
+        ],
+        ventasPorTipo: [
+          { _id: 'Local', ventas: 430.50, ordenes: 2 }
+        ],
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 2,
+          totalPages: 1
+        }
+      }
+    };
   }
 
   async getReporteInventario() {
-    return { success: true, data: [] };
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        productos: [
+          {
+            producto: {
+              _id: '1',
+              nombre: 'Harina de Maíz',
+              cantidad: 50,
+              costo: 25.00,
+              precio: 30.00,
+              tipoProducto: 'Ingredientes'
+            },
+            valorTotal: 1250.00,
+            stockMinimo: false,
+            stockAgotado: false
+          },
+          {
+            producto: {
+              _id: '2',
+              nombre: 'Queso Oaxaca',
+              cantidad: 3,
+              costo: 45.00,
+              precio: 60.00,
+              tipoProducto: 'Lácteos'
+            },
+            valorTotal: 135.00,
+            stockMinimo: true,
+            stockAgotado: false
+          }
+        ],
+        resumen: {
+          totalProductos: 2,
+          stockBajo: 1,
+          stockAgotado: 0,
+          valorInventario: 1385.00
+        },
+        alertas: {
+          stockBajo: [
+            {
+              _id: '2',
+              nombre: 'Queso Oaxaca',
+              cantidad: 3,
+              costo: 45.00
+            }
+          ],
+          stockAlto: []
+        },
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 2,
+          totalPages: 1
+        }
+      }
+    };
   }
 
   async getReporteGastos(fechaInicio?: string, fechaFin?: string) {
-    return { success: true, data: [] };
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        gastos: [
+          {
+            _id: '1',
+            fecha: new Date(),
+            tipoGasto: 'Ingredientes',
+            descripcion: 'Compra de harina',
+            monto: 500.00,
+            usuario: 'Juan Pérez'
+          },
+          {
+            _id: '2',
+            fecha: new Date(),
+            tipoGasto: 'Servicios',
+            descripcion: 'Pago de luz',
+            monto: 750.00,
+            usuario: 'Admin'
+          }
+        ],
+        resumen: {
+          totalGastos: 1250.00,
+          cantidadGastos: 2,
+          promedioGasto: 625.00
+        },
+        gastosPorTipo: [
+          { _id: 'Servicios', gastos: 750.00, cantidad: 1 },
+          { _id: 'Ingredientes', gastos: 500.00, cantidad: 1 }
+        ],
+        gastosPorDia: [
+          { _id: '2023-12-01', gastos: 1250.00, cantidad: 2 }
+        ],
+        gastosPorUsuario: [
+          { _id: 'Admin', gastos: 750.00, cantidad: 1 },
+          { _id: 'Juan Pérez', gastos: 500.00, cantidad: 1 }
+        ],
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 2,
+          totalPages: 1
+        }
+      }
+    };
   }
 
   async getProductosVendidos() {
-    return { success: true, data: [] };
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        productos: [
+          {
+            producto: '1',
+            nombre: 'Coca Cola',
+            cantidadVendida: 15,
+            totalVendido: 225.00,
+            vecesVendido: 8
+          },
+          {
+            producto: '2',
+            nombre: 'Agua Natural',
+            cantidadVendida: 10,
+            totalVendido: 150.00,
+            vecesVendido: 6
+          }
+        ],
+        platillos: [
+          {
+            platillo: '1',
+            nombre: 'Gordita de Chicharrón',
+            cantidadVendida: 25,
+            totalVendido: 625.00,
+            vecesVendido: 12
+          },
+          {
+            platillo: '2',
+            nombre: 'Quesadilla Grande',
+            cantidadVendida: 18,
+            totalVendido: 540.00,
+            vecesVendido: 9
+          }
+        ],
+        resumen: {
+          totalProductosVendidos: 25,
+          totalPlatillosVendidos: 43,
+          ingresosTotalProductos: 375.00,
+          ingresosTotalPlatillos: 1165.00
+        }
+      }
+    };
+  }
+
+  async getReporteUsuarios(fechaInicio?: string, fechaFin?: string) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        usuarios: [
+          {
+            idUsuario: 1,
+            nombreUsuario: 'Juan Mesero',
+            totalOrdenes: 15,
+            totalVentas: 2250.00,
+            promedioVenta: 150.00
+          },
+          {
+            idUsuario: 2,
+            nombreUsuario: 'María Mesera',
+            totalOrdenes: 12,
+            totalVentas: 1800.00,
+            promedioVenta: 150.00
+          }
+        ],
+        resumen: {
+          totalUsuariosActivos: 2,
+          ventasTotales: 4050.00,
+          ordenesTotales: 27
+        },
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 2,
+          totalPages: 1
+        }
+      }
+    };
+  }
+
+  async getReporteMesas(fechaInicio?: string, fechaFin?: string) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return { 
+      success: true, 
+      data: {
+        mesas: [
+          {
+            idMesa: 1,
+            nombreMesa: 'Mesa 1',
+            totalOrdenes: 8,
+            totalVentas: 1200.00,
+            promedioVenta: 150.00,
+            ultimaOrden: new Date()
+          },
+          {
+            idMesa: 2,
+            nombreMesa: 'Mesa 2',
+            totalOrdenes: 6,
+            totalVentas: 900.00,
+            promedioVenta: 150.00,
+            ultimaOrden: new Date()
+          }
+        ],
+        resumen: {
+          totalMesas: 2,
+          ventasTotales: 2100.00,
+          ordenesTotales: 14,
+          mesaMasVentas: {
+            idMesa: 1,
+            nombreMesa: 'Mesa 1',
+            totalVentas: 1200.00
+          }
+        },
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 2,
+          totalPages: 1
+        }
+      }
+    };
   }
 
   async getOrdenDetails(ordenId: string) {

@@ -292,19 +292,238 @@ class MockApiService {
   }
 
   async getReporteVentas(fechaInicio?: string, fechaFin?: string) {
-    return { success: true, data: [] };
+    // Mock sales data with proper structure
+    const mockVentas = [
+      {
+        fecha: '2024-01-15',
+        ventasTotales: 2500.00,
+        gastosTotales: 800.00,
+        utilidad: 1700.00,
+        ordenes: 25
+      },
+      {
+        fecha: '2024-01-16',
+        ventasTotales: 3200.00,
+        gastosTotales: 950.00,
+        utilidad: 2250.00,
+        ordenes: 32
+      },
+      {
+        fecha: '2024-01-17',
+        ventasTotales: 2800.00,
+        gastosTotales: 750.00,
+        utilidad: 2050.00,
+        ordenes: 28
+      }
+    ];
+    
+    return { success: true, data: { data: mockVentas } };
   }
 
   async getReporteInventario() {
-    return { success: true, data: [] };
+    // Mock inventory data with proper structure
+    const mockInventario = [
+      {
+        producto: {
+          _id: '1',
+          nombre: 'Harina de Maíz',
+          cantidad: 50,
+          costo: 25.00,
+          precio: 32.50,
+          idTipoProducto: 1,
+          nombreTipoProducto: 'Ingredientes',
+          activo: true
+        },
+        valorTotal: 1250.00,
+        stockMinimo: false
+      },
+      {
+        producto: {
+          _id: '2',
+          nombre: 'Frijoles',
+          cantidad: 3,
+          costo: 15.00,
+          precio: 19.50,
+          idTipoProducto: 1,
+          nombreTipoProducto: 'Ingredientes',
+          activo: true
+        },
+        valorTotal: 45.00,
+        stockMinimo: true
+      },
+      {
+        producto: {
+          _id: '3',
+          nombre: 'Queso',
+          cantidad: 25,
+          costo: 45.00,
+          precio: 58.50,
+          idTipoProducto: 1,
+          nombreTipoProducto: 'Ingredientes',
+          activo: true
+        },
+        valorTotal: 1125.00,
+        stockMinimo: false
+      }
+    ];
+    
+    return { success: true, data: { data: mockInventario } };
   }
 
   async getReporteGastos(fechaInicio?: string, fechaFin?: string) {
-    return { success: true, data: [] };
+    // Mock expenses data
+    const mockGastos = [
+      {
+        _id: '1',
+        fecha: new Date('2024-01-15'),
+        tipoGasto: 'Compra Ingredientes',
+        descripcion: 'Compra semanal de ingredientes',
+        monto: 500.00,
+        usuario: 'Admin'
+      },
+      {
+        _id: '2',
+        fecha: new Date('2024-01-16'),
+        tipoGasto: 'Servicios',
+        descripcion: 'Pago de luz',
+        monto: 300.00,
+        usuario: 'Encargado'
+      },
+      {
+        _id: '3',
+        fecha: new Date('2024-01-17'), 
+        tipoGasto: 'Mantenimiento',
+        descripcion: 'Reparación equipo',
+        monto: 150.00,
+        usuario: 'Admin'
+      }
+    ];
+    
+    return { success: true, data: { data: mockGastos } };
   }
 
-  async getProductosVendidos() {
-    return { success: true, data: [] };
+  async getProductosVendidos(fechaInicio?: string, fechaFin?: string, limit?: number) {
+    // Mock best selling products
+    const mockProductos = [
+      {
+        producto: '1',
+        nombre: 'Gordita Sencilla',
+        cantidadVendida: 85,
+        totalVendido: 2125.00
+      },
+      {
+        producto: '2',
+        nombre: 'Gordita Especial',
+        cantidadVendida: 65,
+        totalVendido: 2275.00
+      },
+      {
+        producto: '3',
+        nombre: 'Quesadilla',
+        cantidadVendida: 45,
+        totalVendido: 1350.00
+      },
+      {
+        producto: '4',
+        nombre: 'Refresco',
+        cantidadVendida: 120,
+        totalVendido: 600.00
+      }
+    ];
+    
+    return { success: true, data: { data: mockProductos.slice(0, limit || 10) } };
+  }
+
+  async getReporteUsuarios(fechaInicio?: string, fechaFin?: string) {
+    // Mock user activity data
+    const mockUsuarios = [
+      {
+        usuario: 'Juan Pérez',
+        cantidadOrdenes: 45,
+        totalVentas: 3250.00,
+        promedioVenta: 72.22,
+        cantidadGastos: 5,
+        totalGastos: 450.00
+      },
+      {
+        usuario: 'María García',
+        cantidadOrdenes: 38,
+        totalVentas: 2890.00,
+        promedioVenta: 76.05,
+        cantidadGastos: 3,
+        totalGastos: 200.00
+      },
+      {
+        usuario: 'Carlos López',
+        cantidadOrdenes: 29,
+        totalVentas: 2100.00,
+        promedioVenta: 72.41,
+        cantidadGastos: 2,
+        totalGastos: 120.00
+      }
+    ];
+    
+    return { success: true, data: { data: mockUsuarios } };
+  }
+
+  async getReporteMesas(fechaInicio?: string, fechaFin?: string) {
+    // Mock table usage data
+    const mockMesas = [
+      {
+        mesa: 'Mesa 1',
+        cantidadOrdenes: 35,
+        totalVentas: 2800.00,
+        promedioVenta: 80.00,
+        tiempoPromedioMinutos: 45
+      },
+      {
+        mesa: 'Mesa 2',
+        cantidadOrdenes: 42,
+        totalVentas: 3360.00,
+        promedioVenta: 80.00,
+        tiempoPromedioMinutos: 38
+      },
+      {
+        mesa: 'Mesa 3',
+        cantidadOrdenes: 28,
+        totalVentas: 2240.00,
+        promedioVenta: 80.00,
+        tiempoPromedioMinutos: 52
+      },
+      {
+        mesa: 'Para Llevar',
+        cantidadOrdenes: 67,
+        totalVentas: 4020.00,
+        promedioVenta: 60.00,
+        tiempoPromedioMinutos: 15
+      }
+    ];
+    
+    return { success: true, data: { data: mockMesas } };
+  }
+
+  async getReporteResumen(fechaInicio?: string, fechaFin?: string) {
+    // Mock summary data
+    const mockResumen = {
+      ventas: {
+        totalVentas: 8500.00,
+        cantidadOrdenes: 85,
+        promedioVenta: 100.00
+      },
+      gastos: {
+        totalGastos: 2500.00,
+        cantidadGastos: 10
+      },
+      inventario: {
+        totalProductos: 25,
+        stockBajo: 5,
+        valorInventario: 15750.00
+      },
+      ordenesHoy: 12,
+      utilidad: 6000.00
+    };
+    
+    return { success: true, data: { data: mockResumen } };
   }
 
   async getOrdenDetails(ordenId: string) {

@@ -125,6 +125,60 @@ class ApiService {
       return mockApiService.getInventario() as Promise<ApiResponse<T>>;
     }
 
+    // Reports endpoints
+    if (endpoint.startsWith('/reportes/ventas') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1]);
+      return mockApiService.getReporteVentas(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint === '/reportes/inventario' && method === 'GET') {
+      return mockApiService.getReporteInventario() as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/gastos') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1]);
+      return mockApiService.getReporteGastos(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/productos-vendidos') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      return mockApiService.getProductosVendidos(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined,
+        params.get('limit') ? parseInt(params.get('limit')!) : undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/usuarios') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      return mockApiService.getReporteUsuarios(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/mesas') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      return mockApiService.getReporteMesas(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
+    if (endpoint.startsWith('/reportes/resumen') && method === 'GET') {
+      const params = new URLSearchParams(endpoint.split('?')[1] || '');
+      return mockApiService.getReporteResumen(
+        params.get('fechaInicio') || undefined,
+        params.get('fechaFin') || undefined
+      ) as Promise<ApiResponse<T>>;
+    }
+
     // Default mock response
     return {
       success: true,

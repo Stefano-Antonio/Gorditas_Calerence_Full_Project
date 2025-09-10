@@ -11,7 +11,8 @@ services:
       JWT_SECRET: StAn121120360ne
     command: ["npm", "run", "dev"]
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     restart: unless-stopped
 
   calerence_front:
@@ -20,13 +21,13 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:5000
+      VITE_API_URL: http://calerence_back:5000
     depends_on:
-      - backend
+      - calerence_back
     restart: unless-stopped
 
   mongo:
-    image: mongo:latest
+    image: mongo:6.0
     container_name: calerence_mongo
     ports:
       - "27017:27017"
@@ -36,7 +37,13 @@ services:
       MONGO_INITDB_DATABASE: calerence_db
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+
 
 volumes:
   mongo_data:

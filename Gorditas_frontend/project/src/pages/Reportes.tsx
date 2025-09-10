@@ -7,20 +7,78 @@ import {
   Calendar,
   Download,
   Filter,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { ReporteVentas, ReporteInventario, ProductoVendido } from '../types';
+import ExcelJS from 'exceljs';
+
+interface VentaPorDia {
+  _id: string;
+  ventas: number;
+  ordenes: number;
+}
+
+interface GastoPorDia {
+  _id: string;
+  gastos: number;
+  cantidad: number;
+}
+
+interface ReporteVentas {
+  fecha: string;
+  ventasTotales: number;
+  gastosTotales: number;
+  utilidad: number;
+  ordenes: number;
+}
+
+interface ProductoInventario {
+  nombre: string;
+  cantidad: number;
+  costo: number;
+}
+
+interface ReporteInventario {
+  producto: ProductoInventario;
+  valorTotal: number;
+  stockMinimo: boolean;
+}
+
+interface ProductoVendido {
+  nombre: string;
+  cantidadVendida: number;
+  totalVendido: number;
+}
+
+interface Gasto {
+  fecha: Date;
+  tipoGasto: string;
+  descripcion: string;
+  monto: number;
+  usuario: string;
+}
 
 const Reportes: React.FC = () => {
   const [activeTab, setActiveTab] = useState('ventas');
   const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
-  const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaFin, setFechaFin] = useState(() => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
   
   const [reporteVentas, setReporteVentas] = useState<ReporteVentas[]>([]);
   const [reporteInventario, setReporteInventario] = useState<ReporteInventario[]>([]);
   const [productosVendidos, setProductosVendidos] = useState<ProductoVendido[]>([]);
-  const [reporteGastos, setReporteGastos] = useState<any[]>([]);
+  const [reporteGastos, setReporteGastos] = useState<Gasto[]>([]);
+  
+  const [ordenes, setOrdenes] = useState<any[]>([]);
+  const [productos, setProductos] = useState<any[]>([]);
+  const [platillos, setPlatillos] = useState<any[]>([]);
+  const [ordenesDia, setOrdenesDia] = useState<any[]>([]);
+  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
+  const [ordenExpandida, setOrdenExpandida] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,41 +96,162 @@ const Reportes: React.FC = () => {
         case 'ventas':
           const ventasRes = await apiService.getReporteVentas(fechaInicio, fechaFin);
           if (ventasRes.success) {
-            setReporteVentas(Array.isArray(ventasRes.data) ? ventasRes.data : []);
+            console.log('Respuesta de ventas:', ventasRes.data);
+
+            const ventasFormateadas: ReporteVentas[] = [];
+            const ventasPorDia = ventasRes.data.ventasPorDia || [];
+            const ordenes = ventasRes.data.ordenes || [];
+            const productos = ventasRes.data.productos || [];
+            const platillos = ventasRes.data.platillos || [];
+
+            setOrdenes(ordenes);
+            setProductos(productos);
+            setPlatillos(platillos);
+
+            if (ventasPorDia.length > 0) {
+              // Obtener los gastos del mismo período
+              const gastosRes = await apiService.getReporteGastos(fechaInicio, fechaFin);
+              const gastosPorDia = gastosRes.success 
+                ? (gastosRes.data.gastosPorDia || []).reduce((acc: {[key: string]: number}, gasto: any) => {
+                    acc[gasto._id] = gasto.gastos || 0;
+                    return acc;
+                  }, {})
+                : {};
+
+              // Procesar cada venta
+              for (const venta of ventasPorDia) {
+                const fecha = venta._id;
+                const ventasTotales = venta.ventas || 0;
+                const gastosTotales = gastosPorDia[fecha] || 0;
+                
+                ventasFormateadas.push({
+                  fecha,
+                  ventasTotales,
+                  gastosTotales,
+                  utilidad: ventasTotales - gastosTotales,
+                  ordenes: venta.ordenes || 0
+                });
+              }
+
+              // Ordenar por fecha descendente
+              ventasFormateadas.sort((a, b) => 
+                new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+              );
+            }
+
+            setReporteVentas(ventasFormateadas);
           }
           break;
           
         case 'inventario':
           const inventarioRes = await apiService.getReporteInventario();
           if (inventarioRes.success) {
-            setReporteInventario(Array.isArray(inventarioRes.data) ? inventarioRes.data : []);
+            const inventarioFormateado = inventarioRes.data.productos.map((producto: any) => ({
+              producto: {
+                nombre: producto.nombre,
+                cantidad: producto.cantidad,
+                costo: producto.costo
+              },
+              valorTotal: producto.cantidad * producto.costo,
+              stockMinimo: producto.cantidad <= 5
+            }));
+            setReporteInventario(inventarioFormateado);
           }
           break;
           
         case 'productos':
           const productosRes = await apiService.getProductosVendidos();
           if (productosRes.success) {
-            setProductosVendidos(Array.isArray(productosRes.data) ? productosRes.data : []);
+            // Combinar productos y platillos vendidos
+            const todosProductos = [
+              ...productosRes.data.productos.map((p: any) => ({
+                nombre: p._id.nombreProducto,
+                cantidadVendida: p.cantidadVendida,
+                totalVendido: p.totalVentas
+              })),
+              ...productosRes.data.platillos.map((p: any) => ({
+                nombre: p._id.nombrePlatillo,
+                cantidadVendida: p.cantidadVendida,
+                totalVendido: p.totalVentas
+              }))
+            ];
+            setProductosVendidos(todosProductos);
           }
           break;
           
         case 'gastos':
           const gastosRes = await apiService.getReporteGastos(fechaInicio, fechaFin);
           if (gastosRes.success) {
-            setReporteGastos(Array.isArray(gastosRes.data) ? gastosRes.data : []);
+            setReporteGastos(gastosRes.data.gastos);
           }
           break;
       }
     } catch (error) {
       setError('Error cargando reportes');
+      console.error('Error en loadReports:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportReport = () => {
-    // In a real implementation, you would generate and download a CSV/PDF
-    alert('Funcionalidad de exportación en desarrollo');
+  
+  const handleExportReport = async () => {
+    let data: Array<Record<string, any>> = [];
+    if (activeTab === 'ventas' && diaSeleccionado && ordenesDia.length > 0) {
+      data = ordenesDia.map(orden => ({
+        Folio: orden.folio,
+        Mesa: orden.idMesa || 'N/A',
+        Tipo: orden.nombreTipoOrden,
+        Total: orden.total,
+        Hora: new Date(orden.fechaHora).toLocaleTimeString(),
+      }));
+    } else if (activeTab === 'inventario') {
+      data = reporteInventario.map(item => ({
+        Producto: item.producto.nombre,
+        Cantidad: item.producto.cantidad,
+        'Costo Unitario': item.producto.costo,
+        'Valor Total': item.valorTotal,
+        Estado: item.stockMinimo ? 'Stock Bajo' : 'Normal',
+      }));
+    } else if (activeTab === 'productos') {
+      data = productosVendidos.map(prod => ({
+        Producto: prod.nombre,
+        'Cantidad Vendida': prod.cantidadVendida,
+        'Total Vendido': prod.totalVendido,
+      }));
+    } else if (activeTab === 'gastos') {
+      data = reporteGastos.map(gasto => ({
+        Fecha: new Date(gasto.fecha).toLocaleDateString(),
+        Tipo: gasto.tipoGasto,
+        Descripción: gasto.descripcion,
+        Monto: gasto.monto,
+        Usuario: gasto.usuario,
+      }));
+    }
+
+    if (data.length === 0) {
+      alert('No hay datos para exportar');
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Reporte');
+
+    // Agregar encabezados
+    worksheet.columns = Object.keys(data[0]).map(key => ({ header: key, key }));
+
+    // Agregar filas
+    data.forEach(row => worksheet.addRow(row));
+
+    // Descargar el archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_${activeTab}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const tabs = [
@@ -83,42 +262,59 @@ const Reportes: React.FC = () => {
   ];
 
   const getTotalVentas = () => {
-    return reporteVentas.reduce((total, reporte) => total + reporte.ventasTotales, 0);
+    return reporteVentas.reduce((total, reporte) => 
+      total + (reporte.ventasTotales || 0), 0
+    );
   };
 
   const getTotalGastos = () => {
-    return reporteVentas.reduce((total, reporte) => total + reporte.gastosTotales, 0);
+    return reporteVentas.reduce((total, reporte) => 
+      total + (reporte.gastosTotales || 0), 0
+    );
   };
 
   const getTotalUtilidad = () => {
-    return getTotalVentas() - getTotalGastos();
+    const totalVentas = getTotalVentas();
+    const totalGastos = getTotalGastos();
+    return totalVentas - totalGastos;
   };
 
   const getTotalInventario = () => {
     return reporteInventario.reduce((total, item) => total + item.valorTotal, 0);
   };
 
+  const mostrarOrdenesDeDia = (fecha: string) => {
+    const ordenesFiltradas = ordenes.filter(o => 
+      new Date(o.fechaHora).toISOString().split('T')[0] === fecha
+    );
+    setOrdenesDia(ordenesFiltradas);
+    setDiaSeleccionado(fecha);
+    setOrdenExpandida(null);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reportes</h1>
-          <p className="text-gray-600 mt-1">Análisis y estadísticas del restaurante</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reportes</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Análisis y estadísticas del restaurante</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={loadReports}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Actualizar
+            <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Actualizar</span>
+            <span className="sm:hidden">Act.</span>
           </button>
           <button
             onClick={handleExportReport}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+            className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Exportar
+            <Download className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar</span>
+            <span className="sm:hidden">Exp.</span>
           </button>
         </div>
       </div>
@@ -131,22 +327,23 @@ const Reportes: React.FC = () => {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+        <div className="border-b border-gray-200 overflow-x-auto">
+          <nav className="flex min-w-max space-x-2 sm:space-x-8 p-2 sm:px-6">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center space-x-1 sm:space-x-2 py-2 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.name}</span>
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{tab.name}</span>
+                  <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -155,25 +352,27 @@ const Reportes: React.FC = () => {
 
         {/* Date Filter */}
         {(activeTab === 'ventas' || activeTab === 'gastos') && (
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:space-x-4">
               <div className="flex items-center space-x-2">
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <span className="text-sm font-medium text-gray-700">Período:</span>
               </div>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              <span className="text-gray-500">hasta</span>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
+              <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <span className="hidden sm:block text-gray-500">hasta</span>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -190,75 +389,191 @@ const Reportes: React.FC = () => {
               {activeTab === 'ventas' && (
                 <div className="space-y-6">
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="bg-green-50 p-4 sm:p-6 rounded-lg border border-green-200">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-green-600">Total Ventas</p>
-                          <p className="text-2xl font-bold text-green-900">
+                          <p className="text-xs sm:text-sm text-green-600">Total Ventas</p>
+                          <p className="text-xl sm:text-2xl font-bold text-green-900">
                             ${getTotalVentas().toFixed(2)}
                           </p>
                         </div>
-                        <TrendingUp className="w-8 h-8 text-green-600" />
+                        <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
                       </div>
                     </div>
                     
-                    <div className="bg-red-50 p-6 rounded-lg border border-red-200">
+                    <div className="bg-red-50 p-4 sm:p-6 rounded-lg border border-red-200">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-red-600">Total Gastos</p>
-                          <p className="text-2xl font-bold text-red-900">
+                          <p className="text-xs sm:text-sm text-red-600">Total Gastos</p>
+                          <p className="text-xl sm:text-2xl font-bold text-red-900">
                             ${getTotalGastos().toFixed(2)}
                           </p>
                         </div>
-                        <DollarSign className="w-8 h-8 text-red-600" />
+                        <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-red-600" />
                       </div>
                     </div>
                     
-                    <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                    <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-200 col-span-1 sm:col-span-2 md:col-span-1">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-blue-600">Utilidad</p>
-                          <p className="text-2xl font-bold text-blue-900">
+                          <p className="text-xs sm:text-sm text-blue-600">Utilidad</p>
+                          <p className="text-xl sm:text-2xl font-bold text-blue-900">
                             ${getTotalUtilidad().toFixed(2)}
                           </p>
                         </div>
-                        <BarChart3 className="w-8 h-8 text-blue-600" />
+                        <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Sales Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Ventas</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Gastos</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Utilidad</th>
-                          <th className="text-left py-3 px-4 font-medium text-gray-900">Órdenes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reporteVentas.map((reporte, index) => (
-                          <tr key={index} className="border-b border-gray-100">
-                            <td className="py-3 px-4">{reporte.fecha}</td>
-                            <td className="py-3 px-4 text-green-600 font-medium">
-                              ${reporte.ventasTotales.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-red-600 font-medium">
-                              ${reporte.gastosTotales.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-blue-600 font-medium">
-                              ${reporte.utilidad.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4">{reporte.ordenes}</td>
+                  {/* Sales Summary Table */}
+                  <div className="overflow-x-auto -mx-6 sm:mx-0">
+                    <div className="inline-block min-w-full align-middle">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen por Día</h3>
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr className="text-xs sm:text-sm">
+                            <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Fecha</th>
+                            <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Ventas</th>
+                            <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Órdenes</th>
+                            <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Acciones</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {reporteVentas.map((reporte, index) => (
+                            <tr key={index} className="text-xs sm:text-sm">
+                              <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">{reporte.fecha}</td>
+                              <td className="py-2 sm:py-3 px-3 sm:px-4 text-green-600 font-medium whitespace-nowrap">
+                                ${reporte.ventasTotales.toFixed(2)}
+                              </td>
+                              <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">{reporte.ordenes}</td>
+                              <td className="py-2 sm:py-3 px-3 sm:px-4">
+                                <button
+                                  className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                                  onClick={() => mostrarOrdenesDeDia(reporte.fecha)}
+                                >
+                                  Ver órdenes
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
+                  {/* Tabla de órdenes del día */}
+                  {diaSeleccionado && (
+                    <div className="mt-6">
+                      <h3 className="font-bold text-lg mb-2">
+                        Órdenes del día {diaSeleccionado}
+                        <button className="ml-4 text-sm text-gray-500" onClick={() => setDiaSeleccionado(null)}>
+                          Cerrar
+                        </button>
+                      </h3>
+                      <div className="overflow-x-auto w-full">
+                        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+                          <thead>
+                            <tr>
+                              <th className="px-2 py-2 whitespace-nowrap">Folio</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Mesa</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Tipo</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Total</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Hora</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Detalles</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ordenesDia.map(orden => {
+                              const productosOrden = productos.filter(p => p.idOrden === orden._id);
+                              const platillosOrden = platillos.filter(pl => {
+                                return pl.idSuborden && pl.idSuborden.startsWith(orden._id.slice(0, 8));
+                              });
+                              return (
+                                <React.Fragment key={orden._id}>
+                                  <tr>
+                                    <td className="px-2 py-2 whitespace-nowrap">{orden.folio}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap">{orden.idMesa || 'N/A'}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap">{orden.nombreTipoOrden}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap">${orden.total.toFixed(2)}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap">
+                                      <button
+                                        className="bg-orange-500 text-white px-2 py-1 rounded text-xs"
+                                        onClick={() => setOrdenExpandida(orden._id === ordenExpandida ? null : orden._id)}
+                                      >
+                                        {orden._id === ordenExpandida ? 'Ocultar' : 'Ver Detalles'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                  {orden._id === ordenExpandida && (
+                                    <tr>
+                                      <td colSpan={6} className="p-0">
+                                        <div className="bg-gray-50 p-2 sm:p-4 rounded-lg overflow-x-auto">
+                                          <h4 className="font-semibold mb-2 text-xs sm:text-sm">Productos</h4>
+                                          {productosOrden.length > 0 ? (
+                                            <div className="overflow-x-auto">
+                                              <table className="min-w-full mb-2 text-xs sm:text-sm">
+                                                <thead>
+                                                  <tr>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Nombre</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Cantidad</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Importe</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {productosOrden.map(prod => (
+                                                    <tr key={prod._id}>
+                                                      <td className="px-2 py-2 whitespace-nowrap">{prod.nombreProducto}</td>
+                                                      <td className="px-2 py-2 whitespace-nowrap">{prod.cantidad}</td>
+                                                      <td className="px-2 py-2 whitespace-nowrap">${prod.importe.toFixed(2)}</td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          ) : (
+                                            <p className="text-gray-500 text-xs sm:text-sm">No hay productos.</p>
+                                          )}
+                                          <h4 className="font-semibold mb-2 text-xs sm:text-sm">Platillos</h4>
+                                          {platillosOrden.length > 0 ? (
+                                            <div className="overflow-x-auto">
+                                              <table className="min-w-full text-xs sm:text-sm">
+                                                <thead>
+                                                  <tr>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Nombre</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Guiso</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Cantidad</th>
+                                                    <th className="px-2 py-2 whitespace-nowrap">Importe</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {platillosOrden.map(pl => (
+                                                    <tr key={pl._id}>
+                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.nombrePlatillo}</td>
+                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.nombreGuiso}</td>
+                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.cantidad}</td>
+                                                      <td className="px-2 py-2 whitespace-nowrap">${pl.importe.toFixed(2)}</td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          ) : (
+                                            <p className="text-gray-500 text-xs sm:text-sm">No hay platillos.</p>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

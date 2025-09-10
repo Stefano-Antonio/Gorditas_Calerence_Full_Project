@@ -286,11 +286,12 @@ const Dashboard: React.FC = () => {
               <button
                 onClick={() => updateOrderStatus(orden._id, 'Recepcion')}
                 disabled={isUpdating}
-                className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+                className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-green-100 text-green-600 rounded text-[10px] sm:text-xs hover:bg-green-200 transition-colors disabled:opacity-50 whitespace-nowrap"
                 title="Marcar como verificada y completa"
               >
                 {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                <span>Verificar</span>
+                <span className="hidden sm:inline">Verificar</span>
+                <span className="sm:hidden">Ver.</span>
               </button>
             </div>
           );
@@ -388,14 +389,15 @@ const Dashboard: React.FC = () => {
       <button
         onClick={() => updateOrderStatus(orden._id, nextStatus)}
         disabled={isUpdating}
-        className="flex items-center space-x-1 px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-sm disabled:opacity-50"
+        className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors text-[10px] sm:text-sm disabled:opacity-50 whitespace-nowrap"
       >
         {isUpdating ? (
-          <RefreshCw className="w-4 h-4 animate-spin" />
+          <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
         ) : (
           <>
-            <ArrowRight className="w-4 h-4" />
-            <span>{nextStatus}</span>
+            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">{nextStatus}</span>
+            <span className="sm:hidden">{nextStatus.substring(0, 4)}.</span>
           </>
         )}
       </button>
@@ -538,9 +540,9 @@ const Dashboard: React.FC = () => {
                 {ordenesWorkflow.map((orden) => (
                   <div
                     key={orden._id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 mb-2 sm:mb-0">
                       <div className="flex items-center space-x-2">
                         {getStatusIcon(orden.estatus)}
                         <div>
@@ -549,33 +551,35 @@ const Dashboard: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(orden.estatus)}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(orden.estatus)}`}>
                           {orden.estatus}
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-xs text-gray-500">
                           {orden.tiempoTranscurrido}
                         </span>
                         {/* Order modification indicator */}
                         {orden.estatus === 'Pendiente' && (
-                          <span className="px-2 py-1 text-xs bg-orange-100 text-orange-600 rounded">
-                            Requiere validación
+                          <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded whitespace-nowrap">
+                            Val.
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-900">
+                    <div className="flex items-center justify-end w-full sm:w-auto gap-2">
+                      <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                         ${orden.total.toFixed(2)}
                       </span>
                       
                       {/* Workflow Action Buttons */}
-                      {renderWorkflowActions(orden)}
+                      <div className="flex items-center gap-1">
+                        {renderWorkflowActions(orden)}
+                      </div>
                       
                       <Link
                         to="/editar-orden"
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                       >
                         <Edit className="w-4 h-4" />
                       </Link>

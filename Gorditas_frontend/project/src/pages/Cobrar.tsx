@@ -37,9 +37,9 @@ const Cobrar: React.FC = () => {
         } else if (Array.isArray(response.data)) {
           ordenesArray = response.data;
         }
-        // Filtrar todas las órdenes con estatus Entregada o Surtida
+        // Filtrar solo las órdenes con estatus Entregada
         const ordenesFiltradas = ordenesArray.filter(
-          (orden: Orden) => orden.estatus === 'Entregada' || orden.estatus === 'Surtida'
+          (orden: Orden) => orden.estatus === 'Entregada'
         );
         // Cargar detalles para cada orden
         const ordenesConDetalles: OrdenCompleta[] = [];
@@ -219,15 +219,31 @@ const Cobrar: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
-                  <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center">
-                    <Receipt className="w-4 h-4 mr-1" /> PDF
+                <div className="flex gap-0.5 sm:gap-2">
+                  <button 
+                    onClick={() => handleGenerateTicket(orden)} 
+                    className="flex-1 min-w-0 px-1.5 sm:px-3 py-1 sm:py-2 bg-blue-600 text-white text-[10px] sm:text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center whitespace-nowrap"
+                  >
+                    <Receipt className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1 shrink-0" />
+                    <span className="hidden sm:inline">PDF</span>
+                    <span className="sm:hidden">PDF</span>
                   </button>
-                  <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center">
-                    <Printer className="w-4 h-4 mr-1" /> Imprimir
+                  <button 
+                    onClick={() => handlePrintTicket(orden)} 
+                    className="flex-1 min-w-0 px-1.5 sm:px-3 py-1 sm:py-2 bg-gray-600 text-white text-[10px] sm:text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center whitespace-nowrap"
+                  >
+                    <Printer className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1 shrink-0" />
+                    <span className="hidden sm:inline">Imprimir</span>
+                    <span className="sm:hidden">Imp</span>
                   </button>
-                  <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 mr-1" /> Cobrar
+                  <button 
+                    onClick={() => handleFinalizarOrden(orden)} 
+                    disabled={processing} 
+                    className="flex-1 min-w-0 px-1.5 sm:px-3 py-1 sm:py-2 bg-green-600 text-white text-[10px] sm:text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center whitespace-nowrap"
+                  >
+                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-0.5 sm:mr-1 shrink-0" />
+                    <span className="hidden sm:inline">Cobrar</span>
+                    <span className="sm:hidden">Cobrar</span>
                   </button>
                 </div>
               </div>

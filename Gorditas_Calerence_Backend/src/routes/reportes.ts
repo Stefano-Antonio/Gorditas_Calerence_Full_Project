@@ -15,12 +15,11 @@ const router = Router();
 // GET /api/reportes/ventas - Reporte de ventas
 router.get('/ventas', authenticate, isEncargado, 
   asyncHandler(async (req: any, res: any) => {
-    const { fechaInicio, fechaFin, tipoOrden, mesa } = req.query;
-    
-    const filter: any = {
-      estatus: { $in: [OrdenStatus.ENTREGADA] }
-    };
+    const { fechaInicio, fechaFin } = req.query;
 
+    const filter: any = { estatus: "Pagada" };
+
+    // Filtro por rango de fechas
     if (fechaInicio && fechaFin) {
       filter.fechaHora = {
         $gte: new Date(fechaInicio),
@@ -28,11 +27,29 @@ router.get('/ventas', authenticate, isEncargado,
       };
     }
 
-    if (tipoOrden) filter.idTipoOrden = parseInt(tipoOrden);
-    if (mesa) filter.idMesa = parseInt(mesa);
+    // Contabiliza las ordenes con estatus "Pagada"
+    const pagadasCount = await Orden.countDocuments({ estatus: "Pagada" });
 
-    const [ordenes, resumen] = await Promise.all([
-      Orden.find(filter).sort({ fechaHora: -1 }),
+    // Obtiene las ordenes filtradas
+    const ordenes = await Orden.find(filter).sort({ fechaHora: -1 });
+
+    // Obtiene los IDs de las ordenes filtradas
+    const ordenIds = ordenes.map(o => o._id);
+
+    // Busca los productos de las ordenes filtradas
+    const productos = await OrdenDetalleProducto.find({ idOrden: { $in: ordenIds } });
+
+    // Busca los platillos de las subordenes asociadas a las ordenes filtradas
+    // Primero obtenemos las subordenes asociadas
+    const subordenes = await (await import('../models')).Suborden.find({ idOrden: { $in: ordenIds } }).select('_id');
+    const subordenIds = subordenes.map((s: any) => s._id);
+
+    // Ahora obtenemos los platillos usando los subordenIds
+    const platillos = await OrdenDetallePlatillo.find({ idSuborden: { $in: subordenIds } });
+
+    // El resto de los cálculos
+    const [total, resumen, ventasPorDia, ventasPorTipo] = await Promise.all([
+      Orden.countDocuments(filter),
       Orden.aggregate([
         { $match: filter },
         {
@@ -43,39 +60,41 @@ router.get('/ventas', authenticate, isEncargado,
             promedioVenta: { $avg: '$total' }
           }
         }
+      ]),
+      Orden.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } },
+            ventas: { $sum: '$total' },
+            ordenes: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]),
+      Orden.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$nombreTipoOrden',
+            ventas: { $sum: '$total' },
+            ordenes: { $sum: 1 }
+          }
+        }
       ])
     ]);
-
-    // Ventas por día
-    const ventasPorDia = await Orden.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } },
-          ventas: { $sum: '$total' },
-          ordenes: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-
-    // Ventas por tipo de orden
-    const ventasPorTipo = await Orden.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: '$nombreTipoOrden',
-          ventas: { $sum: '$total' },
-          ordenes: { $sum: 1 }
-        }
-      }
-    ]);
-
+    console.log({ pagadasCount });
     res.json(createResponse(true, {
       ordenes,
+      productos,
+      platillos,
+      pagination: {
+        total
+      },
       resumen: resumen[0] || { totalVentas: 0, cantidadOrdenes: 0, promedioVenta: 0 },
       ventasPorDia,
-      ventasPorTipo
+      ventasPorTipo,
+      ordenesPagadas: pagadasCount
     }));
   })
 );

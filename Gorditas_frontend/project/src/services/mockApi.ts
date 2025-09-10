@@ -114,6 +114,21 @@ class MockApiService {
       };
     }
     
+    if (email === 'Encargado@gorditas.com' && password === 'encargado123') {
+      return {
+        success: true,
+        data: {
+          token: 'mock-token',
+          user: { 
+            _id: '4', 
+            nombre: 'Encargado', 
+            email: 'Encargado@gorditas.com',
+            nombreTipoUsuario: 'Encargado'
+          }
+        }
+      };
+    }
+    
     return {
       success: false,
       error: 'Credenciales inválidas'
@@ -121,6 +136,18 @@ class MockApiService {
   }
 
   async getProfile() {
+    const token = localStorage.getItem('token');
+    if (token === 'mock-token') {
+      return {
+        success: true,
+        data: { 
+          _id: '4', 
+          nombre: 'Encargado', 
+          email: 'Encargado@gorditas.com',
+          nombreTipoUsuario: 'Encargado'
+        }
+      };
+    }
     return {
       success: true,
       data: { 

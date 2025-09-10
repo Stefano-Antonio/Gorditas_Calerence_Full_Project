@@ -27,9 +27,9 @@ async function ensureAdminUser() {
     const admin = new Usuario({
       nombre: 'Encargado',
       email: adminEmail,
-      password: 'encargado123', // Se hashea automáticamente por el modelo
+      password: 'encargado123',
       idTipoUsuario: 1,
-      nombreTipoUsuario: 'Encargado',
+      nombreTipoUsuario: 'Admin',
       activo: true
     });
     await admin.save();

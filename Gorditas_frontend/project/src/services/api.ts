@@ -1,6 +1,6 @@
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:5000/api';
 const USE_MOCK_API = import.meta.env.DEV && !import.meta.env.VITE_DISABLE_MOCK;
 class ApiService {
   async getOrden(ordenId: string) {

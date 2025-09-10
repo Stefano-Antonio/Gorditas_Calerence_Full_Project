@@ -94,29 +94,30 @@ async function seedData() {
     console.log('✅ Created user types');
 
     // Create test users including required Encargado and Despachador
-    const hashedPassword = await bcrypt.hash('password123', 12);
+    const hashedPasswordAdmin = await bcrypt.hash('password123', 12);
+    const hashedPasswordEncargado = await bcrypt.hash('encargado123', 12);
     
     await Usuario.insertMany([
       {
         nombre: 'Admin Test',
         email: 'admin@test.com',
-        password: hashedPassword,
+        password: hashedPasswordAdmin,
         idTipoUsuario: 1,
         nombreTipoUsuario: 'Admin',
         activo: true
       },
       {
         nombre: 'Juan Pérez - Encargado',
-        email: 'encargado@test.com',
-        password: hashedPassword,
-        idTipoUsuario: 2,
-        nombreTipoUsuario: 'Encargado',
+        email: 'Encargado@gorditas.com',
+        password: hashedPasswordEncargado,
+        idTipoUsuario: 1,
+        nombreTipoUsuario: 'Admin',
         activo: true
       },
       {
         nombre: 'María García - Despachador',
         email: 'despachador@test.com',
-        password: hashedPassword,
+        password: hashedPasswordAdmin,
         idTipoUsuario: 3,
         nombreTipoUsuario: 'Despachador',
         activo: true

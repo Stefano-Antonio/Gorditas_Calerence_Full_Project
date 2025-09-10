@@ -1,8 +1,32 @@
 services:
+  
+  backend:
+    image: desarollonerualmane/calerence_backend
+    container_name: calerence_back
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:admin123@calerence_mongo:27017/calerence_db?authSource=admin
+    command: ["npm", "run", "dev"]
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  frontend:
+    image: desarollonerualmane/calerence_frontend:latest
+    container_name: calerence_front
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:5000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   mongo:
-    image: mongo:6.0
+    image: mongo:latest
     container_name: calerence_mongo
-    restart: always
     ports:
       - "27017:27017"
     environment:
@@ -11,26 +35,7 @@ services:
       MONGO_INITDB_DATABASE: calerence_db
     volumes:
       - mongo_data:/data/db
-
-  backend:
-    build: ./Gorditas_Calerence_Backend
-    container_name: calerence_back
-    ports:
-      - "5000:5000"
-    environment:
-      MONGO_URI: mongodb://admin:admin123@calerence_mongo:27017/calerence_db?authSource=admin
-    depends_on:
-      - mongo
-
-  frontend:
-    build: ./Gorditas_frontend
-    container_name: calerence_front
-    ports:
-      - "80:80"
-    environment:
-      VITE_API_URL: http://calerence_back:5000
-    depends_on:
-      - backend
+    restart: unless-stopped
 
 volumes:
   mongo_data:

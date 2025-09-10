@@ -1,17 +1,10 @@
-# Etapa 1: Build
-FROM node:18 AS build
+FROM node:18-alpine
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install
 
 COPY . ./
-# Si usas TypeScript, compila aquí:
-# RUN npm run build
-
-# Etapa 2: Producción
-FROM node:18-alpine
-WORKDIR /app
-COPY --from=build /app ./
+ENV PORT=5000
 EXPOSE 5000
 CMD ["npm", "start"]

@@ -1,6 +1,6 @@
 services:
   
-  backend:
+  calerence_back:
     image: desarollonerualmane/calerence_backend
     container_name: calerence_back
     ports:
@@ -14,7 +14,7 @@ services:
       - mongo
     restart: unless-stopped
 
-  frontend:
+  calerence_front:
     image: desarollonerualmane/calerence_frontend:latest
     container_name: calerence_front
     ports:

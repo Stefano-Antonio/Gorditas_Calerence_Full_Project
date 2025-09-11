@@ -7,7 +7,7 @@ services:
       - "5000:5000"
     environment:
       PORT: 5000
-      MONGODB_URI: mongodb://admin:admin123@calerence_mongo:27017/calerence_db?authSource=admin
+      MONGODB_URI: mongodb://admin:admin123@mongo:27017/calerence_db?authSource=admin
       JWT_SECRET: StAn121120360ne
     command: ["npm", "run", "dev"]
     depends_on:
@@ -27,8 +27,8 @@ services:
     restart: unless-stopped
 
   mongo:
-    image: mongo:6.0
-    container_name: calerence_mongo
+    image: mongo:5.0
+    container_name: mongo
     ports:
       - "27017:27017"
     environment:
@@ -38,10 +38,11 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
 
 

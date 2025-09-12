@@ -46,7 +46,7 @@ class ApiService {
     console.error('❌ Error connecting to backend:', error);
     return {
       success: false,
-      error: 'Error de conexión con el servidor',
+      error: 'No hay información disponible - Error de conexión con el servidor',
     };
   }
 }

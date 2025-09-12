@@ -25,8 +25,7 @@ export const createUserSchema = Joi.object({
   nombre: Joi.string().required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
-  idTipoUsuario: Joi.number().required(),
-  nombreTipoUsuario: Joi.string().required()
+  idTipoUsuario: Joi.number().required()
 });
 
 export const createOrdenSchema = Joi.object({
@@ -34,6 +33,7 @@ export const createOrdenSchema = Joi.object({
   nombreTipoOrden: Joi.string().required(),
   idMesa: Joi.number().optional(),
   nombreMesa: Joi.string().optional(),
+  nombreCliente: Joi.string().optional(),
   total: Joi.number().min(0).required(),
   estatus: Joi.string().optional()
 });
@@ -41,16 +41,20 @@ export const createOrdenSchema = Joi.object({
 export const addProductToOrdenSchema = Joi.object({
   idOrden: Joi.string().required(),
   idProducto: Joi.number().required(),
-  nombreProducto: Joi.string().required(),
   costoProducto: Joi.number().min(0).required(),
   cantidad: Joi.number().min(1).required()
 });
 
 export const addPlatilloToSubordenSchema = Joi.object({
   idPlatillo: Joi.number().required(),
-  nombrePlatillo: Joi.string().required(),
   idGuiso: Joi.number().required(),
-  nombreGuiso: Joi.string().required(),
   costoPlatillo: Joi.number().min(0).required(),
   cantidad: Joi.number().min(1).required()
+});
+
+export const createGastoSchema = Joi.object({
+  nombre: Joi.string().required(),
+  idTipoGasto: Joi.number().required(),
+  gastoTotal: Joi.number().min(0).required(),
+  descripcion: Joi.string().optional()
 });

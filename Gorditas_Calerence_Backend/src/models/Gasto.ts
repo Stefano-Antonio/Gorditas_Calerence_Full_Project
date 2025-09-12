@@ -4,9 +4,11 @@ import { IGasto } from '../types';
 export interface IGastoDocument extends Omit<IGasto, '_id'>, Document {}
 
 const gastoSchema = new Schema<IGastoDocument>({
+  nombre: { type: String, required: true, trim: true },
   idTipoGasto: { type: Number, required: true },
   nombreTipoGasto: { type: String, required: true, trim: true },
-  costo: { type: Number, required: true, min: 0 },
+  gastoTotal: { type: Number, required: true, min: 0 },
+  descripcion: { type: String, trim: true },
   fecha: { type: Date, default: Date.now }
 }, {
   timestamps: true,

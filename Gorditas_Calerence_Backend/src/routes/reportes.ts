@@ -148,9 +148,9 @@ router.get('/gastos', authenticate, isEncargado,
         {
           $group: {
             _id: null,
-            totalGastos: { $sum: '$costo' },
+            totalGastos: { $sum: '$gastoTotal' },
             cantidadGastos: { $sum: 1 },
-            promedioGasto: { $avg: '$costo' }
+            promedioGasto: { $avg: '$gastoTotal' }
           }
         }
       ])
@@ -162,7 +162,7 @@ router.get('/gastos', authenticate, isEncargado,
       {
         $group: {
           _id: '$nombreTipoGasto',
-          gastos: { $sum: '$costo' },
+          gastos: { $sum: '$gastoTotal' },
           cantidad: { $sum: 1 }
         }
       },
@@ -175,7 +175,7 @@ router.get('/gastos', authenticate, isEncargado,
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } },
-          gastos: { $sum: '$costo' },
+          gastos: { $sum: '$gastoTotal' },
           cantidad: { $sum: 1 }
         }
       },
@@ -188,6 +188,41 @@ router.get('/gastos', authenticate, isEncargado,
       gastosPorTipo,
       gastosPorDia
     }));
+  })
+);
+
+// POST /api/reportes/gastos - Crear nuevo gasto
+router.post('/gastos', authenticate, isEncargado, 
+  asyncHandler(async (req: any, res: any) => {
+    const { validate, createGastoSchema } = await import('../middleware/validation');
+    
+    // Validate request
+    const { error } = createGastoSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json(createResponse(false, null, error.details.map(d => d.message).join(', ')));
+    }
+
+    const { nombre, idTipoGasto, gastoTotal, descripcion } = req.body;
+    
+    // Get tipo gasto name
+    const { TipoGasto } = await import('../models');
+    const tipoGasto = await TipoGasto.findById(idTipoGasto);
+    if (!tipoGasto) {
+      return res.status(400).json(createResponse(false, null, 'Tipo de gasto no encontrado'));
+    }
+
+    const nuevoGasto = new Gasto({
+      nombre,
+      idTipoGasto,
+      nombreTipoGasto: tipoGasto.nombre,
+      gastoTotal,
+      descripcion: descripcion || '',
+      fecha: new Date()
+    });
+
+    await nuevoGasto.save();
+    
+    res.status(201).json(createResponse(true, nuevoGasto, 'Gasto creado exitosamente'));
   })
 );
 

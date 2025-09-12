@@ -7,7 +7,8 @@ import {
   Save,
   X,
   Search,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { BaseEntity } from '../types';
@@ -21,11 +22,11 @@ interface CatalogItem extends BaseEntity {
 const catalogModels = [
   { id: 'guiso', name: 'Guisos', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipoproducto', name: 'Tipos de Producto', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'nombreTipoProducto', 'cantidad', 'costo'], hasActivo: true },
+  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo', 'precio'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'nombreTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
+  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo', 'precio'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
-  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'idTipoUsuario', 'nombreTipoUsuario'], hasActivo: true },
+  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },
 ];
 
@@ -203,10 +204,8 @@ const Catalogos: React.FC = () => {
         } else {
           setError('Error guardando el item');
         }
-        console.error('Error al guardar el item:', response.error); // Debugging log
       }
     } catch (error) {
-      console.error('Error inesperado al guardar el item:', error); // Debugging log
       setError('Error guardando el item');
     } finally {
       setSaving(false);
@@ -246,6 +245,11 @@ const Catalogos: React.FC = () => {
     } catch (error) {
       setError('Error actualizando el item');
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadItems();
+    setSuccess('Datos actualizados');
   };
 
   const renderField = (field: string, value: any) => {
@@ -337,9 +341,6 @@ const Catalogos: React.FC = () => {
       case 'capacidad':
       case 'costo':
       case 'precio':
-      case 'idTipoProducto':
-      case 'idTipoPlatillo':
-      case 'idTipoUsuario':
         return (
           <input
             type="number"
@@ -463,6 +464,13 @@ const Catalogos: React.FC = () => {
               {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
               {selectedModel.id !== 'tipousuario' && (
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={handleRefresh}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+                    title="Actualizar datos"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
                   <div className="flex items-center space-x-2">
                     <Search className="w-4 h-4 text-gray-400" />
                     <input

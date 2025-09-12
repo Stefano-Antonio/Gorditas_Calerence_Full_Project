@@ -81,6 +81,7 @@ export interface Orden extends BaseEntity {
   fechaHora?: Date;
   subordenes?: string[];
   nombreMesa?: string;
+  nombreCliente?: string;
   folio?: string;
 }
 
@@ -119,10 +120,12 @@ export interface OrdenDetalleProducto extends BaseEntity {
 }
 
 export interface Gasto extends BaseEntity {
-  tipoGasto: string;
-  usuario: string;
-  monto: number;
+  nombre: string;
+  gastoTotal: number;
   descripcion?: string;
+  idTipoGasto: number;
+  nombreTipoGasto: string;
+  costo: number;
   fecha: Date;
 }
 

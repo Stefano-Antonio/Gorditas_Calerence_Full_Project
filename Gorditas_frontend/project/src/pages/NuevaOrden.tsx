@@ -43,7 +43,7 @@ const NuevaOrden: React.FC = () => {
   const steps: OrderStep[] = [
     { step: 1, title: 'Seleccionar Mesa', completed: !!selectedMesa },
     { step: 2, title: 'Crear Suborden', completed: !!nombreSuborden },
-    { step: 3, title: 'Agregar Platillos', completed: platillosSeleccionados.length > 0 },
+    { step: 3, title: 'Agregar Platillos', completed: platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 },
     { step: 4, title: 'Validar y Confirmar', completed: false },
   ];
 
@@ -136,6 +136,7 @@ const NuevaOrden: React.FC = () => {
       const ordenData = {
         idMesa: selectedMesa._id,
         nombreMesa: selectedMesa.nombre,
+        nombreCliente: nombreSuborden,
         idTipoOrden: 1, // Mesa type
         nombreTipoOrden: 'Mesa',
         total: totalCalculado,
@@ -233,7 +234,7 @@ const NuevaOrden: React.FC = () => {
     switch (currentStep) {
       case 1: return !!selectedMesa;
       case 2: return !!nombreSuborden;
-      case 3: return platillosSeleccionados.length > 0;
+      case 3: return platillosSeleccionados.length > 0 || productosSeleccionados.length > 0;
       case 4: return true; // Validation step, always allow to proceed
       default: return false;
     }

@@ -7,7 +7,8 @@ import {
   Save,
   Search,
   ShoppingCart,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto } from '../types';
@@ -15,6 +16,7 @@ import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, 
 const EditarOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
+  const [nombreCliente, setNombreCliente] = useState('');
   const [subordenes, setSubordenes] = useState<Suborden[]>([]);
   const [platillosDetalle, setPlatillosDetalle] = useState<OrdenDetallePlatillo[]>([]);
   const [productosDetalle, setProductosDetalle] = useState<OrdenDetalleProducto[]>([]);
@@ -90,6 +92,7 @@ const EditarOrden: React.FC = () => {
   const loadOrdenDetails = async (orden: Orden) => {
     try {
       setSelectedOrden(orden);
+      setNombreCliente(orden.nombreCliente || '');
       const response = await apiService.getOrdenDetails(orden._id!);
       
       if (response.success) {
@@ -111,20 +114,18 @@ const EditarOrden: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log('Platillos disponibles:', platillos);
-    console.log('Guisos disponibles:', guisos);
+    // Removed debug logs for cleaner code
   }, [platillos, guisos]);
 
-  const handleAddPlatillo = async () => {
-  console.log('Inicio de handleAddPlatillo');
-  console.log('Platillos disponibles:', platillos);
-  console.log('Guisos disponibles:', guisos);
-  console.log('Platillo seleccionado:', selectedPlatillo);
-  console.log('Guiso seleccionado:', selectedGuiso);
-  console.log('Cantidad seleccionada:', cantidad);
+  const handleRefresh = async () => {
+    await loadData();
+    if (selectedOrden) {
+      await loadOrdenDetails(selectedOrden);
+    }
+  };
 
+  const handleAddPlatillo = async () => {
   if (!selectedOrden || !selectedPlatillo || !selectedGuiso) {
-    console.warn('No se encontró platillo o guiso:', { selectedPlatillo, selectedGuiso, platillos, guisos });
     setError('Selecciona platillo y guiso');
     return;
   }
@@ -310,6 +311,15 @@ const EditarOrden: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Editar Orden</h1>
           <p className="text-gray-600 mt-1">Selecciona una orden para ver detalles y modificar</p>
         </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
+          title="Actualizar"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Actualizar
+        </button>
       </div>
 
       {error && (
@@ -415,11 +425,24 @@ const EditarOrden: React.FC = () => {
                     ) : (
                       platillosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium text-gray-900">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
                             <p className="text-sm text-gray-600">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
                             <p className="text-sm text-gray-600">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                            {/* Status indicators for dispatched items */}
+                            <div className="flex space-x-2 mt-2">
+                              {detalle.listo && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                  Listo
+                                </span>
+                              )}
+                              {detalle.entregado && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Entregado
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
@@ -444,10 +467,23 @@ const EditarOrden: React.FC = () => {
                     ) : (
                       productosDetalle.map((detalle, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium text-gray-900">{detalle.nombreProducto || detalle.producto || `Producto ${index + 1}`}</p>
                             <p className="text-sm text-gray-600">Tipo: {detalle.idProducto ? detalle.idProducto : 'N/A'}</p>
                             <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                            {/* Status indicators for dispatched items */}
+                            <div className="flex space-x-2 mt-2">
+                              {detalle.listo && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                  Listo
+                                </span>
+                              )}
+                              {detalle.entregado && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Entregado
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button

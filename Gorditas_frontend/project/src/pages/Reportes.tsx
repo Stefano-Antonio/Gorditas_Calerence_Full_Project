@@ -8,6 +8,9 @@ import {
   Download,
   Filter,
   RefreshCw,
+  Plus,
+  X,
+  Save
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import ExcelJS from 'exceljs';
@@ -51,11 +54,14 @@ interface ProductoVendido {
 }
 
 interface Gasto {
+  _id?: string;
+  nombre: string;
+  gastoTotal: number;
+  descripcion?: string;
+  idTipoGasto: number;
+  nombreTipoGasto: string;
+  costo: number;
   fecha: Date;
-  tipoGasto: string;
-  descripcion: string;
-  monto: number;
-  usuario: string;
 }
 
 const Reportes: React.FC = () => {
@@ -82,6 +88,27 @@ const Reportes: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Expense creation modal state
+  const [showCreateGasto, setShowCreateGasto] = useState(false);
+  const [creatingGasto, setCreatingGasto] = useState(false);
+  const [newGasto, setNewGasto] = useState({
+    nombre: '',
+    gastoTotal: 0,
+    descripcion: '',
+    idTipoGasto: 1,
+    nombreTipoGasto: 'Operativo'
+  });
+
+  // Tipos de gasto predefinidos
+  const tiposGasto = [
+    { id: 1, nombre: 'Operativo' },
+    { id: 2, nombre: 'Suministros' },
+    { id: 3, nombre: 'Mantenimiento' },
+    { id: 4, nombre: 'Servicios' },
+    { id: 5, nombre: 'Otros' }
+  ];
 
   useEffect(() => {
     loadReports();
@@ -222,10 +249,10 @@ const Reportes: React.FC = () => {
     } else if (activeTab === 'gastos') {
       data = reporteGastos.map(gasto => ({
         Fecha: new Date(gasto.fecha).toLocaleDateString(),
-        Tipo: gasto.tipoGasto,
-        Descripción: gasto.descripcion,
-        Monto: gasto.monto,
-        Usuario: gasto.usuario,
+        Nombre: gasto.nombre,
+        Tipo: gasto.nombreTipoGasto,
+        Descripción: gasto.descripcion || 'N/A',
+        Monto: gasto.gastoTotal || gasto.costo,
       }));
     }
 
@@ -283,6 +310,45 @@ const Reportes: React.FC = () => {
     return reporteInventario.reduce((total, item) => total + item.valorTotal, 0);
   };
 
+  const handleCreateGasto = async () => {
+    if (!newGasto.nombre || newGasto.gastoTotal <= 0) {
+      setError('Completa todos los campos requeridos');
+      return;
+    }
+
+    setCreatingGasto(true);
+    setError('');
+
+    try {
+      const response = await apiService.createGasto(newGasto);
+      
+      if (response.success) {
+        setSuccess('Gasto creado exitosamente');
+        setShowCreateGasto(false);
+        setNewGasto({
+          nombre: '',
+          gastoTotal: 0,
+          descripcion: '',
+          idTipoGasto: 1,
+          nombreTipoGasto: 'Operativo'
+        });
+        
+        // Reload gastos if we're on the gastos tab
+        if (activeTab === 'gastos') {
+          await loadReports();
+        }
+        
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error creando el gasto');
+      }
+    } catch (error) {
+      setError('Error creando el gasto');
+    } finally {
+      setCreatingGasto(false);
+    }
+  };
+
   const mostrarOrdenesDeDia = (fecha: string) => {
     const ordenesFiltradas = ordenes.filter(o => 
       new Date(o.fechaHora).toISOString().split('T')[0] === fecha
@@ -322,6 +388,12 @@ const Reportes: React.FC = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+          {success}
         </div>
       )}
 
@@ -373,6 +445,15 @@ const Reportes: React.FC = () => {
                   className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
+              {activeTab === 'gastos' && (
+                <button
+                  onClick={() => setShowCreateGasto(true)}
+                  className="ml-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear Gasto
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -662,22 +743,22 @@ const Reportes: React.FC = () => {
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Monto</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Usuario</th>
                       </tr>
                     </thead>
                     <tbody>
                       {reporteGastos.map((gasto, index) => (
                         <tr key={index} className="border-b border-gray-100">
                           <td className="py-3 px-4">{new Date(gasto.fecha).toLocaleDateString()}</td>
-                          <td className="py-3 px-4">{gasto.tipoGasto}</td>
-                          <td className="py-3 px-4">{gasto.descripcion}</td>
+                          <td className="py-3 px-4 font-medium">{gasto.nombre}</td>
+                          <td className="py-3 px-4">{gasto.nombreTipoGasto}</td>
+                          <td className="py-3 px-4">{gasto.descripcion || 'N/A'}</td>
                           <td className="py-3 px-4 text-red-600 font-medium">
-                            ${gasto.monto.toFixed(2)}
+                            ${(gasto.gastoTotal || gasto.costo).toFixed(2)}
                           </td>
-                          <td className="py-3 px-4">{gasto.usuario}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -688,6 +769,112 @@ const Reportes: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Create Expense Modal */}
+      {showCreateGasto && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Crear Nuevo Gasto</h2>
+                <button
+                  onClick={() => setShowCreateGasto(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del Gasto *
+                </label>
+                <input
+                  type="text"
+                  value={newGasto.nombre}
+                  onChange={(e) => setNewGasto({ ...newGasto, nombre: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Ej. Compra de suministros"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Gasto *
+                </label>
+                <select
+                  value={newGasto.idTipoGasto}
+                  onChange={(e) => {
+                    const tipoId = parseInt(e.target.value);
+                    const tipo = tiposGasto.find(t => t.id === tipoId);
+                    setNewGasto({ 
+                      ...newGasto, 
+                      idTipoGasto: tipoId,
+                      nombreTipoGasto: tipo?.nombre || ''
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  {tiposGasto.map(tipo => (
+                    <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Monto Total *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newGasto.gastoTotal}
+                  onChange={(e) => setNewGasto({ ...newGasto, gastoTotal: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción
+                </label>
+                <textarea
+                  value={newGasto.descripcion}
+                  onChange={(e) => setNewGasto({ ...newGasto, descripcion: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  rows={3}
+                  placeholder="Descripción opcional del gasto"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex space-x-3">
+              <button
+                onClick={() => setShowCreateGasto(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateGasto}
+                disabled={creatingGasto || !newGasto.nombre || newGasto.gastoTotal <= 0}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {creatingGasto ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {creatingGasto ? 'Guardando...' : 'Crear Gasto'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

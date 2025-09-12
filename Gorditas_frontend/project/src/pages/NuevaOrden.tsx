@@ -26,6 +26,7 @@ const NuevaOrden: React.FC = () => {
   const [productosSeleccionados, setProductosSeleccionados] = useState<any[]>([]);
   
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [ordenes, setOrdenes] = useState<any[]>([]);
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [selectedProducto, setSelectedProducto] = useState<any | null>(null);
@@ -53,23 +54,55 @@ const NuevaOrden: React.FC = () => {
 
   const loadInitialData = async () => {
     try {
-      const [mesasResponse, platillosResponse, guisosResponse, productosResponse] = await Promise.all([
+      const [mesasResponse, platillosResponse, guisosResponse, productosResponse, ordenesResponse] = await Promise.all([
         apiService.getCatalog<ApiResponse<Mesa>>('mesa'),
         apiService.getCatalog<ApiResponse<Platillo>>('platillo'),
         apiService.getCatalog<ApiResponse<Guiso>>('guiso'),
         apiService.getCatalog<ApiResponse<any>>('producto'),
+        apiService.getOrdenes(),
       ]);
 
       setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : []);
       setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : Array.isArray(platillosResponse.data) ? platillosResponse.data : []);
       setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : Array.isArray(guisosResponse.data) ? guisosResponse.data : []);
       setProductos(Array.isArray(productosResponse.data?.items) ? productosResponse.data.items : Array.isArray(productosResponse.data) ? productosResponse.data : []);
+      
+      // Load active orders to check table occupancy
+      if (ordenesResponse.success) {
+        let ordenesArray: any[] = [];
+        if (Array.isArray(ordenesResponse.data?.ordenes)) {
+          ordenesArray = ordenesResponse.data.ordenes;
+        } else if (Array.isArray(ordenesResponse.data)) {
+          ordenesArray = ordenesResponse.data;
+        }
+        // Filter to active orders (not completed/cancelled)
+        const activeOrders = ordenesArray.filter((orden: any) => 
+          !['Pagada', 'Cancelado', 'Entregada'].includes(orden.estatus)
+        );
+        setOrdenes(activeOrders);
+      }
     } catch (error) {
       setError('Error cargando datos iniciales');
       setMesas([]);
       setPlatillos([]);
       setGuisos([]);
+      setOrdenes([]);
     }
+  };
+
+  const isMesaOccupied = (mesa: Mesa) => {
+    return ordenes.some((orden: any) => 
+      (orden.idMesa === mesa._id || orden.mesa === mesa._id || orden.nombreMesa === mesa.nombre)
+    );
+  };
+
+  const getMesaStatus = (mesa: Mesa) => {
+    const occupied = isMesaOccupied(mesa);
+    return {
+      occupied,
+      status: occupied ? 'Ocupada' : 'Disponible',
+      statusColor: occupied ? 'text-orange-600' : 'text-green-600'
+    };
   };
 
   const handleAddProducto = () => {
@@ -326,20 +359,27 @@ const NuevaOrden: React.FC = () => {
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Seleccionar Mesa</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-              {mesas.filter(mesa => mesa.activo !== false).map((mesa) => (
-                <button
-                  key={mesa._id}
-                  onClick={() => setSelectedMesa(mesa)}
-                  className={`p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
-                    selectedMesa?._id === mesa._id
-                      ? 'border-orange-500 bg-orange-50 text-orange-700'
-                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                  }`}
-                >
-                  <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
-                  <div className="text-xs sm:text-sm text-gray-600">Disponible</div>
-                </button>
-              ))}
+              {mesas.filter(mesa => mesa.activo !== false).map((mesa) => {
+                const mesaStatus = getMesaStatus(mesa);
+                return (
+                  <button
+                    key={mesa._id}
+                    onClick={() => setSelectedMesa(mesa)}
+                    className={`p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
+                      selectedMesa?._id === mesa._id
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : mesaStatus.occupied
+                        ? 'border-orange-300 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                    }`}
+                  >
+                    <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
+                    <div className={`text-xs sm:text-sm ${mesaStatus.statusColor}`}>
+                      {mesaStatus.status}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -7,7 +7,8 @@ import {
   Save,
   Search,
   ShoppingCart,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto } from '../types';
@@ -257,6 +258,15 @@ const EditarOrden: React.FC = () => {
     setConfirmDelete({ type: 'producto', id });
   };
 
+  const handleRefresh = async () => {
+    await loadData();
+    if (selectedOrden) {
+      await loadOrdenDetails(selectedOrden);
+    }
+    setSuccess('Datos actualizados');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
   const confirmDeleteAction = async () => {
     if (!selectedOrden || !confirmDelete) return;
     setSaving(true);
@@ -310,6 +320,14 @@ const EditarOrden: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Editar Orden</h1>
           <p className="text-gray-600 mt-1">Selecciona una orden para ver detalles y modificar</p>
         </div>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+          title="Actualizar datos"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Actualizar
+        </button>
       </div>
 
       {error && (

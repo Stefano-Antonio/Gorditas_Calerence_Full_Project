@@ -26,6 +26,9 @@ const Despachar: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Set up polling for real-time updates
+    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -241,9 +244,13 @@ const Despachar: React.FC = () => {
                         </div>
                         <div>
                           <h3 className="font-medium text-gray-900">
-                            Mesa {mesa?.numero || orden.mesa}
+                            Mesa {mesa?.nombre || mesa?.numero || orden.nombreMesa || orden.mesa}
                           </h3>
                           <p className="text-sm text-gray-600">
+                            {orden.nombreCliente && (
+                              <span className="font-medium">Cliente: {orden.nombreCliente}</span>
+                            )}
+                            {orden.nombreCliente && <span> • </span>}
                             {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
                               hour: '2-digit',
                               minute: '2-digit'
@@ -271,7 +278,10 @@ const Despachar: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${getMesaInfo(selectedOrden.mesa)?.numero}` : 'Selecciona una orden'}
+              {selectedOrden ? 
+                `Detalles - Mesa ${selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}` +
+                (selectedOrden.nombreCliente ? ` • ${selectedOrden.nombreCliente}` : '') 
+                : 'Selecciona una orden'}
             </h2>
             {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
               <button

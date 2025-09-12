@@ -174,6 +174,12 @@ class ApiService {
     
     return this.request(`/reportes/gastos?${params.toString()}`);
   }
+  async createGasto(gasto: any) {
+    return this.request('/reportes/gastos', {
+      method: 'POST',
+      body: JSON.stringify(gasto),
+    });
+  }
   async getProductosVendidos() {
     return this.request('/reportes/productos-vendidos');
   }

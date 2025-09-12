@@ -294,10 +294,14 @@ const SurtirOrden: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Mesa {mesa?.numero || orden.mesa}
+                        Mesa {mesa?.nombre || mesa?.numero || orden.nombreMesa || orden.mesa}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {mesa?.capacidad} personas
+                        {orden.nombreCliente && (
+                          <span className="font-medium">Cliente: {orden.nombreCliente}</span>
+                        )}
+                        {orden.nombreCliente && mesa?.capacidad && <span> • </span>}
+                        {mesa?.capacidad && <span>{mesa.capacidad} personas</span>}
                       </p>
                     </div>
                   </div>
@@ -412,7 +416,10 @@ const SurtirOrden: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
-                  Detalles de Orden - Mesa {selectedOrden.mesa}
+                  Detalles de Orden - Mesa {selectedOrden.nombreMesa || selectedOrden.mesa}
+                  {selectedOrden.nombreCliente && (
+                    <span className="text-lg text-gray-600 font-normal"> • {selectedOrden.nombreCliente}</span>
+                  )}
                 </h2>
                 <button
                   onClick={() => setSelectedOrden(null)}

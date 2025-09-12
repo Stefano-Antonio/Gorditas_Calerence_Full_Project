@@ -83,7 +83,7 @@ router.get('/ventas', authenticate, isEncargado,
         }
       ])
     ]);
-    console.log({ pagadasCount });
+    
     res.json(createResponse(true, {
       ordenes,
       productos,
@@ -148,9 +148,9 @@ router.get('/gastos', authenticate, isEncargado,
         {
           $group: {
             _id: null,
-            totalGastos: { $sum: '$costo' },
+            totalGastos: { $sum: { $ifNull: ['$gastoTotal', '$costo'] } },
             cantidadGastos: { $sum: 1 },
-            promedioGasto: { $avg: '$costo' }
+            promedioGasto: { $avg: { $ifNull: ['$gastoTotal', '$costo'] } }
           }
         }
       ])
@@ -162,7 +162,7 @@ router.get('/gastos', authenticate, isEncargado,
       {
         $group: {
           _id: '$nombreTipoGasto',
-          gastos: { $sum: '$costo' },
+          gastos: { $sum: { $ifNull: ['$gastoTotal', '$costo'] } },
           cantidad: { $sum: 1 }
         }
       },
@@ -175,7 +175,7 @@ router.get('/gastos', authenticate, isEncargado,
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } },
-          gastos: { $sum: '$costo' },
+          gastos: { $sum: { $ifNull: ['$gastoTotal', '$costo'] } },
           cantidad: { $sum: 1 }
         }
       },
@@ -278,6 +278,31 @@ router.get('/productos-vendidos', authenticate, isEncargado,
       productos: productosVendidos,
       platillos: platillosVendidos
     }));
+  })
+);
+
+// POST /api/reportes/gastos - Crear nuevo gasto
+router.post('/gastos', authenticate, isEncargado, 
+  asyncHandler(async (req: any, res: any) => {
+    const { nombre, gastoTotal, descripcion, idTipoGasto, nombreTipoGasto } = req.body;
+
+    if (!nombre || !gastoTotal || !idTipoGasto) {
+      return res.status(400).json(createResponse(false, null, 'Faltan campos requeridos: nombre, gastoTotal, idTipoGasto'));
+    }
+
+    const nuevoGasto = new Gasto({
+      nombre,
+      gastoTotal,
+      descripcion,
+      idTipoGasto,
+      nombreTipoGasto: nombreTipoGasto || '',
+      costo: gastoTotal, // Keep both for compatibility
+      fecha: new Date()
+    });
+
+    await nuevoGasto.save();
+
+    res.json(createResponse(true, nuevoGasto, 'Gasto creado exitosamente'));
   })
 );
 

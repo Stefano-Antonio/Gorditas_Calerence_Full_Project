@@ -46,7 +46,17 @@ const PORT = process.env.PORT;
 connectDB();
 // Middleware
 app.use(helmet());
-app.use(cors());
+
+// CORS configuration - Permitir todos los orígenes
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+};
+
+app.use(cors(corsOptions));
 //app.use(morgan('combined'));  //Depuracion
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

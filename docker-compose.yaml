@@ -11,8 +11,7 @@ services:
       JWT_SECRET: StAn121120360ne
     command: ["npm", "run", "dev"]
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo        
     restart: unless-stopped
 
   calerence_front:
@@ -27,7 +26,7 @@ services:
     restart: unless-stopped
 
   mongo:
-    image: mongo:5.0
+    image: mongo:8.0
     container_name: mongo
     ports:
       - "27017:27017"
@@ -36,13 +35,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: admin123
       MONGO_INITDB_DATABASE: calerence_db
     volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - mongo_data:/data/db   
     restart: unless-stopped
 
 

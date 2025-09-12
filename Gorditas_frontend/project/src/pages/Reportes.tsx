@@ -8,6 +8,9 @@ import {
   Download,
   Filter,
   RefreshCw,
+  Plus,
+  X,
+  Save
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import ExcelJS from 'exceljs';
@@ -79,6 +82,17 @@ const Reportes: React.FC = () => {
   const [ordenesDia, setOrdenesDia] = useState<any[]>([]);
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const [ordenExpandida, setOrdenExpandida] = useState<string | null>(null);
+  
+  // Expense management states
+  const [showGastoModal, setShowGastoModal] = useState(false);
+  const [tiposGasto, setTiposGasto] = useState<any[]>([]);
+  const [nuevoGasto, setNuevoGasto] = useState({
+    nombre: '',
+    idTipoGasto: '',
+    gastoTotal: 0,
+    descripcion: ''
+  });
+  const [savingGasto, setSavingGasto] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -191,6 +205,57 @@ const Reportes: React.FC = () => {
       console.error('Error en loadReports:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load tipos de gasto when gastos tab is selected
+  useEffect(() => {
+    if (activeTab === 'gastos' && tiposGasto.length === 0) {
+      loadTiposGasto();
+    }
+  }, [activeTab]);
+
+  const loadTiposGasto = async () => {
+    try {
+      const response = await apiService.getCatalog('tipogasto');
+      if (response.success) {
+        const tiposArray = response.data?.items || response.data || [];
+        setTiposGasto(tiposArray);
+      }
+    } catch (error) {
+      console.error('Error loading tipos de gasto:', error);
+    }
+  };
+
+  const handleCreateGasto = async () => {
+    if (!nuevoGasto.nombre || !nuevoGasto.idTipoGasto || nuevoGasto.gastoTotal <= 0) {
+      setError('Por favor completa todos los campos requeridos');
+      return;
+    }
+
+    setSavingGasto(true);
+    setError('');
+
+    try {
+      const response = await apiService.createGasto(nuevoGasto);
+      
+      if (response.success) {
+        setShowGastoModal(false);
+        setNuevoGasto({
+          nombre: '',
+          idTipoGasto: '',
+          gastoTotal: 0,
+          descripcion: ''
+        });
+        // Reload gastos after creation
+        loadReports();
+      } else {
+        setError('Error creando el gasto');
+      }
+    } catch (error) {
+      setError('Error creando el gasto');
+    } finally {
+      setSavingGasto(false);
     }
   };
 
@@ -353,26 +418,39 @@ const Reportes: React.FC = () => {
         {/* Date Filter */}
         {(activeTab === 'ventas' || activeTab === 'gastos') && (
           <div className="p-4 sm:p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:space-x-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">Período:</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">Período:</span>
+                </div>
+                <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <span className="hidden sm:block text-gray-500">hasta</span>
+                  <input
+                    type="date"
+                    value={fechaFin}
+                    onChange={(e) => setFechaFin(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-                <span className="hidden sm:block text-gray-500">hasta</span>
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
+              
+              {/* Create Expense Button - only show in gastos tab */}
+              {activeTab === 'gastos' && (
+                <button
+                  onClick={() => setShowGastoModal(true)}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear Gasto
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -662,24 +740,31 @@ const Reportes: React.FC = () => {
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Fecha</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Monto</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Usuario</th>
                       </tr>
                     </thead>
                     <tbody>
                       {reporteGastos.map((gasto, index) => (
                         <tr key={index} className="border-b border-gray-100">
                           <td className="py-3 px-4">{new Date(gasto.fecha).toLocaleDateString()}</td>
+                          <td className="py-3 px-4 font-medium">{gasto.nombre}</td>
                           <td className="py-3 px-4">{gasto.tipoGasto}</td>
                           <td className="py-3 px-4">{gasto.descripcion}</td>
                           <td className="py-3 px-4 text-red-600 font-medium">
-                            ${gasto.monto.toFixed(2)}
+                            ${gasto.gastoTotal?.toFixed(2) || '0.00'}
                           </td>
-                          <td className="py-3 px-4">{gasto.usuario}</td>
                         </tr>
                       ))}
+                      {reporteGastos.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-gray-500">
+                            No hay gastos registrados en este período
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -688,6 +773,107 @@ const Reportes: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Create Expense Modal */}
+      {showGastoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Crear Nuevo Gasto</h3>
+              <button
+                onClick={() => setShowGastoModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del Gasto
+                </label>
+                <input
+                  type="text"
+                  value={nuevoGasto.nombre}
+                  onChange={(e) => setNuevoGasto({ ...nuevoGasto, nombre: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Ej: Compra de ingredientes"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Gasto
+                </label>
+                <select
+                  value={nuevoGasto.idTipoGasto}
+                  onChange={(e) => setNuevoGasto({ ...nuevoGasto, idTipoGasto: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Selecciona un tipo</option>
+                  {tiposGasto.map((tipo) => (
+                    <option key={tipo._id} value={tipo._id}>
+                      {tipo.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Monto
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={nuevoGasto.gastoTotal}
+                  onChange={(e) => setNuevoGasto({ ...nuevoGasto, gastoTotal: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción (Opcional)
+                </label>
+                <textarea
+                  value={nuevoGasto.descripcion}
+                  onChange={(e) => setNuevoGasto({ ...nuevoGasto, descripcion: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  rows={3}
+                  placeholder="Detalles adicionales del gasto..."
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowGastoModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateGasto}
+                disabled={savingGasto}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center"
+              >
+                {savingGasto ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Crear Gasto
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

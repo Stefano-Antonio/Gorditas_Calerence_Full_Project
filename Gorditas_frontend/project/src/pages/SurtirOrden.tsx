@@ -296,6 +296,11 @@ const SurtirOrden: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-900">
                         Mesa {mesa?.numero || orden.mesa}
                       </h3>
+                      {orden.nombreCliente && (
+                        <p className="text-sm font-medium text-blue-600">
+                          Cliente: {orden.nombreCliente}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-600">
                         {mesa?.capacidad} personas
                       </p>

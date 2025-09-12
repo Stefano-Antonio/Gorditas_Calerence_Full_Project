@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { 
   Guiso, TipoProducto, Producto, TipoPlatillo, Platillo,
-  TipoUsuario, Usuario, TipoOrden, Mesa, TipoGasto
+  TipoUsuario, Usuario, TipoOrden, Mesa, TipoGasto, Gasto
 } from '../models';
 import { authenticate, isAdmin, isEncargado } from '../middleware/auth';
 import { asyncHandler, createResponse } from '../utils/helpers';
@@ -20,7 +20,8 @@ const modelMap: { [key: string]: any } = {
   usuario: Usuario,
   tipoorden: TipoOrden,
   mesa: Mesa,
-  tipogasto: TipoGasto
+  tipogasto: TipoGasto,
+  gasto: Gasto
 };
 
 // Middleware para validar el modelo

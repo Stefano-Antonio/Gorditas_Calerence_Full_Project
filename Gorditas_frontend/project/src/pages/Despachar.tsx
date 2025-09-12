@@ -26,6 +26,9 @@ const Despachar: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Set up polling for real-time updates
+    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -243,6 +246,11 @@ const Despachar: React.FC = () => {
                           <h3 className="font-medium text-gray-900">
                             Mesa {mesa?.numero || orden.mesa}
                           </h3>
+                          {orden.nombreCliente && (
+                            <p className="text-sm font-medium text-blue-600">
+                              Cliente: {orden.nombreCliente}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-600">
                             {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
                               hour: '2-digit',

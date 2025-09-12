@@ -46,7 +46,7 @@ class ApiService {
     console.error('❌ Error connecting to backend:', error);
     return {
       success: false,
-      error: 'Error de conexión con el servidor',
+      error: 'No hay información disponible - Error de conexión con el servidor',
     };
   }
 }
@@ -173,6 +173,13 @@ class ApiService {
     if (fechaFin) params.append('fechaFin', fechaFin);
     
     return this.request(`/reportes/gastos?${params.toString()}`);
+  }
+  
+  async createGasto(gasto: any) {
+    return this.request('/reportes/gastos', {
+      method: 'POST',
+      body: JSON.stringify(gasto),
+    });
   }
   async getProductosVendidos() {
     return this.request('/reportes/productos-vendidos');

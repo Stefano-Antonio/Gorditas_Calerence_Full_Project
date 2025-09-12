@@ -81,6 +81,7 @@ export interface IOrden {
   estatus: string;
   idMesa?: number;
   nombreMesa?: string;
+  nombreCliente?: string;
   fechaHora: Date;
   fechaPago?: Date;
   total: number;
@@ -120,9 +121,11 @@ export interface IOrdenDetallePlatillo {
 
 export interface IGasto {
   _id?: string;
+  nombre: string;
   idTipoGasto: number;
   nombreTipoGasto: string;
-  costo: number;
+  gastoTotal: number;
+  descripcion?: string;
   fecha: Date;
 }
 

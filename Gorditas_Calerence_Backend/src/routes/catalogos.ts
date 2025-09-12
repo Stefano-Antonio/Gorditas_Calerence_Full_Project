@@ -9,6 +9,48 @@ import { getNextSequence } from '../utils/counters';
 
 const router = Router();
 
+// Function to auto-populate fields based on relationships
+const autoPopulateFields = async (modelo: string, itemData: any) => {
+  switch (modelo) {
+    case 'platillo':
+      // Auto-populate nombreTipoPlatillo if missing
+      if (itemData.idTipoPlatillo && !itemData.nombreTipoPlatillo) {
+        const tipoPlatillo = await TipoPlatillo.findById(itemData.idTipoPlatillo);
+        if (tipoPlatillo) {
+          itemData.nombreTipoPlatillo = tipoPlatillo.nombre;
+        }
+      }
+      // Ensure precio is set (use costo if precio not provided)
+      if (!itemData.precio && itemData.costo) {
+        itemData.precio = itemData.costo;
+      }
+      break;
+      
+    case 'producto':
+      // Auto-populate nombreTipoProducto if missing
+      if (itemData.idTipoProducto && !itemData.nombreTipoProducto) {
+        const tipoProducto = await TipoProducto.findById(itemData.idTipoProducto);
+        if (tipoProducto) {
+          itemData.nombreTipoProducto = tipoProducto.nombre;
+        }
+      }
+      break;
+      
+    case 'usuario':
+      // Auto-populate idTipoUsuario based on nombreTipoUsuario
+      if (itemData.nombreTipoUsuario && !itemData.idTipoUsuario) {
+        const tipoUsuarioMap: { [key: string]: number } = {
+          'Admin': 1,
+          'Encargado': 2,
+          'Mesero': 3,
+          'Despachador': 4
+        };
+        itemData.idTipoUsuario = tipoUsuarioMap[itemData.nombreTipoUsuario] || 1;
+      }
+      break;
+  }
+};
+
 // Mapeo de modelos
 const modelMap: { [key: string]: any } = {
   guiso: Guiso,
@@ -82,6 +124,9 @@ router.post('/:modelo', authenticate, validateModel,
       itemData._id = nextId;
     }
 
+    // Auto-populate missing fields based on relationships
+    await autoPopulateFields(req.params.modelo.toLowerCase(), itemData);
+
     const item = new req.Model(itemData);
     await item.save();
 
@@ -92,9 +137,14 @@ router.post('/:modelo', authenticate, validateModel,
 // PUT /api/catalogos/{modelo}/:id - Actualizar
 router.put('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
+    let updateData = { ...req.body };
+    
+    // Auto-populate missing fields based on relationships
+    await autoPopulateFields(req.params.modelo.toLowerCase(), updateData);
+
     const item = await req.Model.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 

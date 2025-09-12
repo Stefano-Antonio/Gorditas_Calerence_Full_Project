@@ -1,7 +1,7 @@
 export interface IUser {
   _id?: string;
   nombre: string;
-  idTipoUsuario: number;
+  idTipoUsuario?: number; // Made optional since it can be derived from nombreTipoUsuario
   nombreTipoUsuario: string;
   activo: boolean;
   password?: string;
@@ -25,7 +25,7 @@ export interface ITipoProducto {
 export interface IProducto {
   _id?: number;
   idTipoProducto: number;
-  nombreTipoProducto: string;
+  nombreTipoProducto?: string; // Made optional since it can be derived from idTipoProducto
   nombre: string;
   cantidad: number;
   costo: number;
@@ -42,7 +42,7 @@ export interface ITipoPlatillo {
 export interface IPlatillo {
   _id?: number;
   idTipoPlatillo: number;
-  nombreTipoPlatillo: string;
+  nombreTipoPlatillo?: string; // Made optional since it can be derived from idTipoPlatillo
   nombre: string;
   descripcion?: string;
   costo: number;
@@ -78,6 +78,7 @@ export interface IOrden {
   folio: string;
   idTipoOrden: number;
   nombreTipoOrden: string;
+  nombreCliente?: string;
   estatus: string;
   idMesa?: number;
   nombreMesa?: string;

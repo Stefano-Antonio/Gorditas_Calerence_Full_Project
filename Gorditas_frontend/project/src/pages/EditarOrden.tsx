@@ -354,8 +354,13 @@ const EditarOrden: React.FC = () => {
                       <h3 className="font-medium text-gray-900">
                         {orden.nombreMesa || 'Sin Mesa'}
                       </h3>
+                      {orden.nombreCliente && (
+                        <p className="text-sm text-orange-600 font-medium">
+                          Cliente: {orden.nombreCliente}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-600">
-                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleDateString()}
+                        {new Date(orden.fechaHora).toLocaleDateString()}
                       </p>
                       <p className="text-sm font-medium text-green-600">
                         Total: ${orden.total.toFixed(2)}
@@ -376,7 +381,7 @@ const EditarOrden: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
               {selectedOrden
-                ? `Detalles - ${selectedOrden.nombreMesa || selectedOrden.mesa || 'Sin nombre'} | Folio: ${selectedOrden.folio}`
+                ? `Detalles - ${selectedOrden.nombreMesa || 'Sin nombre'} | Folio: ${selectedOrden.folio}`
                 : 'Selecciona una orden'}
             </h2>
             {selectedOrden && (

@@ -128,7 +128,7 @@ const Cobrar: React.FC = () => {
   };
 
   const generateTicketContent = (orden: OrdenCompleta) => {
-    const fecha = orden.fecha ? new Date(orden.fecha) : new Date();
+    const fecha = orden.fechaHora ? new Date(orden.fechaHora) : new Date();
     return `
       <div class="header">
         <h2>RESTAURANTE</h2>
@@ -205,9 +205,14 @@ const Cobrar: React.FC = () => {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="font-medium text-gray-900">Orden #{orden._id?.toString().slice(-6)}</h3>
+                    {orden.nombreCliente && (
+                      <p className="text-sm text-orange-600 font-medium">
+                        Cliente: {orden.nombreCliente}
+                      </p>
+                    )}
                     <p className="text-sm text-gray-600 flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
-                      {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
+                      {orden.fechaHora ? new Date(orden.fechaHora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
                     </p>
                   </div>
                   <div className="text-right">

@@ -10,7 +10,7 @@ const usuarioSchema = new Schema<IUserDocument>({
   nombre: { type: String, required: true, trim: true },
   email: { type: String, unique: true, trim: true, lowercase: true },
   password: { type: String, required: true, minlength: 6 },
-  idTipoUsuario: { type: Number, required: true },
+  idTipoUsuario: { type: Number, required: false }, // Made optional
   nombreTipoUsuario: { type: String, required: true, trim: true },
   activo: { type: Boolean, default: true }
 }, {

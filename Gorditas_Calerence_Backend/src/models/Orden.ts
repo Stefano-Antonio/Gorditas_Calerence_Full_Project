@@ -7,6 +7,7 @@ const ordenSchema = new Schema<IOrdenDocument>({
   folio: { type: String, required: true, unique: true },
   idTipoOrden: { type: Number, required: true },
   nombreTipoOrden: { type: String, required: true, trim: true },
+  nombreCliente: { type: String, trim: true, maxlength: 100 },
   estatus: { 
     type: String, 
     required: true, 

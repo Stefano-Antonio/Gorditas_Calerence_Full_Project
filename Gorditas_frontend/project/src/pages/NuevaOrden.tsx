@@ -138,6 +138,7 @@ const NuevaOrden: React.FC = () => {
         nombreMesa: selectedMesa.nombre,
         idTipoOrden: 1, // Mesa type
         nombreTipoOrden: 'Mesa',
+        nombreCliente: nombreSuborden, // Usar nombreSuborden como nombre del cliente
         total: totalCalculado,
         estatus,
       };

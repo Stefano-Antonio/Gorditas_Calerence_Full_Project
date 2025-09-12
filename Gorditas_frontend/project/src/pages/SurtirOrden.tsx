@@ -277,8 +277,8 @@ const SurtirOrden: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {ordenes.map((orden) => {
-            const mesa = getMesaInfo(orden.mesa);
-            const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
+            const mesa = getMesaInfo(orden.idMesa?.toString() || '');
+            const horaOrden = orden.fechaHora;
             const timeElapsed = getTimeElapsed(horaOrden);
             const priorityColor = getPriorityColor(horaOrden);
             
@@ -294,8 +294,13 @@ const SurtirOrden: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Mesa {mesa?.numero || orden.mesa}
+                        {orden.nombreMesa || `Mesa ${orden.idMesa}`}
                       </h3>
+                      {orden.nombreCliente && (
+                        <p className="text-sm text-orange-600 font-medium">
+                          Cliente: {orden.nombreCliente}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-600">
                         {mesa?.capacidad} personas
                       </p>
@@ -327,21 +332,21 @@ const SurtirOrden: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Hora de orden:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(orden.fechaHora ?? orden.fecha ?? new Date()).toLocaleTimeString('es-ES', {
+                      {new Date(orden.fechaHora).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
                     </span>
                   </div>
 
-                  {orden.subordenes && orden.subordenes.length > 0 && (
+                  {/* {orden.subordenes && orden.subordenes.length > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Subórdenes:</span>
                       <span className="text-sm font-medium text-gray-900">
                         {orden.subordenes.length} items
                       </span>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {orden.estatus === 'Recepcion' ? (
@@ -412,7 +417,12 @@ const SurtirOrden: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
-                  Detalles de Orden - Mesa {selectedOrden.mesa}
+                  Detalles de Orden - {selectedOrden.nombreMesa || `Mesa ${selectedOrden.idMesa}`}
+                  {selectedOrden.nombreCliente && (
+                    <span className="text-lg text-orange-600 font-medium block">
+                      Cliente: {selectedOrden.nombreCliente}
+                    </span>
+                  )}
                 </h2>
                 <button
                   onClick={() => setSelectedOrden(null)}

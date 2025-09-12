@@ -21,11 +21,11 @@ interface CatalogItem extends BaseEntity {
 const catalogModels = [
   { id: 'guiso', name: 'Guisos', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipoproducto', name: 'Tipos de Producto', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'nombreTipoProducto', 'cantidad', 'costo'], hasActivo: true },
+  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'nombreTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
+  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
-  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'idTipoUsuario', 'nombreTipoUsuario'], hasActivo: true },
+  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },
 ];
 
@@ -337,9 +337,6 @@ const Catalogos: React.FC = () => {
       case 'capacidad':
       case 'costo':
       case 'precio':
-      case 'idTipoProducto':
-      case 'idTipoPlatillo':
-      case 'idTipoUsuario':
         return (
           <input
             type="number"
@@ -379,18 +376,15 @@ const Catalogos: React.FC = () => {
       nombre: 'Nombre',
       descripcion: 'Descripción',
       codigoBarras: 'Código de Barras',
-      idTipoProducto: 'ID Tipo de Producto',
-      nombreTipoProducto: 'Nombre Tipo de Producto',
+      idTipoProducto: 'Tipo de Producto',
       cantidad: 'Cantidad',
       costo: 'Costo',
       precio: 'Precio',
-      idTipoPlatillo: 'ID Tipo de Platillo',
-      nombreTipoPlatillo: 'Nombre Tipo de Platillo',
+      idTipoPlatillo: 'Tipo de Platillo',
       permisos: 'Permisos',
       email: 'Email',
       password: 'Contraseña',
-      idTipoUsuario: 'ID Tipo de Usuario',
-      nombreTipoUsuario: 'Nombre Tipo de Usuario',
+      nombreTipoUsuario: 'Tipo de Usuario',
       telefono: 'Teléfono',
       numero: 'Número',
       capacidad: 'Capacidad',

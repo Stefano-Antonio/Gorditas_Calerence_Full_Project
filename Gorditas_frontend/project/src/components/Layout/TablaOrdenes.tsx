@@ -5,6 +5,7 @@ interface Orden {
   fechaHora: string;
   nombreTipoOrden: string;
   idMesa?: number;
+  nombreCliente?: string;
   total: number;
 }
 
@@ -23,6 +24,7 @@ const TablaOrdenes: React.FC<TablaOrdenesProps> = ({ ordenes }) => {
               <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Fecha</th>
               <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Tipo</th>
               <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Mesa</th>
+              <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Cliente</th>
               <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Total</th>
             </tr>
           </thead>
@@ -34,6 +36,9 @@ const TablaOrdenes: React.FC<TablaOrdenesProps> = ({ ordenes }) => {
                 </td>
                 <td className="py-2 sm:py-3 px-3 sm:px-4">{orden.nombreTipoOrden}</td>
                 <td className="py-2 sm:py-3 px-3 sm:px-4">{orden.idMesa || 'N/A'}</td>
+                <td className="py-2 sm:py-3 px-3 sm:px-4 text-orange-600 font-medium">
+                  {orden.nombreCliente || 'Sin especificar'}
+                </td>
                 <td className="py-2 sm:py-3 px-3 sm:px-4 font-medium text-green-600">
                   ${orden.total.toFixed(2)}
                 </td>

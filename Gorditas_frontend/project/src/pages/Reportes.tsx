@@ -201,6 +201,7 @@ const Reportes: React.FC = () => {
       data = ordenesDia.map(orden => ({
         Folio: orden.folio,
         Mesa: orden.idMesa || 'N/A',
+        Cliente: orden.nombreCliente || 'Sin especificar',
         Tipo: orden.nombreTipoOrden,
         Total: orden.total,
         Hora: new Date(orden.fechaHora).toLocaleTimeString(),
@@ -477,6 +478,7 @@ const Reportes: React.FC = () => {
                             <tr>
                               <th className="px-2 py-2 whitespace-nowrap">Folio</th>
                               <th className="px-2 py-2 whitespace-nowrap">Mesa</th>
+                              <th className="px-2 py-2 whitespace-nowrap">Cliente</th>
                               <th className="px-2 py-2 whitespace-nowrap">Tipo</th>
                               <th className="px-2 py-2 whitespace-nowrap">Total</th>
                               <th className="px-2 py-2 whitespace-nowrap">Hora</th>
@@ -494,6 +496,7 @@ const Reportes: React.FC = () => {
                                   <tr>
                                     <td className="px-2 py-2 whitespace-nowrap">{orden.folio}</td>
                                     <td className="px-2 py-2 whitespace-nowrap">{orden.idMesa || 'N/A'}</td>
+                                    <td className="px-2 py-2 whitespace-nowrap text-orange-600 font-medium">{orden.nombreCliente || 'Sin especificar'}</td>
                                     <td className="px-2 py-2 whitespace-nowrap">{orden.nombreTipoOrden}</td>
                                     <td className="px-2 py-2 whitespace-nowrap">${orden.total.toFixed(2)}</td>
                                     <td className="px-2 py-2 whitespace-nowrap">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
@@ -508,7 +511,7 @@ const Reportes: React.FC = () => {
                                   </tr>
                                   {orden._id === ordenExpandida && (
                                     <tr>
-                                      <td colSpan={6} className="p-0">
+                                      <td colSpan={7} className="p-0">
                                         <div className="bg-gray-50 p-2 sm:p-4 rounded-lg overflow-x-auto">
                                           <h4 className="font-semibold mb-2 text-xs sm:text-sm">Productos</h4>
                                           {productosOrden.length > 0 ? (

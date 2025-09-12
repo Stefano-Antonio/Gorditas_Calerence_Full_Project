@@ -222,7 +222,7 @@ const Despachar: React.FC = () => {
               </div>
             ) : (
               ordenes.map((orden) => {
-                const mesa = getMesaInfo(orden.mesa);
+                const mesa = getMesaInfo(orden.idMesa?.toString() || '');
                 
                 return (
                   <div
@@ -241,10 +241,15 @@ const Despachar: React.FC = () => {
                         </div>
                         <div>
                           <h3 className="font-medium text-gray-900">
-                            Mesa {mesa?.numero || orden.mesa}
+                            {orden.nombreMesa || `Mesa ${orden.idMesa}`}
                           </h3>
+                          {orden.nombreCliente && (
+                            <p className="text-sm text-orange-600 font-medium">
+                              Cliente: {orden.nombreCliente}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-600">
-                            {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
+                            {new Date(orden.fechaHora).toLocaleTimeString('es-ES', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -271,7 +276,16 @@ const Despachar: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${getMesaInfo(selectedOrden.mesa)?.numero}` : 'Selecciona una orden'}
+              {selectedOrden ? (
+                <div>
+                  <span>Detalles - {selectedOrden.nombreMesa || `Mesa ${selectedOrden.idMesa}`}</span>
+                  {selectedOrden.nombreCliente && (
+                    <span className="block text-lg text-orange-600 font-medium">
+                      Cliente: {selectedOrden.nombreCliente}
+                    </span>
+                  )}
+                </div>
+              ) : 'Selecciona una orden'}
             </h2>
             {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
               <button
@@ -307,7 +321,7 @@ const Despachar: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium">{getMesaInfo(selectedOrden.mesa)?.numero}</span>
+                    <span className="ml-2 font-medium">{selectedOrden.nombreMesa || selectedOrden.idMesa}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Total:</span>
@@ -316,7 +330,7 @@ const Despachar: React.FC = () => {
                   <div>
                     <span className="text-gray-600">Hora:</span>
                     <span className="ml-2 font-medium">
-                      {new Date(selectedOrden.fechaHora ?? selectedOrden.fecha ?? '').toLocaleTimeString('es-ES', {
+                      {new Date(selectedOrden.fechaHora).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}

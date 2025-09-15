@@ -10,8 +10,8 @@ const usuarioSchema = new Schema<IUserDocument>({
   nombre: { type: String, required: true, trim: true },
   email: { type: String, unique: true, trim: true, lowercase: true },
   password: { type: String, required: true, minlength: 6 },
-  idTipoUsuario: { type: Number, required: true },
-  nombreTipoUsuario: { type: String, required: true, trim: true },
+  idTipoUsuario: { type: Number },
+  nombreTipoUsuario: { type: String, trim: true },
   activo: { type: Boolean, default: true }
 }, {
   timestamps: true,
@@ -21,6 +21,22 @@ const usuarioSchema = new Schema<IUserDocument>({
 usuarioSchema.index({ email: 1 });
 usuarioSchema.index({ idTipoUsuario: 1 });
 usuarioSchema.index({ activo: 1 });
+
+// Auto-assign idTipoUsuario based on nombreTipoUsuario
+usuarioSchema.pre('save', function(next) {
+  if (this.nombreTipoUsuario && !this.idTipoUsuario) {
+    const tipoUsuarioMap: { [key: string]: number } = {
+      'Admin': 1,
+      'Encargado': 2,
+      'Despachador': 3,
+      'Mesero': 4,
+      'Cocinero': 5
+    };
+    
+    this.idTipoUsuario = tipoUsuarioMap[this.nombreTipoUsuario] || 4; // Default to Mesero
+  }
+  next();
+});
 
 // Hash password before saving
 usuarioSchema.pre('save', async function(next) {

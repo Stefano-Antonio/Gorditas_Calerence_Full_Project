@@ -54,11 +54,15 @@ interface ProductoVendido {
 }
 
 interface Gasto {
-  fecha: Date;
-  tipoGasto: string;
+  _id: string;
+  nombre: string;
+  idTipoGasto: number;
+  nombreTipoGasto: string;
+  gastoTotal: number;
   descripcion: string;
-  monto: number;
-  usuario: string;
+  fecha: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const Reportes: React.FC = () => {
@@ -287,10 +291,10 @@ const Reportes: React.FC = () => {
     } else if (activeTab === 'gastos') {
       data = reporteGastos.map(gasto => ({
         Fecha: new Date(gasto.fecha).toLocaleDateString(),
-        Tipo: gasto.tipoGasto,
+        Nombre: gasto.nombre,
+        Tipo: gasto.nombreTipoGasto,
         Descripción: gasto.descripcion,
-        Monto: gasto.monto,
-        Usuario: gasto.usuario,
+        Monto: gasto.gastoTotal,
       }));
     }
 
@@ -553,29 +557,42 @@ const Reportes: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                           <thead>
                             <tr>
-                              <th className="px-2 py-2 whitespace-nowrap">Folio</th>
-                              <th className="px-2 py-2 whitespace-nowrap">Mesa</th>
-                              <th className="px-2 py-2 whitespace-nowrap">Tipo</th>
-                              <th className="px-2 py-2 whitespace-nowrap">Total</th>
-                              <th className="px-2 py-2 whitespace-nowrap">Hora</th>
-                              <th className="px-2 py-2 whitespace-nowrap">Detalles</th>
+                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Folio</th>
+                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Mesa</th>
+                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Tipo</th>
+                              <th className="text-right px-2 py-2 w-1/6 font-medium text-gray-900">Total</th>
+                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Hora</th>
+                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Detalles</th>
                             </tr>
                           </thead>
                           <tbody>
                             {ordenesDia.map(orden => {
                               const productosOrden = productos.filter(p => p.idOrden === orden._id);
                               const platillosOrden = platillos.filter(pl => {
-                                return pl.idSuborden && pl.idSuborden.startsWith(orden._id.slice(0, 8));
+                                // Verificar si el platillo pertenece a esta orden
+                                // Comparar los primeros 7 caracteres para mayor flexibilidad
+                                if (!pl.idSuborden || !orden._id) return false;
+                                
+                                // Primero intentar coincidencia exacta del idOrden si existe
+                                if (pl.idOrden === orden._id) return true;
+                                
+                                // Si no, verificar por prefijo de suborden (timestamp similar)
+                                const ordenPrefix = orden._id.slice(0, 7);
+                                const subOrdenPrefix = pl.idSuborden.slice(0, 7);
+                                return ordenPrefix === subOrdenPrefix;
                               });
+                              
+                              // Debug logging
+                              console.log('Orden:', orden._id, 'Platillos encontrados:', platillosOrden.length, platillosOrden);
                               return (
                                 <React.Fragment key={orden._id}>
                                   <tr>
-                                    <td className="px-2 py-2 whitespace-nowrap">{orden.folio}</td>
-                                    <td className="px-2 py-2 whitespace-nowrap">{orden.idMesa || 'N/A'}</td>
-                                    <td className="px-2 py-2 whitespace-nowrap">{orden.nombreTipoOrden}</td>
-                                    <td className="px-2 py-2 whitespace-nowrap">${orden.total.toFixed(2)}</td>
-                                    <td className="px-2 py-2 whitespace-nowrap">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
-                                    <td className="px-2 py-2 whitespace-nowrap">
+                                    <td className="text-left px-2 py-2 w-1/6">{orden.folio}</td>
+                                    <td className="text-center px-2 py-2 w-1/6">{orden.idMesa || 'N/A'}</td>
+                                    <td className="text-left px-2 py-2 w-1/6">{orden.nombreTipoOrden}</td>
+                                    <td className="text-right px-2 py-2 w-1/6">${orden.total.toFixed(2)}</td>
+                                    <td className="text-center px-2 py-2 w-1/6">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
+                                    <td className="text-center px-2 py-2 w-1/6">
                                       <button
                                         className="bg-orange-500 text-white px-2 py-1 rounded text-xs"
                                         onClick={() => setOrdenExpandida(orden._id === ordenExpandida ? null : orden._id)}
@@ -594,19 +611,30 @@ const Reportes: React.FC = () => {
                                               <table className="min-w-full mb-2 text-xs sm:text-sm">
                                                 <thead>
                                                   <tr>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Nombre</th>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Cantidad</th>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Importe</th>
+                                                    <th className="text-left px-2 py-2 w-1/2 font-medium text-gray-900">Nombre</th>
+                                                    <th className="text-center px-2 py-2 w-1/4 font-medium text-gray-900">Cantidad</th>
+                                                    <th className="text-right px-2 py-2 w-1/4 font-medium text-gray-900">Importe</th>
                                                   </tr>
                                                 </thead>
                                                 <tbody>
                                                   {productosOrden.map(prod => (
                                                     <tr key={prod._id}>
-                                                      <td className="px-2 py-2 whitespace-nowrap">{prod.nombreProducto}</td>
-                                                      <td className="px-2 py-2 whitespace-nowrap">{prod.cantidad}</td>
-                                                      <td className="px-2 py-2 whitespace-nowrap">${prod.importe.toFixed(2)}</td>
+                                                      <td className="text-left px-2 py-2 w-1/2">{prod.nombreProducto}</td>
+                                                      <td className="text-center px-2 py-2 w-1/4">{prod.cantidad}</td>
+                                                      <td className="text-right px-2 py-2 w-1/4">${prod.importe.toFixed(2)}</td>
                                                     </tr>
                                                   ))}
+                                                  {productosOrden.length > 0 && (
+                                                    <tr className="border-t border-gray-300 font-semibold bg-gray-50">
+                                                      <td className="text-left px-2 py-2 w-1/2">Total Productos</td>
+                                                      <td className="text-center px-2 py-2 w-1/4">
+                                                        {productosOrden.reduce((sum, prod) => sum + prod.cantidad, 0)}
+                                                      </td>
+                                                      <td className="text-right px-2 py-2 w-1/4">
+                                                        ${productosOrden.reduce((sum, prod) => sum + prod.importe, 0).toFixed(2)}
+                                                      </td>
+                                                    </tr>
+                                                  )}
                                                 </tbody>
                                               </table>
                                             </div>
@@ -619,21 +647,32 @@ const Reportes: React.FC = () => {
                                               <table className="min-w-full text-xs sm:text-sm">
                                                 <thead>
                                                   <tr>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Nombre</th>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Guiso</th>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Cantidad</th>
-                                                    <th className="px-2 py-2 whitespace-nowrap">Importe</th>
+                                                    <th className="text-left px-2 py-2 w-2/5 font-medium text-gray-900">Nombre</th>
+                                                    <th className="text-left px-2 py-2 w-2/5 font-medium text-gray-900">Guiso</th>
+                                                    <th className="text-center px-2 py-2 w-1/10 font-medium text-gray-900">Cantidad</th>
+                                                    <th className="text-right px-2 py-2 w-1/10 font-medium text-gray-900">Importe</th>
                                                   </tr>
                                                 </thead>
                                                 <tbody>
                                                   {platillosOrden.map(pl => (
                                                     <tr key={pl._id}>
-                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.nombrePlatillo}</td>
-                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.nombreGuiso}</td>
-                                                      <td className="px-2 py-2 whitespace-nowrap">{pl.cantidad}</td>
-                                                      <td className="px-2 py-2 whitespace-nowrap">${pl.importe.toFixed(2)}</td>
+                                                      <td className="text-left px-2 py-2 w-2/5">{pl.nombrePlatillo}</td>
+                                                      <td className="text-left px-2 py-2 w-2/5">{pl.nombreGuiso}</td>
+                                                      <td className="text-center px-2 py-2 w-1/10">{pl.cantidad}</td>
+                                                      <td className="text-right px-2 py-2 w-1/10">${pl.importe.toFixed(2)}</td>
                                                     </tr>
                                                   ))}
+                                                  {platillosOrden.length > 0 && (
+                                                    <tr className="border-t border-gray-300 font-semibold bg-gray-50">
+                                                      <td className="text-left px-2 py-2 w-2/5" colSpan={2}>Total Platillos</td>
+                                                      <td className="text-center px-2 py-2 w-1/10">
+                                                        {platillosOrden.reduce((sum, pl) => sum + pl.cantidad, 0)}
+                                                      </td>
+                                                      <td className="text-right px-2 py-2 w-1/10">
+                                                        ${platillosOrden.reduce((sum, pl) => sum + pl.importe, 0).toFixed(2)}
+                                                      </td>
+                                                    </tr>
+                                                  )}
                                                 </tbody>
                                               </table>
                                             </div>
@@ -750,11 +789,11 @@ const Reportes: React.FC = () => {
                       {reporteGastos.map((gasto, index) => (
                         <tr key={index} className="border-b border-gray-100">
                           <td className="py-3 px-4">{new Date(gasto.fecha).toLocaleDateString()}</td>
-                          <td className="py-3 px-4 font-medium">{gasto.descripcion}</td>
-                          <td className="py-3 px-4">{gasto.tipoGasto}</td>
+                          <td className="py-3 px-4 font-medium">{gasto.nombre}</td>
+                          <td className="py-3 px-4">{gasto.nombreTipoGasto}</td>
                           <td className="py-3 px-4">{gasto.descripcion}</td>
                           <td className="py-3 px-4 text-red-600 font-medium">
-                            ${gasto.monto?.toFixed(2) || '0.00'}
+                            ${gasto.gastoTotal?.toFixed(2) || '0.00'}
                           </td>
                         </tr>
                       ))}

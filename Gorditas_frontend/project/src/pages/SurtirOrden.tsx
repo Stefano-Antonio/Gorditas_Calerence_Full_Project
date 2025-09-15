@@ -27,11 +27,13 @@ const SurtirOrden: React.FC = () => {
   const [markingItem, setMarkingItem] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasNewOrders, setHasNewOrders] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   useEffect(() => {
     loadData();
-    // Set up polling for real-time updates
-    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+    // Set up polling for real-time updates - more frequent for better responsiveness
+    const interval = setInterval(loadData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -53,7 +55,23 @@ const SurtirOrden: React.FC = () => {
         const ordenesParaSurtir = ordenesArray.filter((orden: Orden) => 
           ['Recepcion', 'Pendiente'].includes(orden.estatus)
         );
+        
+        // Detectar nuevas órdenes comparando con el estado actual
+        const currentOrderIds = ordenes.map(o => o._id);
+        const newOrderIds = ordenesParaSurtir.map(o => o._id);
+        const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
+        
+        if (hasNewData && ordenes.length > 0) {
+          setHasNewOrders(true);
+          setSuccess('Nuevas órdenes detectadas');
+          setTimeout(() => {
+            setHasNewOrders(false);
+            setSuccess('');
+          }, 5000);
+        }
+        
         setOrdenes(ordenesParaSurtir);
+        setLastUpdateTime(new Date());
       }
 
       if (mesasRes.success) {
@@ -199,8 +217,8 @@ const SurtirOrden: React.FC = () => {
     return allProductsReady && allDishesReady;
   };
 
-  const getMesaInfo = (mesaId: string) => {
-    return mesas.find(mesa => mesa._id === mesaId);
+  const getMesaInfo = (mesaId: string | number) => {
+    return mesas.find(mesa => mesa._id === String(mesaId) || mesa._id === mesaId);
   };
 
   const getTimeElapsed = (fecha: Date) => {
@@ -251,6 +269,19 @@ const SurtirOrden: React.FC = () => {
               </span>
             </div>
           </div>
+          {hasNewOrders && (
+            <div className="bg-green-100 rounded-lg px-3 py-2 shadow-sm border border-green-200">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-green-700">
+                  Nuevas órdenes
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="text-xs text-gray-500">
+            Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+          </div>
         </div>
       </div>
 
@@ -294,7 +325,7 @@ const SurtirOrden: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Mesa {mesa?.numero || orden.mesa}
+                        {orden.nombreMesa || 'Sin Mesa'}
                       </h3>
                       {orden.nombreCliente && (
                         <p className="text-sm font-medium text-blue-600">
@@ -417,7 +448,7 @@ const SurtirOrden: React.FC = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">
-                  Detalles de Orden - Mesa {selectedOrden.mesa}
+                  Detalles de Orden - {selectedOrden.nombreMesa || 'Sin Mesa'}
                 </h2>
                 <button
                   onClick={() => setSelectedOrden(null)}

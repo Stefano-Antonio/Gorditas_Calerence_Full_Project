@@ -6,7 +6,7 @@ export interface IPlatilloDocument  extends Omit<IPlatillo, '_id'>, Document {}
 const platilloSchema = new Schema<IPlatilloDocument>({
   _id: { type: Number, required: true },
   idTipoPlatillo: { type: Number, required: true },
-  nombreTipoPlatillo: { type: String, required: true, trim: true },
+  nombreTipoPlatillo: { type: String, trim: true },
   nombre: { type: String, required: true, trim: true },
   descripcion: { type: String, trim: true },
   costo: { type: Number, required: true, min: 0 },

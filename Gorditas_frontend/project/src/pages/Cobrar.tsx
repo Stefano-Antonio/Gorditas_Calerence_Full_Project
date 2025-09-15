@@ -22,9 +22,14 @@ const Cobrar: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasNewOrders, setHasNewOrders] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   useEffect(() => {
     loadOrdenesActivas();
+    // Set up polling for real-time updates
+    const interval = setInterval(loadOrdenesActivas, 12000); // Refresh every 12 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const loadOrdenesActivas = async () => {
@@ -41,6 +46,21 @@ const Cobrar: React.FC = () => {
         const ordenesFiltradas = ordenesArray.filter(
           (orden: Orden) => orden.estatus === 'Entregada'
         );
+        
+        // Detectar nuevas órdenes para cobrar
+        const currentOrderIds = ordenesActivas.map(o => o._id);
+        const newOrderIds = ordenesFiltradas.map(o => o._id);
+        const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
+        
+        if (hasNewData && ordenesActivas.length > 0) {
+          setHasNewOrders(true);
+          setSuccess('Nuevas órdenes para cobrar detectadas');
+          setTimeout(() => {
+            setHasNewOrders(false);
+            setSuccess('');
+          }, 5000);
+        }
+        
         // Cargar detalles para cada orden
         const ordenesConDetalles: OrdenCompleta[] = [];
         for (const orden of ordenesFiltradas) {
@@ -64,6 +84,7 @@ const Cobrar: React.FC = () => {
           }
         }
         setOrdenesActivas(ordenesConDetalles);
+        setLastUpdateTime(new Date());
       } else {
         setOrdenesActivas([]);
       }
@@ -176,6 +197,21 @@ const Cobrar: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cobrar</h1>
           <p className="text-gray-600 mt-1">Procesa el pago y finaliza las órdenes</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          {hasNewOrders && (
+            <div className="bg-yellow-100 rounded-lg px-3 py-2 shadow-sm border border-yellow-200">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-yellow-700">
+                  Nuevas órdenes para cobrar
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="text-xs text-gray-500">
+            Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+          </div>
         </div>
       </div>
 

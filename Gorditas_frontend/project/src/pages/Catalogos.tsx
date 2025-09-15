@@ -7,8 +7,7 @@ import {
   Save,
   X,
   Search,
-  Filter,
-  RefreshCw
+  Filter
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { BaseEntity } from '../types';
@@ -22,21 +21,18 @@ interface CatalogItem extends BaseEntity {
 const catalogModels = [
   { id: 'guiso', name: 'Guisos', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipoproducto', name: 'Tipos de Producto', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true, showPrice: true },
+  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true, showPrice: true },
+  { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
-  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'idTipoUsuario'], hasActivo: true },
+  { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },
-  { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre'], hasActivo: true },
-  { id: 'gasto', name: 'Gastos', fields: ['nombre', 'idTipoGasto', 'gastoTotal', 'descripcion'], hasActivo: false },
 ];
 
 const Catalogos: React.FC = () => {
   // Tipos dinámicos para selects
   const [tiposPlatillo, setTiposPlatillo] = useState<any[]>([]);
   const [tiposProducto, setTiposProducto] = useState<any[]>([]);
-  const [tiposGasto, setTiposGasto] = useState<any[]>([]);
   // Tipos fijos para usuarios
   const tiposUsuarioFijos = [
     { value: 'Despachador', label: 'Despachador', descripcion: 'Atiende y despacha órdenes.' },
@@ -76,20 +72,6 @@ const Catalogos: React.FC = () => {
           }
         } else {
           setTiposProducto([]);
-        }
-      }
-      if (selectedModel.id === 'gasto') {
-        const res = await apiService.getCatalog('tipogasto');
-        if (res.success && res.data) {
-          if (Array.isArray(res.data.items)) {
-            setTiposGasto(res.data.items);
-          } else if (Array.isArray(res.data)) {
-            setTiposGasto(res.data);
-          } else {
-            setTiposGasto([]);
-          }
-        } else {
-          setTiposGasto([]);
         }
       }
       if (selectedModel.id === 'usuario') {
@@ -221,10 +203,10 @@ const Catalogos: React.FC = () => {
         } else {
           setError('Error guardando el item');
         }
-        console.error('Error al guardar el item:', response.error);
+        console.error('Error al guardar el item:', response.error); // Debugging log
       }
     } catch (error) {
-      console.error('Error inesperado al guardar el item:', error);
+      console.error('Error inesperado al guardar el item:', error); // Debugging log
       setError('Error guardando el item');
     } finally {
       setSaving(false);
@@ -313,21 +295,6 @@ const Catalogos: React.FC = () => {
           </select>
         );
       }
-      case 'idTipoGasto': {
-        // Mostrar solo tipos de gasto existentes
-        return (
-          <select
-            value={value || ''}
-            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-          >
-            <option value="">Selecciona tipo de gasto</option>
-            {(Array.isArray(tiposGasto) ? tiposGasto : []).map(tipo => (
-              <option key={tipo._id} value={tipo._id}>{tipo.nombre}</option>
-            ))}
-          </select>
-        );
-      }
       case 'activo':
         return (
           <div className="flex items-center">
@@ -370,7 +337,6 @@ const Catalogos: React.FC = () => {
       case 'capacidad':
       case 'costo':
       case 'precio':
-      case 'gastoTotal':
         return (
           <input
             type="number"
@@ -410,25 +376,20 @@ const Catalogos: React.FC = () => {
       nombre: 'Nombre',
       descripcion: 'Descripción',
       codigoBarras: 'Código de Barras',
-      idTipoProducto: 'ID Tipo de Producto',
-      nombreTipoProducto: 'Nombre Tipo de Producto',
+      idTipoProducto: 'Tipo de Producto',
       cantidad: 'Cantidad',
       costo: 'Costo',
       precio: 'Precio',
-      idTipoPlatillo: 'ID Tipo de Platillo',
-      nombreTipoPlatillo: 'Nombre Tipo de Platillo',
+      idTipoPlatillo: 'Tipo de Platillo',
       permisos: 'Permisos',
       email: 'Email',
       password: 'Contraseña',
-      idTipoUsuario: 'ID Tipo de Usuario',
-      nombreTipoUsuario: 'Nombre Tipo de Usuario',
+      nombreTipoUsuario: 'Tipo de Usuario',
       telefono: 'Teléfono',
       numero: 'Número',
       capacidad: 'Capacidad',
       ubicacion: 'Ubicación',
-      activo: 'Activo',
-      gastoTotal: 'Gasto Total',
-      idTipoGasto: 'Tipo de Gasto'
+      activo: 'Activo'
     };
     return labels[field] || field;
   };
@@ -493,46 +454,35 @@ const Catalogos: React.FC = () => {
           <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">{selectedModel.name}</h2>
-              <div className="flex items-center space-x-4">
-                {/* Refresh button for all catalogs */}
-                <button
-                  onClick={loadItems}
-                  disabled={loading}
-                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center disabled:opacity-50"
-                  title="Actualizar"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-                {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
-                {selectedModel.id !== 'tipousuario' && (
-                  <>
+              {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
+              {selectedModel.id !== 'tipousuario' && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Search className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Buscar..."
+                    />
+                  </div>
+                  {selectedModel.hasActivo && (
                     <div className="flex items-center space-x-2">
-                      <Search className="w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        placeholder="Buscar..."
-                      />
+                      <Filter className="w-4 h-4 text-gray-400" />
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={showActiveOnly}
+                          onChange={(e) => setShowActiveOnly(e.target.checked)}
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Solo activos</span>
+                      </label>
                     </div>
-                    {selectedModel.hasActivo && (
-                      <div className="flex items-center space-x-2">
-                        <Filter className="w-4 h-4 text-gray-400" />
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={showActiveOnly}
-                            onChange={(e) => setShowActiveOnly(e.target.checked)}
-                            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          />
-                          <span className="ml-2 text-sm text-gray-700">Solo activos</span>
-                        </label>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Panel especial para tipos de usuario */}

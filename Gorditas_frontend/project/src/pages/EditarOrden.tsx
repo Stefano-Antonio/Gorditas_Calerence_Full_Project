@@ -36,12 +36,19 @@ const EditarOrden: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasNewOrders, setHasNewOrders] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
 
+// Removed duplicate loadData and useEffect block
+
   useEffect(() => {
     loadData();
+    // Set up polling for real-time updates
+    const interval = setInterval(loadData, 15000); // Refresh every 15 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -63,7 +70,23 @@ const EditarOrden: React.FC = () => {
       const ordenesEditables = ordenesArray.filter((orden: Orden) =>
         ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
       );
+      
+      // Detectar nuevas órdenes editables
+      const currentOrderIds = ordenes.map(o => o._id);
+      const newOrderIds = ordenesEditables.map((o: any) => o._id);
+      const hasNewData = newOrderIds.some((id: any) => !currentOrderIds.includes(id));
+      
+      if (hasNewData && ordenes.length > 0) {
+        setHasNewOrders(true);
+        setSuccess('Nuevas órdenes editables detectadas');
+        setTimeout(() => {
+          setHasNewOrders(false);
+          setSuccess('');
+        }, 5000);
+      }
+      
       setOrdenes(ordenesEditables);
+      setLastUpdateTime(new Date());
     }
 
     // Filtrar y adaptar catálogos
@@ -364,6 +387,9 @@ const EditarOrden: React.FC = () => {
                       <h3 className="font-medium text-gray-900">
                         {orden.nombreMesa || 'Sin Mesa'}
                       </h3>
+                      <p className="text-sm text-gray-600 font-medium">
+                        Cliente: {orden.nombreCliente || 'Sin nombre'}
+                      </p>
                       <p className="text-sm text-gray-600">
                         {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleDateString()}
                       </p>
@@ -384,11 +410,18 @@ const EditarOrden: React.FC = () => {
         {/* Order Details */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden
-                ? `Detalles - ${selectedOrden.nombreMesa || selectedOrden.mesa || 'Sin nombre'} | Folio: ${selectedOrden.folio}`
-                : 'Selecciona una orden'}
-            </h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {selectedOrden
+                  ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
+                  : 'Selecciona una orden'}
+              </h2>
+              {selectedOrden && selectedOrden.nombreCliente && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Cliente: <span className="font-medium">{selectedOrden.nombreCliente}</span>
+                </p>
+              )}
+            </div>
             {selectedOrden && (
               <div className="flex space-x-2">
                 <button

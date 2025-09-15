@@ -26,6 +26,8 @@ const NuevaOrden: React.FC = () => {
   const [productosSeleccionados, setProductosSeleccionados] = useState<any[]>([]);
   
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [mesasOcupadas, setMesasOcupadas] = useState<Set<string>>(new Set());
+  const [ordenesActivas, setOrdenesActivas] = useState<any[]>([]);
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [selectedProducto, setSelectedProducto] = useState<any | null>(null);
@@ -43,7 +45,7 @@ const NuevaOrden: React.FC = () => {
   const steps: OrderStep[] = [
     { step: 1, title: 'Seleccionar Mesa', completed: !!selectedMesa },
     { step: 2, title: 'Crear Suborden', completed: !!nombreSuborden },
-    { step: 3, title: 'Agregar Platillos', completed: platillosSeleccionados.length > 0 },
+    { step: 3, title: 'Agregar Items', completed: platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 },
     { step: 4, title: 'Validar y Confirmar', completed: false },
   ];
 
@@ -53,23 +55,68 @@ const NuevaOrden: React.FC = () => {
 
   const loadInitialData = async () => {
     try {
-      const [mesasResponse, platillosResponse, guisosResponse, productosResponse] = await Promise.all([
+      const [mesasResponse, platillosResponse, guisosResponse, productosResponse, ordenesResponse] = await Promise.all([
         apiService.getCatalog<ApiResponse<Mesa>>('mesa'),
         apiService.getCatalog<ApiResponse<Platillo>>('platillo'),
         apiService.getCatalog<ApiResponse<Guiso>>('guiso'),
         apiService.getCatalog<ApiResponse<any>>('producto'),
+        apiService.getOrdenes(),
       ]);
 
       setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : []);
       setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : Array.isArray(platillosResponse.data) ? platillosResponse.data : []);
       setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : Array.isArray(guisosResponse.data) ? guisosResponse.data : []);
       setProductos(Array.isArray(productosResponse.data?.items) ? productosResponse.data.items : Array.isArray(productosResponse.data) ? productosResponse.data : []);
+      
+      // Procesar órdenes activas para identificar mesas ocupadas
+      if (ordenesResponse.success && ordenesResponse.data) {
+        const ordenes = Array.isArray(ordenesResponse.data.ordenes) ? ordenesResponse.data.ordenes : [];
+        
+        // Filtrar órdenes que no están pagadas ni canceladas
+        const ordenesActivas = ordenes.filter((orden: any) => 
+          orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
+        );
+        
+        // Identificar mesas ocupadas
+        const mesasConOrdenes = new Set<string>();
+        ordenesActivas.forEach((orden: any) => {
+          if (orden.idMesa) {
+            mesasConOrdenes.add(String(orden.idMesa));
+          }
+        });
+        
+        setOrdenesActivas(ordenesActivas);
+        setMesasOcupadas(mesasConOrdenes);
+      }
     } catch (error) {
       setError('Error cargando datos iniciales');
       setMesas([]);
       setPlatillos([]);
       setGuisos([]);
+      setOrdenesActivas([]);
+      setMesasOcupadas(new Set());
     }
+  };
+
+  const getMesaInfo = (mesaId: string | undefined) => {
+    if (!mesaId) {
+      return {
+        isOcupada: false,
+        totalOrdenes: 0,
+        ordenes: [],
+        estatusOrdenes: []
+      };
+    }
+    
+    const ordenesMesa = ordenesActivas.filter((orden: any) => String(orden.idMesa) === String(mesaId));
+    const isOcupada = mesasOcupadas.has(String(mesaId));
+    
+    return {
+      isOcupada,
+      totalOrdenes: ordenesMesa.length,
+      ordenes: ordenesMesa,
+      estatusOrdenes: ordenesMesa.map((orden: any) => orden.estatus)
+    };
   };
 
   const handleAddProducto = () => {
@@ -234,7 +281,7 @@ const NuevaOrden: React.FC = () => {
     switch (currentStep) {
       case 1: return !!selectedMesa;
       case 2: return !!nombreSuborden;
-      case 3: return platillosSeleccionados.length > 0;
+      case 3: return platillosSeleccionados.length > 0 || productosSeleccionados.length > 0;
       case 4: return true; // Validation step, always allow to proceed
       default: return false;
     }
@@ -325,22 +372,81 @@ const NuevaOrden: React.FC = () => {
         {currentStep === 1 && (
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Seleccionar Mesa</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-              {mesas.filter(mesa => mesa.activo !== false).map((mesa) => (
-                <button
-                  key={mesa._id}
-                  onClick={() => setSelectedMesa(mesa)}
-                  className={`p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
-                    selectedMesa?._id === mesa._id
-                      ? 'border-orange-500 bg-orange-50 text-orange-700'
-                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                  }`}
-                >
-                  <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
-                  <div className="text-xs sm:text-sm text-gray-600">Disponible</div>
-                </button>
-              ))}
+            <div className="mb-4">
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-100 border border-green-300 rounded mr-2"></div>
+                  <span className="text-gray-600">Disponible</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-orange-100 border border-orange-300 rounded mr-2"></div>
+                  <span className="text-gray-600">Con órdenes activas</span>
+                </div>
+              </div>
             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+              {mesas.filter(mesa => mesa.activo !== false).map((mesa) => {
+                const mesaInfo = getMesaInfo(mesa._id);
+                const isSelected = selectedMesa?._id === mesa._id;
+                
+                return (
+                  <button
+                    key={mesa._id}
+                    onClick={() => setSelectedMesa(mesa)}
+                    className={`relative p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : mesaInfo.isOcupada
+                        ? 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:bg-orange-100'
+                        : 'border-gray-200 bg-green-50 hover:border-green-300 hover:bg-green-100'
+                    }`}
+                  >
+                    {mesaInfo.isOcupada && (
+                      <div className="absolute top-1 right-1">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      </div>
+                    )}
+                    <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
+                    <div className={`text-xs sm:text-sm ${
+                      mesaInfo.isOcupada ? 'text-orange-600' : 'text-green-600'
+                    }`}>
+                      {mesaInfo.isOcupada 
+                        ? `${mesaInfo.totalOrdenes} orden${mesaInfo.totalOrdenes !== 1 ? 'es' : ''} activa${mesaInfo.totalOrdenes !== 1 ? 's' : ''}`
+                        : 'Disponible'
+                      }
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            
+            {selectedMesa && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-medium text-blue-900 mb-2">Mesa seleccionada: {selectedMesa.nombre}</h3>
+                {(() => {
+                  const mesaInfo = getMesaInfo(selectedMesa._id);
+                  return mesaInfo.isOcupada ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-blue-800">
+                        Esta mesa tiene {mesaInfo.totalOrdenes} orden{mesaInfo.totalOrdenes !== 1 ? 'es' : ''} activa{mesaInfo.totalOrdenes !== 1 ? 's' : ''}:
+                      </p>
+                      <div className="space-y-1">
+                        {mesaInfo.ordenes.map((orden: any, index: number) => (
+                          <div key={index} className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                            Folio #{orden.folio || 'N/A'} - Estado: {orden.estatus} - Total: ${orden.total?.toFixed(2) || '0.00'}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-blue-800 font-medium">
+                        Puedes agregar una nueva orden a esta mesa.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-blue-800">Mesa disponible - No hay órdenes activas.</p>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
 
@@ -635,6 +741,10 @@ const NuevaOrden: React.FC = () => {
                     <span className="ml-2 font-medium">{platillosSeleccionados.length} items</span>
                   </div>
                   <div>
+                    <span className="text-gray-600">Productos:</span>
+                    <span className="ml-2 font-medium">{productosSeleccionados.length} items</span>
+                  </div>
+                  <div>
                     <span className="text-gray-600">Total:</span>
                     <span className="ml-2 font-medium text-orange-600">${getTotalOrden().toFixed(2)}</span>
                   </div>
@@ -674,7 +784,7 @@ const NuevaOrden: React.FC = () => {
 
               <button
                 onClick={handleSubmitOrder}
-                disabled={loading || !selectedMesa || !nombreSuborden || platillosSeleccionados.length === 0}
+                disabled={loading || !selectedMesa || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
                 className="w-full bg-green-600 text-white px-6 py-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {loading ? (
@@ -702,7 +812,7 @@ const NuevaOrden: React.FC = () => {
           {currentStep < 4 && (
             <button
               onClick={() => setCurrentStep(currentStep + 1)}
-              disabled={!canProceedToNext() || (currentStep === 3 && platillosSeleccionados.length === 0)}
+              disabled={!canProceedToNext()}
               className="flex items-center px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Siguiente

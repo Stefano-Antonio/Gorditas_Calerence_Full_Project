@@ -8,7 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
+import { Orden, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
 
 interface OrdenConDetalles extends Orden {
   productos?: OrdenDetalleProducto[];
@@ -17,26 +17,24 @@ interface OrdenConDetalles extends Orden {
 
 const Despachar: React.FC = () => {
   const [ordenes, setOrdenes] = useState<OrdenConDetalles[]>([]);
-  const [mesas, setMesas] = useState<Mesa[]>([]);
   const [selectedOrden, setSelectedOrden] = useState<OrdenConDetalles | null>(null);
   const [loading, setLoading] = useState(true);
   const [dispatching, setDispatching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasNewOrders, setHasNewOrders] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   useEffect(() => {
     loadData();
-    // Set up polling for real-time updates
-    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+    // Set up polling for real-time updates - more frequent for better responsiveness
+    const interval = setInterval(loadData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
     try {
-      const [ordenesRes, mesasRes] = await Promise.all([
-        apiService.getOrdenes(),
-        apiService.getCatalog<Mesa>('mesa')
-      ]);
+      const ordenesRes = await apiService.getOrdenes();
 
       if (ordenesRes.success) {
         let ordenesArray: Orden[] = [];
@@ -49,17 +47,23 @@ const Despachar: React.FC = () => {
         const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
           orden.estatus === 'Surtida'
         );
-        setOrdenes(ordenesParaDespachar);
-      }
-
-      if (mesasRes.success) {
-        let mesasArray: Mesa[] = [];
-        if (Array.isArray(mesasRes.data)) {
-          mesasArray = mesasRes.data;
-        } else if (Array.isArray(mesasRes.data?.items)) {
-          mesasArray = mesasRes.data.items;
+        
+        // Detectar nuevas órdenes comparando con el estado actual
+        const currentOrderIds = ordenes.map(o => o._id);
+        const newOrderIds = ordenesParaDespachar.map(o => o._id);
+        const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
+        
+        if (hasNewData && ordenes.length > 0) {
+          setHasNewOrders(true);
+          setSuccess('Nuevas órdenes para despachar detectadas');
+          setTimeout(() => {
+            setHasNewOrders(false);
+            setSuccess('');
+          }, 5000);
         }
-        setMesas(mesasArray);
+        
+        setOrdenes(ordenesParaDespachar);
+        setLastUpdateTime(new Date());
       }
     } catch (error) {
       setError('Error cargando órdenes');
@@ -162,10 +166,6 @@ const Despachar: React.FC = () => {
     }
   };
 
-  const getMesaInfo = (mesaId: string) => {
-    return mesas.find(mesa => mesa._id === mesaId);
-  };
-
   const isOrderReadyForDispatch = (orden: OrdenConDetalles) => {
     const allProductsDelivered = orden.productos?.every(p => p.entregado) ?? true;
     const allDishesDelivered = orden.platillos?.every(p => p.entregado) ?? true;
@@ -194,6 +194,19 @@ const Despachar: React.FC = () => {
               {ordenes.length} órdenes surtidas para despacho
             </span>
           </div>
+        </div>
+        {hasNewOrders && (
+          <div className="bg-blue-100 rounded-lg px-3 py-2 shadow-sm border border-blue-200">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-blue-700">
+                Nuevas órdenes listas
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="text-xs text-gray-500">
+          Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
         </div>
       </div>
 
@@ -225,8 +238,6 @@ const Despachar: React.FC = () => {
               </div>
             ) : (
               ordenes.map((orden) => {
-                const mesa = getMesaInfo(orden.mesa);
-                
                 return (
                   <div
                     key={orden._id}
@@ -244,7 +255,7 @@ const Despachar: React.FC = () => {
                         </div>
                         <div>
                           <h3 className="font-medium text-gray-900">
-                            Mesa {mesa?.numero || orden.mesa}
+                            {orden.nombreMesa || 'Sin Mesa'}
                           </h3>
                           {orden.nombreCliente && (
                             <p className="text-sm font-medium text-blue-600">
@@ -279,7 +290,7 @@ const Despachar: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - Mesa ${getMesaInfo(selectedOrden.mesa)?.numero}` : 'Selecciona una orden'}
+              {selectedOrden ? `Detalles - ${selectedOrden.nombreMesa || 'Sin Mesa'}` : 'Selecciona una orden'}
             </h2>
             {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
               <button
@@ -315,7 +326,7 @@ const Despachar: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium">{getMesaInfo(selectedOrden.mesa)?.numero}</span>
+                    <span className="ml-2 font-medium">{selectedOrden.nombreMesa || 'Sin Mesa'}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Total:</span>

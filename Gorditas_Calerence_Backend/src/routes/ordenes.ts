@@ -225,9 +225,11 @@ router.put('/:id/estatus', authenticate,
 
     // Validate status transition based on user role
     const currentStatus = orden.estatus;
+    console.log(`DEBUG: Usuario ${userRole} intenta cambiar de ${currentStatus} a ${estatus}`);
     const isValidTransition = validateStatusTransition(currentStatus, estatus, userRole);
     
     if (!isValidTransition) {
+      console.log(`DEBUG: Transición no válida para ${userRole}: ${currentStatus} -> ${estatus}`);
       return res.status(403).json(createResponse(false, null, 'Transición de estatus no permitida para su rol'));
     }
 
@@ -273,14 +275,21 @@ router.put('/:id/verificar', authenticate, isMesero,
 
 // Helper function to validate status transitions based on user role
 function validateStatusTransition(currentStatus: string, newStatus: string, userRole: string): boolean {
+  console.log(`DEBUG validateStatusTransition: ${userRole} intenta ${currentStatus} -> ${newStatus}`);
+  
   // Admin can change any status
-  if (userRole === 'Admin') return true;
+  if (userRole === 'Admin') {
+    console.log('DEBUG: Admin puede hacer cualquier transición');
+    return true;
+  }
 
   const validTransitions: { [key: string]: { [key: string]: string[] } } = {
     'Mesero': {
       'Pendiente': ['Recepcion'],
-      'Entregada': ['Pagada'],
-      'Surtida': ['Pagada'] // Permitir cobrar desde Surtida
+      'Recepcion': ['Preparacion', 'Surtida'], // Puede enviar a cocina o marcar como surtida
+      'Preparacion': ['Surtida', 'Recepcion'], // Puede marcar como surtida o volver a recepción
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'], // Puede despachar, cobrar o volver a recepción
+      'Entregada': ['Pagada', 'Recepcion'], // Puede cobrar o volver a recepción
     },
     'Despachador': {
       'Recepcion': ['Preparacion', 'Surtida'], // Ahora puede ir directo a Surtida
@@ -288,8 +297,11 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
       'Surtida': ['Entregada']
     },
     'Encargado': {
-      'Entregada': ['Pagada','Recepcion'],
-      'Surtida': ['Pagada','Recepcion'] // Permitir cobrar desde Surtida
+      'Pendiente': ['Recepcion'],
+      'Recepcion': ['Preparacion', 'Surtida'], // Puede surtir órdenes
+      'Preparacion': ['Surtida', 'Recepcion'], // Puede marcar como surtida o volver a recepción
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'], // Puede despachar, cobrar o volver a recepción
+      'Entregada': ['Pagada', 'Recepcion'] // Puede cobrar o volver a recepción
     },
     'Cocinero': {
       'Recepcion': ['Preparacion', 'Surtida'], // Ahora puede ir directo a Surtida
@@ -298,10 +310,20 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
   };
 
   const roleTransitions = validTransitions[userRole];
-  if (!roleTransitions) return false;
+  console.log(`DEBUG: Transiciones para ${userRole}:`, roleTransitions);
+  
+  if (!roleTransitions) {
+    console.log(`DEBUG: No hay transiciones definidas para ${userRole}`);
+    return false;
+  }
 
   const allowedNewStatuses = roleTransitions[currentStatus];
-  return allowedNewStatuses ? allowedNewStatuses.includes(newStatus) : false;
+  console.log(`DEBUG: Estados permitidos desde ${currentStatus}:`, allowedNewStatuses);
+  
+  const result = allowedNewStatuses ? allowedNewStatuses.includes(newStatus) : false;
+  console.log(`DEBUG: Resultado de validación: ${result}`);
+  
+  return result;
 }
 
 // Helper function to update orden total

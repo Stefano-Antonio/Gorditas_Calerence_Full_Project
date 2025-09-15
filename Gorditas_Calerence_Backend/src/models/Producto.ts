@@ -6,7 +6,7 @@ export interface IProductoDocument extends Omit<IProducto, '_id'>, Document {}
 const productoSchema = new Schema<IProductoDocument>({
   _id: { type: Number, required: true },
   idTipoProducto: { type: Number, required: true },
-  nombreTipoProducto: { type: String, required: true, trim: true },
+  nombreTipoProducto: { type: String, trim: true },
   nombre: { type: String, required: true, trim: true },
   cantidad: { type: Number, required: true, min: 0 },
   costo: { type: Number, required: true, min: 0 },

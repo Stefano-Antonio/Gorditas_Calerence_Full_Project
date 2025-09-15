@@ -25,7 +25,8 @@ export const createUserSchema = Joi.object({
   nombre: Joi.string().required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
-  idTipoUsuario: Joi.number().required()
+  nombreTipoUsuario: Joi.string().valid('Admin', 'Encargado', 'Despachador', 'Mesero', 'Cocinero').required(),
+  idTipoUsuario: Joi.number().optional()
 });
 
 export const createOrdenSchema = Joi.object({

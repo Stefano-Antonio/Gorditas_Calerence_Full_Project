@@ -16,14 +16,14 @@ import { useAuth } from '../../context/AuthContext';
 import { MenuItem } from '../../types';
 
 const menuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'Panel Principal', icon: 'Home', path: '/', roles: ['Admin', 'Encargado', 'Mesero', 'Despachador', 'Cocinero'] },
+  { id: 'dashboard', label: 'Panel Principal', icon: 'Home', path: '/', roles: ['Admin', 'Encargado'] },
   { id: 'nueva-orden', label: 'Nueva Orden', icon: 'PlusCircle', path: '/nueva-orden', roles: ['Admin', 'Encargado', 'Mesero'] },
   { id: 'editar-orden', label: 'Editar Orden', icon: 'Edit3', path: '/editar-orden', roles: ['Admin', 'Encargado', 'Mesero'] },
-  { id: 'surtir-orden', label: 'Surtir Orden', icon: 'ChefHat', path: '/surtir-orden', roles: ['Admin', 'Despachador', 'Cocinero'] },
-  { id: 'despachar', label: 'Despachar', icon: 'Truck', path: '/despachar', roles: ['Admin', 'Despachador'] },
+  { id: 'surtir-orden', label: 'Surtir Orden', icon: 'ChefHat', path: '/surtir-orden', roles: ['Admin', 'Encargado', 'Despachador', 'Cocinero'] },
+  { id: 'despachar', label: 'Despachar', icon: 'Truck', path: '/despachar', roles: ['Admin', 'Encargado', 'Mesero', 'Despachador'] },
   { id: 'recibir-productos', label: 'Recibir Productos', icon: 'Package', path: '/recibir-productos', roles: ['Admin', 'Encargado'] },
   { id: 'cobrar', label: 'Cobrar', icon: 'CreditCard', path: '/cobrar', roles: ['Admin', 'Encargado', 'Mesero'] },
-  { id: 'catalogos', label: 'Catálogos', icon: 'Settings', path: '/catalogos', roles: ['Admin', 'Encargado'] },
+  { id: 'catalogos', label: 'Catálogos', icon: 'Settings', path: '/catalogos', roles: ['Admin', 'Encargado', 'Mesero', 'Despachador'] },
   { id: 'reportes', label: 'Reportes', icon: 'BarChart3', path: '/reportes', roles: ['Admin', 'Encargado'] },
 ];
 

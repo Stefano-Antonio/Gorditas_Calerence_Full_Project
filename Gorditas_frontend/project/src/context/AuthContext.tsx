@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   hasPermission: (roles: UserRole[]) => boolean;
+  getDefaultRoute: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -76,12 +77,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return roles.includes(user.nombreTipoUsuario as UserRole);
   };
 
+  const getDefaultRoute = (): string => {
+    if (!user) return '/login';
+    
+    switch (user.nombreTipoUsuario) {
+      case 'Despachador':
+        return '/surtir-orden';
+      case 'Mesero':
+        return '/nueva-orden';
+      case 'Admin':
+      case 'Encargado':
+      default:
+        return '/';
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
     hasPermission,
+    getDefaultRoute,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

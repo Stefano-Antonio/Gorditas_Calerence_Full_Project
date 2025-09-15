@@ -54,9 +54,14 @@ const Dashboard: React.FC = () => {
   const [updating, setUpdating] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [hasNewData, setHasNewData] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   useEffect(() => {
     loadDashboardData();
+    // Set up polling for real-time updates - more frequent for better responsiveness
+    const interval = setInterval(loadDashboardData, 8000); // Refresh every 8 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const loadDashboardData = async () => {
@@ -135,17 +140,51 @@ const Dashboard: React.FC = () => {
 
         setOrdenesPendientes(pendientes);
         setOrdenesWorkflow(workflow);
+        
+        // Detectar nuevos datos
+        const currentWorkflowIds = ordenesWorkflow.map(o => o._id);
+        const newWorkflowIds = workflow.map(o => o._id);
+        const hasChanges = newWorkflowIds.some(id => !currentWorkflowIds.includes(id)) || 
+                          newWorkflowIds.length !== currentWorkflowIds.length;
+        
+        if (hasChanges && ordenesWorkflow.length > 0) {
+          setHasNewData(true);
+          setTimeout(() => setHasNewData(false), 3000);
+        }
+        
+        setLastUpdateTime(new Date());
       }
 
       // Load inventory
       const inventarioResponse = await apiService.getInventario();
+      console.log('Respuesta completa del inventario:', inventarioResponse);
+      
       if (inventarioResponse.success && inventarioResponse.data) {
-        const productos = Array.isArray(inventarioResponse.data) ? inventarioResponse.data : [];
-        const lowStock = productos.filter((producto: any) => producto.cantidad < 10).length;
+        // Los productos están en inventarioResponse.data.productos
+        const productos = Array.isArray(inventarioResponse.data.productos) 
+          ? inventarioResponse.data.productos 
+          : [];
+
         
+        // Filtrar productos con stock bajo (menos de 10 items)
+        const lowStock = productos.filter((producto: any) => {
+          const cantidad = Number(producto.cantidad) || 0;
+          const hasLowStock = cantidad < 10;
+          if (hasLowStock) {
+            console.log(`Producto con stock bajo: ${producto.nombre || 'Sin nombre'} - Cantidad: ${cantidad}`);
+          }
+          return hasLowStock;
+        }).length;
+
         setStats(prev => ({
           ...prev,
           productosLowStock: lowStock,
+        }));
+      } else {
+        console.error('Error cargando inventario:', inventarioResponse);
+        setStats(prev => ({
+          ...prev,
+          productosLowStock: 0,
         }));
       }
     } catch (error) {
@@ -425,14 +464,21 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm text-gray-500">
-            {new Date().toLocaleDateString('es-ES', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </p>
+          <div className="flex items-center space-x-4">
+            {hasNewData && (
+              <div className="bg-indigo-100 rounded-lg px-3 py-2 shadow-sm border border-indigo-200">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-indigo-700">
+                    Datos actualizados
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="text-xs text-gray-500">
+              Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -480,10 +526,15 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Stock Bajo</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.productosLowStock}</p>
+              <p className={`text-3xl font-bold ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {stats.productosLowStock}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {stats.productosLowStock === 0 ? 'Todo en orden' : `cuentas con ${stats.productosLowStock} producto con${stats.productosLowStock !== 1 ? 's' : ''} menos de 10 items`}
+              </p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+            <div className={`p-3 rounded-lg ${stats.productosLowStock > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
+              <AlertCircle className={`w-6 h-6 ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-green-600'}`} />
             </div>
           </div>
         </div>

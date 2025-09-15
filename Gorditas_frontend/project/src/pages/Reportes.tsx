@@ -750,11 +750,11 @@ const Reportes: React.FC = () => {
                       {reporteGastos.map((gasto, index) => (
                         <tr key={index} className="border-b border-gray-100">
                           <td className="py-3 px-4">{new Date(gasto.fecha).toLocaleDateString()}</td>
-                          <td className="py-3 px-4 font-medium">{gasto.nombre}</td>
+                          <td className="py-3 px-4 font-medium">{gasto.descripcion}</td>
                           <td className="py-3 px-4">{gasto.tipoGasto}</td>
                           <td className="py-3 px-4">{gasto.descripcion}</td>
                           <td className="py-3 px-4 text-red-600 font-medium">
-                            ${gasto.gastoTotal?.toFixed(2) || '0.00'}
+                            ${gasto.monto?.toFixed(2) || '0.00'}
                           </td>
                         </tr>
                       ))}

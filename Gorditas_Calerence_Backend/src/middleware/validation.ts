@@ -33,21 +33,24 @@ export const createOrdenSchema = Joi.object({
   nombreTipoOrden: Joi.string().required(),
   idMesa: Joi.number().optional(),
   nombreMesa: Joi.string().optional(),
-  nombreCliente: Joi.string().optional(),
+  nombreCliente: Joi.string().max(100).optional(),
   total: Joi.number().min(0).required(),
   estatus: Joi.string().optional()
 });
 
 export const addProductToOrdenSchema = Joi.object({
-  idOrden: Joi.string().required(),
+  idOrden: Joi.string().optional(),
   idProducto: Joi.number().required(),
+  nombreProducto: Joi.string().required(),
   costoProducto: Joi.number().min(0).required(),
   cantidad: Joi.number().min(1).required()
 });
 
 export const addPlatilloToSubordenSchema = Joi.object({
   idPlatillo: Joi.number().required(),
+  nombrePlatillo: Joi.string().required(),
   idGuiso: Joi.number().required(),
+  nombreGuiso: Joi.string().required(),
   costoPlatillo: Joi.number().min(0).required(),
   cantidad: Joi.number().min(1).required()
 });

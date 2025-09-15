@@ -1,6 +1,6 @@
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
-//const API_BASE_URL = `http://localhost:5000/api`;
+//const API_BASE_URL = `localhost:5000/api`;
 const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
 
 class ApiService {
@@ -46,7 +46,7 @@ class ApiService {
     console.error('❌ Error connecting to backend:', error);
     return {
       success: false,
-      error: 'No hay información disponible - Error de conexión con el servidor',
+      error: 'Error de conexión con el servidor',
     };
   }
 }
@@ -174,16 +174,22 @@ class ApiService {
     
     return this.request(`/reportes/gastos?${params.toString()}`);
   }
+  async getProductosVendidos() {
+    return this.request('/reportes/productos-vendidos');
+  }
   
-  async createGasto(gasto: any) {
-    return this.request('/reportes/gastos', {
+  async createGasto(gasto: {
+    nombre: string;
+    idTipoGasto: string;
+    gastoTotal: number;
+    descripcion: string;
+  }) {
+    return this.request('/gastos', {
       method: 'POST',
       body: JSON.stringify(gasto),
     });
   }
-  async getProductosVendidos() {
-    return this.request('/reportes/productos-vendidos');
-  }
+  
   // Catalogs methods
   async getCatalog<T>(modelo: string): Promise<ApiResponse<T[]>> {
     return this.request(`/catalogos/${modelo}`);

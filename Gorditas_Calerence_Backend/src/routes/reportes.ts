@@ -225,6 +225,22 @@ router.post('/gastos', authenticate, isEncargado,
   })
 );
 
+// DELETE /api/reportes/gastos/:id - Eliminar gasto
+router.delete('/gastos/:id', authenticate, isEncargado, 
+  asyncHandler(async (req: any, res: any) => {
+    const { id } = req.params;
+    
+    const gasto = await Gasto.findById(id);
+    if (!gasto) {
+      return res.status(404).json(createResponse(false, null, 'Gasto no encontrado'));
+    }
+
+    await Gasto.findByIdAndDelete(id);
+    
+    res.json(createResponse(true, null, 'Gasto eliminado exitosamente'));
+  })
+);
+
 // GET /api/reportes/productos-vendidos - Productos más vendidos
 router.get('/productos-vendidos', authenticate, isEncargado, 
   asyncHandler(async (req: any, res: any) => {

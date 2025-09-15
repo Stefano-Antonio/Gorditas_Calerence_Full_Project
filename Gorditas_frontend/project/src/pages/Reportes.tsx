@@ -10,7 +10,8 @@ import {
   RefreshCw,
   Plus,
   X,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import ExcelJS from 'exceljs';
@@ -97,6 +98,7 @@ const Reportes: React.FC = () => {
     descripcion: ''
   });
   const [savingGasto, setSavingGasto] = useState(false);
+  const [deletingGasto, setDeletingGasto] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -259,6 +261,30 @@ const Reportes: React.FC = () => {
       setError('Error creando el gasto');
     } finally {
       setSavingGasto(false);
+    }
+  };
+
+  const handleDeleteGasto = async (gastoId: string, nombreGasto: string) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar el gasto "${nombreGasto}"?`)) {
+      return;
+    }
+
+    setDeletingGasto(gastoId);
+    setError('');
+
+    try {
+      const response = await apiService.deleteGasto(gastoId);
+      
+      if (response.success) {
+        // Reload gastos after deletion
+        loadReports();
+      } else {
+        setError('Error eliminando el gasto');
+      }
+    } catch (error) {
+      setError('Error eliminando el gasto');
+    } finally {
+      setDeletingGasto(null);
     }
   };
 
@@ -780,6 +806,7 @@ const Reportes: React.FC = () => {
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-900">Monto</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -792,11 +819,25 @@ const Reportes: React.FC = () => {
                           <td className="py-3 px-4 text-red-600 font-medium">
                             ${gasto.gastoTotal?.toFixed(2) || '0.00'}
                           </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => handleDeleteGasto(gasto._id, gasto.nombre)}
+                              disabled={deletingGasto === gasto._id}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors p-1"
+                              title="Eliminar gasto"
+                            >
+                              {deletingGasto === gasto._id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {reporteGastos.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-gray-500">
+                          <td colSpan={6} className="py-8 text-center text-gray-500">
                             No hay gastos registrados en este período
                           </td>
                         </tr>

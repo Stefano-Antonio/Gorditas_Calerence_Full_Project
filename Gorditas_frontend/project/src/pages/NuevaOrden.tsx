@@ -20,7 +20,6 @@ interface PlatilloSeleccionado {
 const NuevaOrden: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
-  const [nombreCliente, setNombreCliente] = useState('');
   const [nombreSuborden, setNombreSuborden] = useState('');
   const [platillosSeleccionados, setPlatillosSeleccionados] = useState<PlatilloSeleccionado[]>([]);
   // Agrega estado para productos seleccionados
@@ -42,9 +41,9 @@ const NuevaOrden: React.FC = () => {
   const [isOrderComplete, setIsOrderComplete] = useState(true); // For order validation
 
   const steps: OrderStep[] = [
-    { step: 1, title: 'Seleccionar Mesa y Cliente', completed: !!selectedMesa },
+    { step: 1, title: 'Seleccionar Mesa', completed: !!selectedMesa },
     { step: 2, title: 'Crear Suborden', completed: !!nombreSuborden },
-    { step: 3, title: 'Agregar Platillos y Productos', completed: platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 },
+    { step: 3, title: 'Agregar Platillos', completed: platillosSeleccionados.length > 0 },
     { step: 4, title: 'Validar y Confirmar', completed: false },
   ];
 
@@ -137,9 +136,9 @@ const NuevaOrden: React.FC = () => {
       const ordenData = {
         idMesa: selectedMesa._id,
         nombreMesa: selectedMesa.nombre,
-        nombreCliente: nombreCliente || '',
         idTipoOrden: 1, // Mesa type
         nombreTipoOrden: 'Mesa',
+        nombreCliente: nombreSuborden, // Usar nombreSuborden como nombre del cliente
         total: totalCalculado,
         estatus,
       };
@@ -215,10 +214,8 @@ const NuevaOrden: React.FC = () => {
       setTimeout(() => {
         setCurrentStep(1);
         setSelectedMesa(null);
-        setNombreCliente('');
         setNombreSuborden('');
         setPlatillosSeleccionados([]);
-        setProductosSeleccionados([]);
         setSuccess('');
         setError('');
         loadInitialData(); // <-- Recarga los datos iniciales
@@ -237,7 +234,7 @@ const NuevaOrden: React.FC = () => {
     switch (currentStep) {
       case 1: return !!selectedMesa;
       case 2: return !!nombreSuborden;
-      case 3: return platillosSeleccionados.length > 0 || productosSeleccionados.length > 0;
+      case 3: return platillosSeleccionados.length > 0;
       case 4: return true; // Validation step, always allow to proceed
       default: return false;
     }
@@ -324,45 +321,25 @@ const NuevaOrden: React.FC = () => {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-        {/* Step 1: Select Table and Customer */}
+        {/* Step 1: Select Table */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Seleccionar Mesa y Cliente</h2>
-            
-            {/* Customer Name Input */}
-            <div className="mb-6">
-              <label htmlFor="nombreCliente" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre del Cliente
-              </label>
-              <input
-                id="nombreCliente"
-                type="text"
-                value={nombreCliente}
-                onChange={(e) => setNombreCliente(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Ingrese el nombre del cliente"
-              />
-            </div>
-
-            {/* Mesa Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Seleccionar Mesa</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                {mesas.filter(mesa => mesa.activo !== false).map((mesa) => (
-                  <button
-                    key={mesa._id}
-                    onClick={() => setSelectedMesa(mesa)}
-                    className={`p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
-                      selectedMesa?._id === mesa._id
-                        ? 'border-orange-500 bg-orange-50 text-orange-700'
-                        : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                    }`}
-                  >
-                    <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Disponible</div>
-                  </button>
-                ))}
-              </div>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Seleccionar Mesa</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+              {mesas.filter(mesa => mesa.activo !== false).map((mesa) => (
+                <button
+                  key={mesa._id}
+                  onClick={() => setSelectedMesa(mesa)}
+                  className={`p-3 sm:p-4 rounded-lg border-2 text-center transition-colors ${
+                    selectedMesa?._id === mesa._id
+                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                  }`}
+                >
+                  <div className="text-base sm:text-lg font-semibold">{mesa.nombre}</div>
+                  <div className="text-xs sm:text-sm text-gray-600">Disponible</div>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -371,15 +348,12 @@ const NuevaOrden: React.FC = () => {
         {currentStep === 2 && (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Crear Suborden</h2>
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+            <div className="mb-4">
               <p className="text-gray-600">Mesa seleccionada: <span className="font-medium">{selectedMesa?.nombre}</span></p>
-              {nombreCliente && (
-                <p className="text-gray-600">Cliente: <span className="font-medium">{nombreCliente}</span></p>
-              )}
             </div>
             <div>
               <label htmlFor="nombreSuborden" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la suborden
+                Nombre del cliente
               </label>
               <input
                 id="nombreSuborden"
@@ -387,7 +361,7 @@ const NuevaOrden: React.FC = () => {
                 value={nombreSuborden}
                 onChange={(e) => setNombreSuborden(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Ej: Entrada, Principal, Postre"
+                placeholder="Nombre del cliente"
               />
             </div>
           </div>

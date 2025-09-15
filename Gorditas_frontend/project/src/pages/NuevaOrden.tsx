@@ -269,7 +269,7 @@ const NuevaOrden: React.FC = () => {
       }, 2000);
 
     } catch (error) {
-      console.error('Error al crear la orden:', error); // Debugging log
+      console.error('Error al crear la orden:', error);
       setError('Error creando la orden');
     } finally {
       setLoading(false);

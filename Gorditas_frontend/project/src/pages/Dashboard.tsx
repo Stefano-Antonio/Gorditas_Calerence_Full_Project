@@ -33,6 +33,7 @@ interface OrdenWorkflow {
   _id: string;
   folio: string;
   mesa: string;
+  cliente: string;
   estatus: string;
   total: number;
   fechaHora: Date;
@@ -71,8 +72,6 @@ const Dashboard: React.FC = () => {
       if (ordenesResponse?.data?.ordenes) {
         if (ordenesResponse.data.ordenes.length > 0) {
         }
-      } else {
-        console.log('No se encontró el array de órdenes en la respuesta.');
       }
       if (ordenesResponse.success && ordenesResponse.data) {
         const ordenes: Orden[] = Array.isArray(ordenesResponse.data.ordenes) ? ordenesResponse.data.ordenes : [];
@@ -120,6 +119,7 @@ const Dashboard: React.FC = () => {
               _id: orden._id || '',
               folio: `#${(orden as any).folio || 'N/A'}`,
               mesa: (orden as any).nombreMesa || orden.mesa || 'N/A',
+              cliente: orden.nombreCliente || 'Sin nombre',
               estatus: orden.estatus,
               total: orden.total,
               fechaHora,
@@ -157,7 +157,6 @@ const Dashboard: React.FC = () => {
 
       // Load inventory
       const inventarioResponse = await apiService.getInventario();
-      console.log('Respuesta completa del inventario:', inventarioResponse);
       
       if (inventarioResponse.success && inventarioResponse.data) {
         // Los productos están en inventarioResponse.data.productos
@@ -169,11 +168,7 @@ const Dashboard: React.FC = () => {
         // Filtrar productos con stock bajo (menos de 10 items)
         const lowStock = productos.filter((producto: any) => {
           const cantidad = Number(producto.cantidad) || 0;
-          const hasLowStock = cantidad < 10;
-          if (hasLowStock) {
-            console.log(`Producto con stock bajo: ${producto.nombre || 'Sin nombre'} - Cantidad: ${cantidad}`);
-          }
-          return hasLowStock;
+          return cantidad < 10;
         }).length;
 
         setStats(prev => ({
@@ -311,7 +306,6 @@ const Dashboard: React.FC = () => {
 
     // Admin can see all actions
     if (userRole === 'Admin') {
-      console.log('Render admin actions');
       return renderAdminActions(orden);
     }
 
@@ -319,7 +313,6 @@ const Dashboard: React.FC = () => {
     switch (currentStatus) {
       case 'Pendiente':
         if (userRole === 'Mesero') {
-          console.log('Render Mesero -> Verificar');
           return (
             <div className="flex space-x-1">
               <button
@@ -339,7 +332,6 @@ const Dashboard: React.FC = () => {
 
       case 'Recepcion':
         if (userRole === 'Despachador') {
-          console.log('Render Despachador -> Preparar');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Preparacion')}
@@ -356,7 +348,6 @@ const Dashboard: React.FC = () => {
 
       case 'Preparacion':
         if (userRole === 'Despachador') {
-          console.log('Render Despachador -> Surtir');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Surtida')}
@@ -373,7 +364,6 @@ const Dashboard: React.FC = () => {
 
       case 'Surtida':
         if (userRole === 'Mesero' || userRole === 'Encargado') {
-          console.log('Render Mesero/Encargado -> Cobrar desde Surtida');
           return (
             <button
               onClick={async () => {
@@ -396,7 +386,6 @@ const Dashboard: React.FC = () => {
 
       case 'Entregada':
         if (userRole === 'Mesero' || userRole === 'Encargado') {
-          console.log('Render Mesero/Encargado -> Cobrar');
           return (
             <button
               onClick={() => updateOrderStatus(orden._id, 'Pagada')}
@@ -599,6 +588,7 @@ const Dashboard: React.FC = () => {
                         <div>
                           <p className="font-medium text-gray-900">{orden.folio}</p>
                           <p className="text-sm text-gray-600">{orden.mesa}</p>
+                          <p className="text-xs text-blue-600 font-medium">Cliente: {orden.cliente}</p>
                         </div>
                       </div>
                       
@@ -662,6 +652,9 @@ const Dashboard: React.FC = () => {
                     <p className="font-medium text-gray-900">Mesa {orden.mesa}</p>
                     <p className="text-sm text-gray-600">
                       Total: ${orden.total.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-blue-600 font-medium">
+                      Cliente: {orden.nombreCliente || 'Sin nombre'}
                     </p>
                   </div>
                   <span

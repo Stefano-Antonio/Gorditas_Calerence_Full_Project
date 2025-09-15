@@ -43,9 +43,9 @@ const Despachar: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        // Mostrar solo órdenes en estado 'Surtida' para despacho
+        // Mostrar órdenes en estado 'Surtida' y 'Recepcion' para despacho
         const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
-          orden.estatus === 'Surtida'
+          ['Surtida', 'Recepcion'].includes(orden.estatus)
         );
         
         // Detectar nuevas órdenes comparando con el estado actual
@@ -109,6 +109,22 @@ const Despachar: React.FC = () => {
   const handleMarkAsDelivered = async (itemId: string, type: 'producto' | 'platillo') => {
     if (!selectedOrden) return;
 
+    // Permitir marcar productos como entregados en "Recepcion" y "Surtida"
+    // Permitir marcar platillos como entregados solo en "Surtida"
+    if (type === 'producto') {
+      if (!['Recepcion', 'Surtida'].includes(selectedOrden.estatus)) {
+        setError('Solo se pueden marcar productos como entregados en órdenes con estatus "Recepcion" o "Surtida"');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+    } else if (type === 'platillo') {
+      if (selectedOrden.estatus !== 'Surtida') {
+        setError('Solo se pueden marcar platillos como entregados en órdenes con estatus "Surtida"');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+    }
+
     try {
       let response;
       if (type === 'producto') {
@@ -147,6 +163,19 @@ const Despachar: React.FC = () => {
 
   const handleCompleteDispatch = async () => {
     if (!selectedOrden) return;
+
+    // Solo permitir completar despacho si la orden está en "Surtida" y todos los items están entregados
+    if (selectedOrden.estatus !== 'Surtida') {
+      setError('Solo se puede completar el despacho de órdenes en estatus "Surtida"');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!isOrderReadyForDispatch(selectedOrden)) {
+      setError('Todos los items deben estar marcados como entregados antes de completar el despacho');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
 
     setDispatching(true);
     try {
@@ -191,7 +220,7 @@ const Despachar: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Truck className="w-4 sm:w-5 h-4 sm:h-5 text-orange-600" />
             <span className="text-xs sm:text-sm font-medium text-gray-700">
-              {ordenes.length} órdenes surtidas para despacho
+              {ordenes.length} órdenes para despacho
             </span>
           </div>
         </div>
@@ -227,7 +256,7 @@ const Despachar: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-2 mb-6">
             <Package className="w-5 h-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Órdenes Surtidas</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Órdenes para Despacho</h2>
           </div>
 
           <div className="space-y-4">
@@ -274,7 +303,11 @@ const Despachar: React.FC = () => {
                         <p className="text-sm font-medium text-green-600">
                           ${orden.total.toFixed(2)}
                         </p>
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          orden.estatus === 'Surtida' 
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
                           {orden.estatus}
                         </span>
                       </div>
@@ -292,7 +325,7 @@ const Despachar: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">
               {selectedOrden ? `Detalles - ${selectedOrden.nombreMesa || 'Sin Mesa'}` : 'Selecciona una orden'}
             </h2>
-            {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
+            {selectedOrden && isOrderReadyForDispatch(selectedOrden) && selectedOrden.estatus === 'Surtida' && (
               <button
                 onClick={handleCompleteDispatch}
                 disabled={dispatching}
@@ -373,9 +406,14 @@ const Despachar: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => handleMarkAsDelivered(producto._id!, 'producto')}
-                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors"
+                              disabled={!['Recepcion', 'Surtida'].includes(selectedOrden.estatus)}
+                              className={`px-3 py-1 text-white text-xs rounded transition-colors ${
+                                ['Recepcion', 'Surtida'].includes(selectedOrden.estatus)
+                                  ? 'bg-orange-600 hover:bg-orange-700'
+                                  : 'bg-gray-400 cursor-not-allowed'
+                              }`}
                             >
-                              Entregar
+                              {['Recepcion', 'Surtida'].includes(selectedOrden.estatus) ? 'Entregar' : 'No disponible'}
                             </button>
                           )}
                         </div>
@@ -416,9 +454,14 @@ const Despachar: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => handleMarkAsDelivered(platillo._id!, 'platillo')}
-                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors"
+                              disabled={selectedOrden.estatus !== 'Surtida'}
+                              className={`px-3 py-1 text-white text-xs rounded transition-colors ${
+                                selectedOrden.estatus === 'Surtida'
+                                  ? 'bg-orange-600 hover:bg-orange-700'
+                                  : 'bg-gray-400 cursor-not-allowed'
+                              }`}
                             >
-                              Entregar
+                              {selectedOrden.estatus === 'Surtida' ? 'Entregar' : 'Sueriendo...'}
                             </button>
                           )}
                         </div>
@@ -440,9 +483,13 @@ const Despachar: React.FC = () => {
                   <h3 className="font-medium text-blue-900">Estado de Entrega</h3>
                 </div>
                 <p className="text-sm text-blue-700">
-                  {isOrderReadyForDispatch(selectedOrden)
-                    ? 'Todos los items han sido entregados. La orden está lista para completar el despacho.'
-                    : 'Marca todos los items como entregados para completar el despacho.'
+                  {selectedOrden.estatus === 'Recepcion'
+                    ? 'En esta orden puedes entregar productos. Los platillos solo se pueden entregar cuando esté "Surtida".'
+                    : selectedOrden.estatus === 'Surtida'
+                      ? isOrderReadyForDispatch(selectedOrden)
+                        ? 'Todos los items han sido entregados. La orden está lista para completar el despacho.'
+                        : 'Puedes marcar tanto productos como platillos como entregados.'
+                      : 'Esta orden no está disponible para despacho.'
                   }
                 </p>
               </div>

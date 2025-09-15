@@ -114,7 +114,6 @@ const Reportes: React.FC = () => {
         case 'ventas':
           const ventasRes = await apiService.getReporteVentas(fechaInicio, fechaFin);
           if (ventasRes.success) {
-            console.log('Respuesta de ventas:', ventasRes.data);
 
             const ventasFormateadas: ReporteVentas[] = [];
             const ventasPorDia = ventasRes.data.ventasPorDia || [];
@@ -582,8 +581,6 @@ const Reportes: React.FC = () => {
                                 return ordenPrefix === subOrdenPrefix;
                               });
                               
-                              // Debug logging
-                              console.log('Orden:', orden._id, 'Platillos encontrados:', platillosOrden.length, platillosOrden);
                               return (
                                 <React.Fragment key={orden._id}>
                                   <tr>

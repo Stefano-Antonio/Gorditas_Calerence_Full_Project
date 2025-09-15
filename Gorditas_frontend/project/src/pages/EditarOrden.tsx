@@ -41,6 +41,7 @@ const EditarOrden: React.FC = () => {
 
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
 // Removed duplicate loadData and useEffect block
 
@@ -68,7 +69,7 @@ const EditarOrden: React.FC = () => {
         ? ordenesRes.data
         : [];
       const ordenesEditables = ordenesArray.filter((orden: Orden) =>
-        ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida'].includes(orden.estatus)
+        ['Recepcion', 'Preparacion', 'Pendiente', 'Surtida', 'Entregada'].includes(orden.estatus)
       );
       
       // Detectar nuevas órdenes editables
@@ -191,9 +192,7 @@ const EditarOrden: React.FC = () => {
       cantidad
     };
 
-    console.log('Llamando a apiService.addPlatillo con:', subordenId, platilloData);
     const response = await apiService.addPlatillo(subordenId, platilloData);
-    console.log('Respuesta del backend:', response);
 
     if (response.success) {
       if (selectedOrden.estatus !== 'Recepcion') {
@@ -214,16 +213,10 @@ const EditarOrden: React.FC = () => {
     setError('Error agregando platillo');
   } finally {
     setSaving(false);
-    console.log('Fin de handleAddPlatillo');
   }
 };
 
   const handleAddProducto = async () => {
-    console.log('Inicio de handleAddProducto');
-    console.log('Productos disponibles:', productos);
-    console.log('Producto seleccionado:', selectedProducto);
-    console.log('Cantidad seleccionada:', cantidad);
-
     if (!selectedOrden || !selectedProducto) {
       setError('Selecciona un producto');
       return;
@@ -247,9 +240,7 @@ const EditarOrden: React.FC = () => {
         cantidad
       };
 
-      console.log('Llamando a apiService.addProducto con:', selectedOrden._id, productoData);
       const response = await apiService.addProducto(selectedOrden._id!, productoData);
-      console.log('Respuesta del backend:', response);
 
       if (response.success) {
         if (selectedOrden.estatus !== 'Recepcion') {
@@ -269,7 +260,6 @@ const EditarOrden: React.FC = () => {
       setError('Error agregando producto');
     } finally {
       setSaving(false);
-      console.log('Fin de handleAddProducto');
     }
   };
 
@@ -319,6 +309,25 @@ const EditarOrden: React.FC = () => {
     }
   };
 
+  const handleUpdateStatus = async (ordenId: string, newStatus: string) => {
+    setUpdatingStatus(ordenId);
+    setError('');
+    try {
+      const response = await apiService.updateOrdenStatus(ordenId, newStatus);
+      if (response.success) {
+        setSuccess(`Orden actualizada a ${newStatus} exitosamente`);
+        await loadData();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error actualizando el estatus de la orden');
+      }
+    } catch (error) {
+      setError('Error actualizando el estatus de la orden');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -362,7 +371,7 @@ const EditarOrden: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-2 mb-6">
             <Edit3 className="w-5 h-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Órdenes en Recepción</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Órdenes Editables</h2>
           </div>
 
           <div className="space-y-4">
@@ -375,15 +384,17 @@ const EditarOrden: React.FC = () => {
               ordenes.map((orden) => (
                 <div
                   key={orden._id}
-                  onClick={() => loadOrdenDetails(orden)}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                  className={`p-4 rounded-lg border-2 transition-colors ${
                     selectedOrden?._id === orden._id
                       ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
                   }`}
                 >
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div 
+                      onClick={() => loadOrdenDetails(orden)}
+                      className="flex-1 cursor-pointer"
+                    >
                       <h3 className="font-medium text-gray-900">
                         {orden.nombreMesa || 'Sin Mesa'}
                       </h3>
@@ -391,15 +402,36 @@ const EditarOrden: React.FC = () => {
                         Cliente: {orden.nombreCliente || 'Sin nombre'}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleDateString()}
+                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </p>
                       <p className="text-sm font-medium text-green-600">
                         Total: ${orden.total.toFixed(2)}
                       </p>
                     </div>
-                    <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                      {orden.estatus}
-                    </span>
+                    <div className="flex flex-col items-end space-y-2">
+                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        {orden.estatus}
+                      </span>
+                      {orden.estatus === 'Pendiente' && (
+                        <button
+                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
+                          disabled={updatingStatus === orden._id}
+                          className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
+                        >
+                          {updatingStatus === orden._id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                              Actualizando...
+                            </>
+                          ) : (
+                            'Confrimar orden'
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -627,7 +659,6 @@ const EditarOrden: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  console.log('Botón Agregar Platillo presionado');
                   handleAddPlatillo();
                 }}
                 disabled={saving || !selectedPlatillo || !selectedGuiso}

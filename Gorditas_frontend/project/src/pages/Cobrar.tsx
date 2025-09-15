@@ -241,6 +241,9 @@ const Cobrar: React.FC = () => {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="font-medium text-gray-900">Orden #{orden._id?.toString().slice(-6)}</h3>
+                    <p className="text-sm font-medium text-blue-600">
+                      {orden.nombreMesa || 'Sin Mesa'} - Cliente: {orden.nombreCliente || 'Sin nombre'}
+                    </p>
                     <p className="text-sm text-gray-600 flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
                       {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}

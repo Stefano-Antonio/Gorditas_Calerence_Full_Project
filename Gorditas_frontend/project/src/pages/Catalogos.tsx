@@ -24,6 +24,7 @@ const catalogModels = [
   { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
+  { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
   { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },
@@ -203,10 +204,10 @@ const Catalogos: React.FC = () => {
         } else {
           setError('Error guardando el item');
         }
-        console.error('Error al guardar el item:', response.error); // Debugging log
+        console.error('Error al guardar el item:', response.error);
       }
     } catch (error) {
-      console.error('Error inesperado al guardar el item:', error); // Debugging log
+      console.error('Error inesperado al guardar el item:', error);
       setError('Error guardando el item');
     } finally {
       setSaving(false);
@@ -513,6 +514,9 @@ const Catalogos: React.FC = () => {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                      {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
+                        <th className="text-left py-3 px-4 font-medium text-gray-900">Precio</th>
+                      )}
                       <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
                     </tr>
                   </thead>
@@ -544,6 +548,13 @@ const Catalogos: React.FC = () => {
                             </span>
                           )}
                         </td>
+                        {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
+                          <td className="py-3 px-4">
+                            <span className="font-medium text-green-600">
+                              ${((item as any).costo || (item as any).precio || 0).toFixed(2)}
+                            </span>
+                          </td>
+                        )}
                         <td className="py-3 px-4">
                           <div className="flex space-x-2">
                             <button

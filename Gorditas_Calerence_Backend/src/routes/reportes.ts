@@ -83,7 +83,6 @@ router.get('/ventas', authenticate, isEncargado,
         }
       ])
     ]);
-    console.log({ pagadasCount });
     res.json(createResponse(true, {
       ordenes,
       productos,

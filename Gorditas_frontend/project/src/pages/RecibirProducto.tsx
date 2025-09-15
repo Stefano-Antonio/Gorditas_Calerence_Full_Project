@@ -1,31 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, 
-  Scan, 
   Search, 
   Plus, 
-  Check,
-  AlertCircle,
-  Barcode
+  Minus,
+  Edit3,
+  Trash2,
+  Save,
+  X,
+  Filter,
+  ShoppingCart
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Producto } from '../types';
 
-interface ProductoRecibido {
-  producto: Producto;
-  cantidadRecibida: number;
-  costoUnitario: number;
+interface ProductoInventario {
+  _id: string;
+  nombre: string;
+  codigoBarras?: string;
+  cantidad: number;
+  costo: number;
+  activo?: boolean;
+  cantidadNueva?: number;
+  costoNuevo?: number;
+  activoNuevo?: boolean;
+  editando?: boolean;
 }
 
 const RecibirProductos: React.FC = () => {
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [productosRecibidos, setProductosRecibidos] = useState<ProductoRecibido[]>([]);
+  const [productos, setProductos] = useState<ProductoInventario[]>([]);
+  const [filteredProductos, setFilteredProductos] = useState<ProductoInventario[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [barcode, setBarcode] = useState('');
-  const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
-  const [cantidad, setCantidad] = useState(1);
-  const [costo, setCosto] = useState(0);
-  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [nuevoProducto, setNuevoProducto] = useState({
+    nombre: '',
+    codigoBarras: '',
+    cantidad: 0,
+    costo: 0,
+    idTipoProducto: ''
+  });
+  const [tiposProducto, setTiposProducto] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -33,130 +48,178 @@ const RecibirProductos: React.FC = () => {
 
   useEffect(() => {
     loadProductos();
+    loadTiposProducto();
   }, []);
 
+  useEffect(() => {
+    filterProductos();
+  }, [productos, searchTerm, showActiveOnly]);
+
   const loadProductos = async () => {
-  try {
-    const response = await apiService.getCatalog<{ productos: Producto[] }>('producto');
-      if (response.success) {
-        setProductos(response.data?.productos ?? []); // accedes directo a la propiedad
+    setLoading(true);
+    try {
+      const response = await apiService.getCatalog<{ items: Producto[] }>('producto');
+      if (response.success && response.data) {
+        // El backend devuelve la estructura: { items: [...], pagination: {...} }
+        const productosData = response.data.items || [];
+        
+        const productosInventario: ProductoInventario[] = productosData.map((p: any) => ({
+          _id: p._id,
+          nombre: p.nombre,
+          codigoBarras: p.codigoBarras,
+          cantidad: p.cantidad,
+          costo: p.costo,
+          activo: p.activo
+        }));
+        
+        setProductos(productosInventario);
       } else {
         setProductos([]);
       }
-  } catch (error) {
-    setError('Error cargando productos');
-    setProductos([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  const handleBarcodeSearch = () => {
-    if (!barcode.trim()) {
-      setError('Ingresa un código de barras');
-      return;
-    }
-
-    const producto = productos.find(p => p.codigoBarras === barcode.trim());
-    if (producto) {
-      setSelectedProducto(producto);
-      setCosto(producto.costo);
-      setBarcode('');
-      setError('');
-    } else {
-      setError('Producto no encontrado con ese código de barras');
+    } catch (error) {
+      setError('Error cargando productos');
+      setProductos([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleManualSearch = () => {
-    if (!searchTerm.trim()) {
-      setError('Ingresa un término de búsqueda');
-      return;
-    }
-
-    const producto = productos.find(p => 
-      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.codigoBarras?.includes(searchTerm)
-    );
-    
-    if (producto) {
-      setSelectedProducto(producto);
-      setCosto(producto.costo);
-      setSearchTerm('');
-      setError('');
-    } else {
-      setError('Producto no encontrado');
-    }
-  };
-
-  const handleAddProducto = () => {
-    if (!selectedProducto || cantidad <= 0 || costo <= 0) {
-      setError('Completa todos los campos');
-      return;
-    }
-
-    const nuevoProducto: ProductoRecibido = {
-      producto: selectedProducto,
-      cantidadRecibida: cantidad,
-      costoUnitario: costo,
-    };
-
-    setProductosRecibidos(prev => [...prev, nuevoProducto]);
-    setSelectedProducto(null);
-    setCantidad(1);
-    setCosto(0);
-    setShowManualAdd(false);
-    setError('');
-  };
-
-  const handleRemoveProducto = (index: number) => {
-    setProductosRecibidos(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSaveRecepcion = async () => {
-    if (productosRecibidos.length === 0) {
-      setError('Agrega al menos un producto');
-      return;
-    }
-
-    setSaving(true);
+  const loadTiposProducto = async () => {
     try {
-      const recepcionData = {
-        productos: productosRecibidos.map(pr => ({
-          productoId: pr.producto._id,
-          cantidad: pr.cantidadRecibida,
-          costoUnitario: pr.costoUnitario,
-        }))
-      };
-
-      const response = await apiService.recibirProductos(recepcionData);
-      
-      if (response.success) {
-        setSuccess('Productos recibidos exitosamente');
-        setProductosRecibidos([]);
-        await loadProductos(); // Refresh product list
-      } else {
-        setError('Error al recibir productos');
+      const response = await apiService.getCatalog('tipoproducto');
+      if (response.success && response.data) {
+        // El backend devuelve la estructura: { items: [...], pagination: {...} }
+        const tiposData = response.data.items || [];
+        setTiposProducto(tiposData);
       }
     } catch (error) {
-      setError('Error al recibir productos');
+      console.error('Error loading tipos de producto:', error);
+    }
+  };
+
+  const filterProductos = () => {
+    let filtered = [...productos];
+    
+    if (showActiveOnly) {
+      filtered = filtered.filter(producto => producto.activo !== false);
+    }
+    
+    if (searchTerm) {
+      filtered = filtered.filter(producto =>
+        producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (producto.codigoBarras && producto.codigoBarras.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    setFilteredProductos(filtered);
+  };
+
+  const handleEdit = (producto: ProductoInventario) => {
+    const updatedProductos = productos.map(p => 
+      p._id === producto._id 
+        ? { ...p, editando: true, cantidadNueva: p.cantidad, costoNuevo: p.costo, activoNuevo: p.activo }
+        : { ...p, editando: false }
+    );
+    setProductos(updatedProductos);
+  };
+
+  const handleSave = async (producto: ProductoInventario) => {
+    setSaving(true);
+    try {
+      const updatedData = {
+        cantidad: producto.cantidadNueva || producto.cantidad,
+        costo: producto.costoNuevo || producto.costo,
+        activo: producto.activoNuevo !== undefined ? producto.activoNuevo : producto.activo
+      };
+
+      const response = await apiService.updateCatalogItem('producto', producto._id, updatedData);
+      
+      if (response.success) {
+        setSuccess('Producto actualizado exitosamente');
+        await loadProductos();
+      } else {
+        setError('Error actualizando el producto');
+      }
+    } catch (error) {
+      setError('Error actualizando el producto');
     } finally {
       setSaving(false);
     }
   };
 
-  const filteredProductos = Array.isArray(productos) 
-  ? productos.filter(p =>
-      p.activo && p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  : [];
-
-  const getTotalRecepcion = () => {
-    return productosRecibidos.reduce(
-      (total, pr) => total + (pr.cantidadRecibida * pr.costoUnitario),
-      0
+  const handleCancel = (producto: ProductoInventario) => {
+    const updatedProductos = productos.map(p => 
+      p._id === producto._id 
+        ? { ...p, editando: false, cantidadNueva: undefined, costoNuevo: undefined, activoNuevo: undefined }
+        : p
     );
+    setProductos(updatedProductos);
+  };
+
+  const handleAgregarCantidad = (producto: ProductoInventario, cantidad: number) => {
+    const updatedProductos = productos.map(p => 
+      p._id === producto._id 
+        ? { ...p, cantidadNueva: (p.cantidadNueva || p.cantidad) + cantidad }
+        : p
+    );
+    setProductos(updatedProductos);
+  };
+
+  const handleQuitarCantidad = (producto: ProductoInventario, cantidad: number) => {
+    const updatedProductos = productos.map(p => 
+      p._id === producto._id 
+        ? { ...p, cantidadNueva: Math.max(0, (p.cantidadNueva || p.cantidad) - cantidad) }
+        : p
+    );
+    setProductos(updatedProductos);
+  };
+
+  const handleDelete = async (producto: ProductoInventario) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+    
+    try {
+      const response = await apiService.deleteCatalogItem('producto', producto._id);
+      
+      if (response.success) {
+        setSuccess('Producto eliminado exitosamente');
+        await loadProductos();
+      } else {
+        setError('Error eliminando el producto');
+      }
+    } catch (error) {
+      setError('Error eliminando el producto');
+    }
+  };
+
+  const handleCreateProducto = async () => {
+    if (!nuevoProducto.nombre.trim() || !nuevoProducto.idTipoProducto) {
+      setError('Completa todos los campos obligatorios');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await apiService.createCatalogItem('producto', nuevoProducto);
+      
+      if (response.success) {
+        setSuccess('Producto creado exitosamente');
+        setShowModal(false);
+        setNuevoProducto({
+          nombre: '',
+          codigoBarras: '',
+          cantidad: 0,
+          costo: 0,
+          idTipoProducto: ''
+        });
+        await loadProductos();
+      } else {
+        setError('Error creando el producto');
+      }
+    } catch (error) {
+      setError('Error creando el producto');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -171,18 +234,16 @@ const RecibirProductos: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Recibir Productos</h1>
-          <p className="text-gray-600 mt-1">Registra la entrada de productos al inventario</p>
+          <h1 className="text-3xl font-bold text-gray-900">Gestión de Inventario</h1>
+          <p className="text-gray-600 mt-1">Administra el stock y precios de los productos</p>
         </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setShowManualAdd(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-          >
-            <Search className="w-4 h-4 mr-2" />
-            Búsqueda Manual
-          </button>
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Nuevo Producto
+        </button>
       </div>
 
       {error && (
@@ -197,206 +258,301 @@ const RecibirProductos: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Barcode Scanner & Product Selection */}
-        <div className="space-y-6">
-          {/* Barcode Scanner */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Barcode className="w-5 h-5 text-orange-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Escaneo de Código de Barras</h2>
-            </div>
-            
-            <div className="flex space-x-3">
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Search className="w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleBarcodeSearch()}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Escanea o ingresa código de barras"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Buscar productos..."
               />
-              <button
-                onClick={handleBarcodeSearch}
-                className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-              >
-                <Scan className="w-5 h-5" />
-              </button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showActiveOnly}
+                  onChange={(e) => setShowActiveOnly(e.target.checked)}
+                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Solo activos</span>
+              </label>
             </div>
           </div>
+          <div className="text-sm text-gray-600">
+            Total productos: {filteredProductos.length}
+          </div>
+        </div>
+      </div>
 
-          {/* Selected Product */}
-          {selectedProducto && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Producto Seleccionado</h2>
-              
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <h3 className="font-medium text-gray-900">{selectedProducto.nombre}</h3>
-                <p className="text-sm text-gray-600">Código: {selectedProducto.codigoBarras}</p>
-                <p className="text-sm text-gray-600">Stock actual: {selectedProducto.cantidad}</p>
-                <p className="text-sm text-gray-600">Costo actual: ${selectedProducto.costo.toFixed(2)}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cantidad Recibida
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={cantidad}
-                    onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Costo Unitario
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={costo}
-                    onChange={(e) => setCosto(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setSelectedProducto(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAddProducto}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4 inline mr-2" />
-                  Agregar
-                </button>
-              </div>
-            </div>
-          )}
+      {/* Lista de Productos */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Package className="w-5 h-5 text-orange-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Inventario de Productos</h2>
         </div>
 
-        {/* Products Received */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <Package className="w-5 h-5 text-orange-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Productos Recibidos ({productosRecibidos.length})
-              </h2>
-            </div>
-            {productosRecibidos.length > 0 && (
-              <button
-                onClick={handleSaveRecepcion}
-                disabled={saving}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Guardar Recepción
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {productosRecibidos.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay productos agregados</p>
-              </div>
-            ) : (
-              productosRecibidos.map((pr, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{pr.producto.nombre}</h4>
-                    <p className="text-sm text-gray-600">
-                      Cantidad: {pr.cantidadRecibida} • Costo: ${pr.costoUnitario.toFixed(2)}
-                    </p>
-                    <p className="text-sm font-medium text-green-600">
-                      Subtotal: ${(pr.cantidadRecibida * pr.costoUnitario).toFixed(2)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveProducto(index)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {productosRecibidos.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold text-gray-900">Total:</span>
-                <span className="text-xl font-bold text-green-600">
-                  ${getTotalRecepcion().toFixed(2)}
-                </span>
-              </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Producto</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Costo</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProductos.map((producto) => (
+                <tr key={producto._id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4">
+                    <div className="font-medium text-gray-900">{producto.nombre}</div>
+                  </td>
+                  <td className="py-3 px-4">
+                    {producto.editando ? (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleQuitarCantidad(producto, 1)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          disabled={saving}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <input
+                          type="number"
+                          value={producto.cantidadNueva || producto.cantidad}
+                          onChange={(e) => {
+                            const updatedProductos = productos.map(p => 
+                              p._id === producto._id 
+                                ? { ...p, cantidadNueva: parseInt(e.target.value) || 0 }
+                                : p
+                            );
+                            setProductos(updatedProductos);
+                          }}
+                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          min="0"
+                        />
+                        <button
+                          onClick={() => handleAgregarCantidad(producto, 1)}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          disabled={saving}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`font-medium ${
+                        producto.cantidad < 10 ? 'text-red-600' : 'text-gray-900'
+                      }`}>
+                        {producto.cantidad}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    {producto.editando ? (
+                      <input
+                        type="number"
+                        value={producto.costoNuevo || producto.costo}
+                        onChange={(e) => {
+                          const updatedProductos = productos.map(p => 
+                            p._id === producto._id 
+                              ? { ...p, costoNuevo: parseFloat(e.target.value) || 0 }
+                              : p
+                          );
+                          setProductos(updatedProductos);
+                        }}
+                        className="w-24 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        min="0"
+                        step="0.01"
+                      />
+                    ) : (
+                      <span className="font-medium text-green-600">
+                        ${producto.costo.toFixed(2)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    {producto.editando ? (
+                      <select
+                        value={producto.activoNuevo !== undefined ? (producto.activoNuevo ? 'true' : 'false') : (producto.activo !== false ? 'true' : 'false')}
+                        onChange={(e) => {
+                          const updatedProductos = productos.map(p => 
+                            p._id === producto._id 
+                              ? { ...p, activoNuevo: e.target.value === 'true' }
+                              : p
+                          );
+                          setProductos(updatedProductos);
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          producto.activo !== false
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {producto.activo !== false ? 'Activo' : 'Inactivo'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex space-x-2">
+                      {producto.editando ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(producto)}
+                            disabled={saving}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleCancel(producto)}
+                            disabled={saving}
+                            className="p-1 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEdit(producto)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(producto)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {filteredProductos.length === 0 && (
+            <div className="text-center py-8">
+              <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No se encontraron productos</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Manual Search Modal */}
-      {showManualAdd && (
+      {/* Modal para crear producto */}
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Búsqueda Manual de Productos</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Nuevo Producto
+            </h3>
             
-            <div className="mb-4">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Buscar por nombre o código de barras"
-              />
-            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre*
+                </label>
+                <input
+                  type="text"
+                  value={nuevoProducto.nombre}
+                  onChange={(e) => setNuevoProducto({...nuevoProducto, nombre: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Nombre del producto"
+                />
+              </div>
 
-            <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
-              {filteredProductos.map((producto) => (
-                <div
-                  key={producto._id}
-                  onClick={() => {
-                    setSelectedProducto(producto);
-                    setCosto(producto.costo);
-                    setShowManualAdd(false);
-                  }}
-                  className="p-3 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 cursor-pointer transition-colors"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Producto*
+                </label>
+                <select
+                  value={nuevoProducto.idTipoProducto}
+                  onChange={(e) => setNuevoProducto({...nuevoProducto, idTipoProducto: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
-                  <h4 className="font-medium text-gray-900">{producto.nombre}</h4>
-                  <p className="text-sm text-gray-600">
-                    Código: {producto.codigoBarras} • Stock: {producto.cantidad} • Costo: ${producto.costo.toFixed(2)}
-                  </p>
+                  <option value="">Selecciona tipo</option>
+                  {tiposProducto.map(tipo => (
+                    <option key={tipo._id} value={tipo._id}>{tipo.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Código de Barras
+                </label>
+                <input
+                  type="text"
+                  value={nuevoProducto.codigoBarras}
+                  onChange={(e) => setNuevoProducto({...nuevoProducto, codigoBarras: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Código de barras"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cantidad Inicial
+                  </label>
+                  <input
+                    type="number"
+                    value={nuevoProducto.cantidad}
+                    onChange={(e) => setNuevoProducto({...nuevoProducto, cantidad: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    min="0"
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Costo
+                  </label>
+                  <input
+                    type="number"
+                    value={nuevoProducto.costo}
+                    onChange={(e) => setNuevoProducto({...nuevoProducto, costo: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
             </div>
 
-            <button
-              onClick={() => setShowManualAdd(false)}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Cerrar
-            </button>
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateProducto}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : 'Crear Producto'}
+              </button>
+            </div>
           </div>
         </div>
       )}

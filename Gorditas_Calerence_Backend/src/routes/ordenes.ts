@@ -225,11 +225,9 @@ router.put('/:id/estatus', authenticate,
 
     // Validate status transition based on user role
     const currentStatus = orden.estatus;
-    console.log(`DEBUG: Usuario ${userRole} intenta cambiar de ${currentStatus} a ${estatus}`);
     const isValidTransition = validateStatusTransition(currentStatus, estatus, userRole);
     
     if (!isValidTransition) {
-      console.log(`DEBUG: Transición no válida para ${userRole}: ${currentStatus} -> ${estatus}`);
       return res.status(403).json(createResponse(false, null, 'Transición de estatus no permitida para su rol'));
     }
 
@@ -275,11 +273,8 @@ router.put('/:id/verificar', authenticate, isMesero,
 
 // Helper function to validate status transitions based on user role
 function validateStatusTransition(currentStatus: string, newStatus: string, userRole: string): boolean {
-  console.log(`DEBUG validateStatusTransition: ${userRole} intenta ${currentStatus} -> ${newStatus}`);
-  
   // Admin can change any status
   if (userRole === 'Admin') {
-    console.log('DEBUG: Admin puede hacer cualquier transición');
     return true;
   }
 
@@ -310,18 +305,14 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
   };
 
   const roleTransitions = validTransitions[userRole];
-  console.log(`DEBUG: Transiciones para ${userRole}:`, roleTransitions);
   
   if (!roleTransitions) {
-    console.log(`DEBUG: No hay transiciones definidas para ${userRole}`);
     return false;
   }
 
   const allowedNewStatuses = roleTransitions[currentStatus];
-  console.log(`DEBUG: Estados permitidos desde ${currentStatus}:`, allowedNewStatuses);
   
   const result = allowedNewStatuses ? allowedNewStatuses.includes(newStatus) : false;
-  console.log(`DEBUG: Resultado de validación: ${result}`);
   
   return result;
 }

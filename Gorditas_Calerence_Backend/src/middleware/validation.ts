@@ -36,7 +36,8 @@ export const createOrdenSchema = Joi.object({
   nombreMesa: Joi.string().optional(),
   nombreCliente: Joi.string().max(100).optional(),
   total: Joi.number().min(0).required(),
-  estatus: Joi.string().optional()
+  estatus: Joi.string().optional(),
+  notas: Joi.string().max(500).optional()
 });
 
 export const addProductToOrdenSchema = Joi.object({

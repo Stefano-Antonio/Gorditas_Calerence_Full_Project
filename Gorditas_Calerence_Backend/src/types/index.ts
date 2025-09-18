@@ -85,6 +85,7 @@ export interface IOrden {
   fechaHora: Date;
   fechaPago?: Date;
   total: number;
+  notas?: string;
 }
 
 export interface ISuborden {

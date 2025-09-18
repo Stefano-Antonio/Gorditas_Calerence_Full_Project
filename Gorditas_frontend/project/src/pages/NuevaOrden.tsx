@@ -41,6 +41,7 @@ const NuevaOrden: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isOrderComplete, setIsOrderComplete] = useState(true); // For order validation
+  const [notas, setNotas] = useState(''); // Field for order notes
 
   const steps: OrderStep[] = [
     { step: 1, title: 'Seleccionar Mesa', completed: !!selectedMesa },
@@ -188,6 +189,7 @@ const NuevaOrden: React.FC = () => {
         nombreCliente: nombreSuborden, // Usar nombreSuborden como nombre del cliente
         total: totalCalculado,
         estatus,
+        notas: notas || undefined // Include notes if provided
       };
 
       const ordenResponse = await apiService.createOrden(ordenData);
@@ -469,6 +471,23 @@ const NuevaOrden: React.FC = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Nombre del cliente"
               />
+            </div>
+            
+            {/* Notes field */}
+            <div>
+              <label htmlFor="notas" className="block text-sm font-medium text-gray-700 mb-2">
+                Notas de la orden (opcional)
+              </label>
+              <textarea
+                id="notas"
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                maxLength={500}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                placeholder="Comentarios especiales, instrucciones de cocina, etc."
+              />
+              <p className="text-sm text-gray-500 mt-1">{notas.length}/500 caracteres</p>
             </div>
           </div>
         )}

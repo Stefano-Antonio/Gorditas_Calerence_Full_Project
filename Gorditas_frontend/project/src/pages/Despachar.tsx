@@ -5,7 +5,8 @@ import {
   CheckCircle, 
   Clock,
   Users,
-  AlertCircle
+  AlertCircle,
+  StickyNote
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
@@ -290,6 +291,14 @@ const Despachar: React.FC = () => {
                             <p className="text-sm font-medium text-blue-600">
                               Cliente: {orden.nombreCliente}
                             </p>
+                          )}
+                          {orden.notas && (
+                            <div className="flex items-start space-x-1 mt-1">
+                              <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                              <p className="text-xs text-gray-700 italic line-clamp-2">
+                                {orden.notas}
+                              </p>
+                            </div>
                           )}
                           <p className="text-sm text-gray-600">
                             {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {

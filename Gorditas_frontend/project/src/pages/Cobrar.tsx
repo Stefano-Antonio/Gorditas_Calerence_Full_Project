@@ -5,7 +5,8 @@ import {
   Printer, 
   DollarSign,
   Clock,
-  CheckCircle
+  CheckCircle,
+  StickyNote
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, Mesa, OrdenDetalleProducto } from '../types';
@@ -244,6 +245,14 @@ const Cobrar: React.FC = () => {
                     <p className="text-sm font-medium text-blue-600">
                       {orden.nombreMesa || 'Sin Mesa'} - Cliente: {orden.nombreCliente || 'Sin nombre'}
                     </p>
+                    {orden.notas && (
+                      <div className="flex items-start space-x-1 mt-1">
+                        <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-gray-700 italic line-clamp-2">
+                          {orden.notas}
+                        </p>
+                      </div>
+                    )}
                     <p className="text-sm text-gray-600 flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
                       {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}

@@ -18,7 +18,8 @@ const ordenSchema = new Schema<IOrdenDocument>({
   nombreCliente: { type: String, trim: true },
   fechaHora: { type: Date, default: Date.now },
   fechaPago: { type: Date },
-  total: { type: Number, required: true, min: 0, default: 0 }
+  total: { type: Number, required: true, min: 0, default: 0 },
+  notas: { type: String, maxlength: 500, trim: true }
 }, {
   timestamps: true,
   versionKey: false

@@ -9,13 +9,18 @@ import {
   ShoppingCart,
   AlertCircle,
   RefreshCw,
-  StickyNote
+  StickyNote,
+  ChevronDown,
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto } from '../types';
+import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada } from '../types';
 
 const EditarOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
+  const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
   const [nombreCliente, setNombreCliente] = useState('');
   const [subordenes, setSubordenes] = useState<Suborden[]>([]);
@@ -45,6 +50,50 @@ const EditarOrden: React.FC = () => {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
 // Removed duplicate loadData and useEffect block
+
+  // Function to group orders by table
+  const groupOrdersByTable = (ordenes: Orden[]): MesaAgrupada[] => {
+    const grouped: { [idMesa: number]: MesaAgrupada } = {};
+    
+    ordenes.forEach(orden => {
+      const idMesa = orden.idMesa || 0; // 0 for orders without table
+      const nombreMesa = orden.nombreMesa || 'Sin Mesa';
+      
+      if (!grouped[idMesa]) {
+        grouped[idMesa] = {
+          idMesa,
+          nombreMesa,
+          ordenes: [],
+          totalOrdenes: 0,
+          totalMonto: 0,
+          clientes: {}
+        };
+      }
+      
+      grouped[idMesa].ordenes.push(orden);
+      grouped[idMesa].totalOrdenes += 1;
+      grouped[idMesa].totalMonto += orden.total;
+      
+      // Group by client
+      const cliente = orden.nombreCliente || 'Sin nombre';
+      if (!grouped[idMesa].clientes[cliente]) {
+        grouped[idMesa].clientes[cliente] = [];
+      }
+      grouped[idMesa].clientes[cliente].push(orden);
+    });
+    
+    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };
+
+  const toggleMesaExpansion = (idMesa: number) => {
+    const newExpanded = new Set(expandedMesas);
+    if (newExpanded.has(idMesa)) {
+      newExpanded.delete(idMesa);
+    } else {
+      newExpanded.add(idMesa);
+    }
+    setExpandedMesas(newExpanded);
+  };
 
   useEffect(() => {
     loadData();
@@ -89,6 +138,10 @@ const EditarOrden: React.FC = () => {
       
       setOrdenes(ordenesEditables);
       setLastUpdateTime(new Date());
+      
+      // Group orders by table
+      const grouped = groupOrdersByTable(ordenesEditables);
+      setMesasAgrupadas(grouped);
     }
 
     // Filtrar y adaptar catálogos
@@ -376,72 +429,124 @@ const EditarOrden: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            {ordenes.length === 0 ? (
+            {mesasAgrupadas.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No hay órdenes disponibles para editar</p>
               </div>
             ) : (
-              ordenes.map((orden) => (
-                <div
-                  key={orden._id}
-                  className={`p-4 rounded-lg border-2 transition-colors ${
-                    selectedOrden?._id === orden._id
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div 
-                      onClick={() => loadOrdenDetails(orden)}
-                      className="flex-1 cursor-pointer"
-                    >
-                      <h3 className="font-medium text-gray-900">
-                        {orden.nombreMesa || 'Sin Mesa'}
-                      </h3>
-                      <p className="text-sm text-gray-600 font-medium">
-                        Cliente: {orden.nombreCliente || 'Sin nombre'}
-                      </p>
-                      {orden.notas && (
-                        <div className="flex items-start space-x-1 mt-1">
-                          <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-gray-700 italic line-clamp-2">
-                            {orden.notas}
+              mesasAgrupadas.map((mesa) => (
+                <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  {/* Mesa Header - Clickable to expand/collapse */}
+                  <div 
+                    className="p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleMesaExpansion(mesa.idMesa)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Users className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {mesa.nombreMesa}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                           </p>
                         </div>
-                      )}
-                      <p className="text-sm text-gray-600">
-                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                      <p className="text-sm font-medium text-green-600">
-                        Total: ${orden.total.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {orden.estatus}
-                      </span>
-                      {orden.estatus === 'Pendiente' && (
-                        <button
-                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
-                          disabled={updatingStatus === orden._id}
-                          className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
-                        >
-                          {updatingStatus === orden._id ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                              Actualizando...
-                            </>
-                          ) : (
-                            'Confrimar orden'
-                          )}
-                        </button>
-                      )}
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-green-600">
+                            ${mesa.totalMonto.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-gray-600">Total mesa</p>
+                        </div>
+                        {expandedMesas.has(mesa.idMesa) ? (
+                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Orders grouped by client - Expanded view */}
+                  {expandedMesas.has(mesa.idMesa) && (
+                    <div className="p-4">
+                      <div className="space-y-4">
+                        {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
+                          <div key={cliente} className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="font-medium text-gray-900 mb-3">
+                              Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {ordenesCliente.map((orden) => (
+                                <div
+                                  key={orden._id}
+                                  className={`bg-white rounded-lg border p-4 transition-colors ${
+                                    selectedOrden?._id === orden._id
+                                      ? 'border-orange-500 bg-orange-50'
+                                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <div 
+                                      onClick={() => loadOrdenDetails(orden)}
+                                      className="flex-1 cursor-pointer"
+                                    >
+                                      <h5 className="font-medium text-gray-900">
+                                        Orden #{orden._id?.toString().slice(-6)}
+                                      </h5>
+                                      {orden.notas && (
+                                        <div className="flex items-start space-x-1 mt-1">
+                                          <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                          <p className="text-xs text-gray-700 italic line-clamp-2">
+                                            {orden.notas}
+                                          </p>
+                                        </div>
+                                      )}
+                                      <p className="text-sm text-gray-600">
+                                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                      <p className="text-sm font-medium text-green-600">
+                                        Total: ${orden.total.toFixed(2)}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-end space-y-2">
+                                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        {orden.estatus}
+                                      </span>
+                                      {orden.estatus === 'Pendiente' && (
+                                        <button
+                                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
+                                          disabled={updatingStatus === orden._id}
+                                          className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
+                                        >
+                                          {updatingStatus === orden._id ? (
+                                            <>
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                                              Actualizando...
+                                            </>
+                                          ) : (
+                                            'Confirmar orden'
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}

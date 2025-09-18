@@ -1,5 +1,5 @@
 # Etapa 1: Build del frontend
-FROM node:18 AS build
+FROM node:18.17.0-alpine AS build
 WORKDIR /app
 
 COPY project/package*.json ./

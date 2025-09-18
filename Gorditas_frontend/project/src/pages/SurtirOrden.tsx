@@ -9,10 +9,12 @@ import {
   Package,
   Eye,
   RefreshCw,
-  StickyNote
+  StickyNote,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
+import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo, MesaAgrupada } from '../types';
 
 interface OrdenConDetalles extends Orden {
   productos?: OrdenDetalleProducto[];
@@ -22,6 +24,8 @@ interface OrdenConDetalles extends Orden {
 const SurtirOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<OrdenConDetalles[]>([]);
   const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
+  const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<OrdenConDetalles | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -37,6 +41,50 @@ const SurtirOrden: React.FC = () => {
     const interval = setInterval(loadData, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
+
+  // Function to group orders by table
+  const groupOrdersByTable = (ordenes: OrdenConDetalles[], mesas: Mesa[]): MesaAgrupada[] => {
+    const grouped: { [idMesa: number]: MesaAgrupada } = {};
+    
+    ordenes.forEach(orden => {
+      const idMesa = orden.idMesa || 0; // 0 for orders without table
+      const nombreMesa = orden.nombreMesa || 'Sin Mesa';
+      
+      if (!grouped[idMesa]) {
+        grouped[idMesa] = {
+          idMesa,
+          nombreMesa,
+          ordenes: [],
+          totalOrdenes: 0,
+          totalMonto: 0,
+          clientes: {}
+        };
+      }
+      
+      grouped[idMesa].ordenes.push(orden);
+      grouped[idMesa].totalOrdenes += 1;
+      grouped[idMesa].totalMonto += orden.total;
+      
+      // Group by client
+      const cliente = orden.nombreCliente || 'Sin nombre';
+      if (!grouped[idMesa].clientes[cliente]) {
+        grouped[idMesa].clientes[cliente] = [];
+      }
+      grouped[idMesa].clientes[cliente].push(orden);
+    });
+    
+    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };
+
+  const toggleMesaExpansion = (idMesa: number) => {
+    const newExpanded = new Set(expandedMesas);
+    if (newExpanded.has(idMesa)) {
+      newExpanded.delete(idMesa);
+    } else {
+      newExpanded.add(idMesa);
+    }
+    setExpandedMesas(newExpanded);
+  };
 
   const loadData = async () => {
     try {
@@ -73,6 +121,10 @@ const SurtirOrden: React.FC = () => {
         
         setOrdenes(ordenesParaSurtir);
         setLastUpdateTime(new Date());
+        
+        // Group orders by table
+        const grouped = groupOrdersByTable(ordenesParaSurtir, mesasArray);
+        setMesasAgrupadas(grouped);
       }
 
       if (mesasRes.success) {
@@ -83,6 +135,12 @@ const SurtirOrden: React.FC = () => {
           mesasArray = mesasRes.data.items;
         }
         setMesas(mesasArray);
+        
+        // Update grouping if orders are already loaded
+        if (ordenes.length > 0) {
+          const grouped = groupOrdersByTable(ordenes, mesasArray);
+          setMesasAgrupadas(grouped);
+        }
       }
     } catch (error) {
       setError('Error cargando órdenes');
@@ -298,7 +356,7 @@ const SurtirOrden: React.FC = () => {
         </div>
       )}
 
-      {ordenes.length === 0 ? (
+      {mesasAgrupadas.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
           <div className="text-center">
             <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -307,152 +365,184 @@ const SurtirOrden: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {ordenes.map((orden) => {
-            const mesa = getMesaInfo(orden.mesa);
-            const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
-            const timeElapsed = getTimeElapsed(horaOrden);
-            const priorityColor = getPriorityColor(horaOrden);
-            
-            return (
-              <div
-                key={orden._id}
-                className={`bg-white rounded-xl shadow-sm border-2 p-4 sm:p-6 transition-all hover:shadow-md ${priorityColor}`}
+        <div className="space-y-4">
+          {mesasAgrupadas.map((mesa) => (
+            <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Mesa Header - Clickable to expand/collapse */}
+              <div 
+                className="p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleMesaExpansion(mesa.idMesa)}
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-orange-600" />
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <Users className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {orden.nombreMesa || 'Sin Mesa'}
+                        {mesa.nombreMesa}
                       </h3>
-                      {orden.nombreCliente && (
-                        <p className="text-sm font-medium text-blue-600">
-                          Cliente: {orden.nombreCliente}
-                        </p>
-                      )}
-                      {orden.notas && (
-                        <div className="flex items-start space-x-1 mt-1">
-                          <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                          <p className="text-xs text-gray-700 italic line-clamp-2">
-                            {orden.notas}
-                          </p>
-                        </div>
-                      )}
                       <p className="text-sm text-gray-600">
-                        {mesa?.capacidad} 
+                        {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center space-x-1 text-sm text-gray-600">
-                      <Timer className="w-4 h-4" />
-                      <span>{timeElapsed}</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-green-600">
+                        ${mesa.totalMonto.toFixed(2)}
+                      </p>
+                      <p className="text-sm text-gray-600">Total mesa</p>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      orden.estatus === 'Recepcion' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : orden.estatus === 'Pendiente'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {orden.estatus === 'Recepcion' 
-                        ? 'Lista para preparar' 
-                        : orden.estatus === 'Pendiente'
-                        ? 'Pendiente de verificar'
-                        : 'En preparación'}
-                    </span>
+                    {expandedMesas.has(mesa.idMesa) ? (
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    )}
                   </div>
                 </div>
-
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Total:</span>
-                    <span className="text-lg font-semibold text-green-600">
-                      ${orden.total.toFixed(2)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Hora de orden:</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {new Date(orden.fechaHora ?? orden.fecha ?? new Date()).toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-
-                  {orden.subordenes && orden.subordenes.length > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Subórdenes:</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {orden.subordenes.length} items
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente' ? (
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => loadOrdenDetails(orden)}
-                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Ver Detalles
-                    </button>
-                    <button
-                      onClick={() => handleIniciarPreparacion(orden._id!)}
-                      disabled={updating === orden._id || orden.estatus === 'Pendiente'}
-                      className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                    >
-                      {updating === orden._id ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Iniciando...
-                        </>
-                      ) : (
-                        <>
-                          <ChefHat className="w-5 h-5 mr-2" />
-                          {orden.estatus === 'Pendiente' ? 'Pendiente de verificación' : 'Preparacion completa'}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => loadOrdenDetails(orden)}
-                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Ver Items para Surtir
-                    </button>
-                    <button
-                      onClick={() => handleCompletarOrden(orden._id!)}
-                      disabled={updating === orden._id || !isOrderReadyToComplete(orden)}
-                      className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                    >
-                      {updating === orden._id ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Completando...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          Marcar como Surtida
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
               </div>
-            );
-          })}
+
+              {/* Orders grouped by client - Expanded view */}
+              {expandedMesas.has(mesa.idMesa) && (
+                <div className="p-4">
+                  <div className="space-y-4">
+                    {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
+                      <div key={cliente} className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-900 mb-3">
+                          Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {ordenesCliente.map((orden) => {
+                            const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
+                            const timeElapsed = getTimeElapsed(horaOrden);
+                            const priorityColor = getPriorityColor(horaOrden);
+                            
+                            return (
+                              <div
+                                key={orden._id}
+                                className={`bg-white rounded-lg border p-4 ${priorityColor}`}
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div>
+                                    <h5 className="font-medium text-gray-900">
+                                      Orden #{orden._id?.toString().slice(-6)}
+                                    </h5>
+                                    {orden.notas && (
+                                      <div className="flex items-start space-x-1 mt-1">
+                                        <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                        <p className="text-xs text-gray-700 italic line-clamp-2">
+                                          {orden.notas}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="flex items-center space-x-1 text-sm text-gray-600">
+                                      <Timer className="w-4 h-4" />
+                                      <span>{timeElapsed}</span>
+                                    </div>
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      orden.estatus === 'Recepcion' 
+                                        ? 'bg-blue-100 text-blue-800' 
+                                        : orden.estatus === 'Pendiente'
+                                        ? 'bg-orange-100 text-orange-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {orden.estatus === 'Recepcion' 
+                                        ? 'Lista para preparar' 
+                                        : orden.estatus === 'Pendiente'
+                                        ? 'Pendiente de verificar'
+                                        : 'En preparación'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 mb-4">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600">Total:</span>
+                                    <span className="font-semibold text-green-600">
+                                      ${orden.total.toFixed(2)}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-600">Hora:</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {new Date(orden.fechaHora ?? orden.fecha ?? new Date()).toLocaleTimeString('es-ES', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente' ? (
+                                  <div className="space-y-2">
+                                    <button
+                                      onClick={() => loadOrdenDetails(orden)}
+                                      className="w-full bg-gray-100 text-gray-700 py-2 px-3 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                                    >
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Ver Detalles
+                                    </button>
+                                    <button
+                                      onClick={() => handleIniciarPreparacion(orden._id!)}
+                                      disabled={updating === orden._id || orden.estatus === 'Pendiente'}
+                                      className="w-full bg-blue-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                    >
+                                      {updating === orden._id ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                                          Iniciando...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChefHat className="w-4 h-4 mr-2" />
+                                          {orden.estatus === 'Pendiente' ? 'Pendiente' : 'Iniciar'}
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <button
+                                      onClick={() => loadOrdenDetails(orden)}
+                                      className="w-full bg-gray-100 text-gray-700 py-2 px-3 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                                    >
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Ver Items
+                                    </button>
+                                    <button
+                                      onClick={() => handleCompletarOrden(orden._id!)}
+                                      disabled={updating === orden._id || !isOrderReadyToComplete(orden)}
+                                      className="w-full bg-green-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                    >
+                                      {updating === orden._id ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                                          Completando...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="w-4 h-4 mr-2" />
+                                          Marcar Surtida
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

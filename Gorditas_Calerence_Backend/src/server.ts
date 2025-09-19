@@ -19,7 +19,6 @@ import Mesa from './models/Mesa';
 import Orden from './models/Orden';
 dotenv.config();
 
-
 async function ensureAdminUser() {
   const adminEmail = 'Encargado@gorditas.com';
   const adminExists = await Usuario.findOne({ email: adminEmail });

@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CreditCard, 
   Receipt, 
   Printer, 
-  DollarSign,
   Clock,
   CheckCircle,
   StickyNote,
@@ -12,7 +10,7 @@ import {
   Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Mesa, OrdenDetalleProducto, MesaAgrupada } from '../types';
+import { Orden, OrdenDetalleProducto, MesaAgrupada } from '../types';
 
 interface OrdenCompleta extends Orden {
   productos?: OrdenDetalleProducto[];
@@ -184,6 +182,49 @@ const Cobrar: React.FC = () => {
     }
   };
 
+  const handleGenerateMesaTicket = (mesa: MesaAgrupada) => {
+    const ticketContent = generateMesaTicketContent(mesa);
+    const blob = new Blob([ticketContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ticket-mesa-${mesa.nombreMesa.replace(/\s/g, '-').toLowerCase()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintMesaTicket = (mesa: MesaAgrupada) => {
+    const ticketContent = generateMesaTicketContent(mesa);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Ticket - ${mesa.nombreMesa}</title>
+            <style>
+              body { font-family: monospace; font-size: 12px; margin: 20px; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .line { border-bottom: 1px dashed #000; margin: 10px 0; }
+              .total { font-weight: bold; font-size: 14px; }
+              h3 { margin-top: 15px; margin-bottom: 5px; }
+              h4 { margin-top: 10px; margin-bottom: 3px; }
+            </style>
+          </head>
+          <body>${ticketContent}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const handleCobrarTodaLaMesa = async (mesa: MesaAgrupada) => {
+    // Cobrar todas las órdenes de la mesa
+    for (const orden of mesa.ordenes) {
+      await handleFinalizarOrden(orden);
+    }
+  };
+
   const handleFinalizarOrden = async (orden: OrdenCompleta) => {
     setProcessing(true);
     try {
@@ -233,8 +274,45 @@ const Cobrar: React.FC = () => {
     `;
   };
 
-  const getTotal = () => {
-    return ordenesActivas.reduce((acc, orden) => acc + (orden.total || 0), 0);
+  const generateMesaTicketContent = (mesa: MesaAgrupada) => {
+    const fecha = new Date();
+    return `
+      <div class="header">
+        <h2>RESTAURANTE</h2>
+        <p>Ticket de Venta - ${mesa.nombreMesa}</p>
+        <div class="line"></div>
+      </div>
+      <p><strong>Fecha:</strong> ${fecha.toLocaleDateString('es-ES')}</p>
+      <p><strong>Hora:</strong> ${fecha.toLocaleTimeString('es-ES')}</p>
+      <p><strong>Mesa:</strong> ${mesa.nombreMesa}</p>
+      <p><strong>Total de órdenes:</strong> ${mesa.totalOrdenes}</p>
+      <div class="line"></div>
+      ${Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => `
+        <h3>CLIENTE: ${cliente.toUpperCase()}</h3>
+        ${ordenesCliente.map((orden: OrdenCompleta) => `
+          <p><strong>Orden #${orden._id?.toString().slice(-6)}</strong></p>
+          <h4>Platillos:</h4>
+          ${orden.platillos?.length 
+            ? orden.platillos.map((p: any) => `<p>  ${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
+            : '<p>  Sin platillos</p>'
+          }
+          <h4>Productos:</h4>
+          ${orden.productos?.length
+            ? orden.productos.map((p: any) => `<p>  ${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
+            : '<p>  Sin productos</p>'
+          }
+          <p><strong>Subtotal Orden:</strong> $${orden.total?.toFixed(2)}</p>
+          <div class="line"></div>
+        `).join('')}
+        <p><strong>Total Cliente ${cliente}:</strong> $${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}</p>
+        <div class="line"></div>
+      `).join('')}
+      <div class="total">
+        <p>TOTAL MESA ${mesa.nombreMesa}: $${mesa.totalMonto.toFixed(2)}</p>
+      </div>
+      <div class="line"></div>
+      <p style="text-align: center;">¡Gracias por su preferencia!</p>
+    `;
   };
 
   if (loading) {
@@ -246,24 +324,24 @@ const Cobrar: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cobrar</h1>
           <p className="text-gray-600 mt-1">Procesa el pago y finaliza las órdenes</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {hasNewOrders && (
             <div className="bg-yellow-100 rounded-lg px-3 py-2 shadow-sm border border-yellow-200">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse flex-shrink-0"></div>
                 <span className="text-xs font-medium text-yellow-700">
                   Nuevas órdenes para cobrar
                 </span>
               </div>
             </div>
           )}
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 text-center sm:text-left">
             Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
           </div>
         </div>
@@ -281,7 +359,7 @@ const Cobrar: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Órdenes para Cobrar</h2>
         {mesasAgrupadas.length === 0 ? (
           <div className="text-center py-12">
@@ -294,51 +372,68 @@ const Cobrar: React.FC = () => {
               <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* Mesa Header - Clickable to expand/collapse */}
                 <div 
-                  className="p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-4 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMesaExpansion(mesa.idMesa)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <Users className="w-5 h-5 text-green-600" />
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 break-words">
                           {mesa.nombreMesa}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 truncate">
                           {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-green-600">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="text-left sm:text-right">
+                        <p className="text-base sm:text-lg font-semibold text-green-600">
                           ${mesa.totalMonto.toFixed(2)}
                         </p>
-                        <p className="text-sm text-gray-600">Total mesa</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Total mesa</p>
                       </div>
-                      {expandedMesas.has(mesa.idMesa) ? (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <ChevronRight className="w-5 h-5 text-gray-400" />
-                      )}
+                      <div className="flex items-center justify-between sm:justify-end">
+                        {expandedMesas.has(mesa.idMesa) ? (
+                          <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   {/* Quick actions for the entire table when collapsed */}
-                  {!expandedMesas.has(mesa.idMesa) && mesa.totalOrdenes > 1 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                  {!expandedMesas.has(mesa.idMesa) && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => handleGenerateMesaTicket(mesa)}
+                          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
+                        >
+                          <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <span className="truncate">Ticket Mesa</span>
+                        </button>
+                        <button
+                          onClick={() => handlePrintMesaTicket(mesa)}
+                          className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
+                        >
+                          <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <span className="truncate">Imprimir</span>
+                        </button>
+                      </div>
                       <button
-                        onClick={() => {
-                          // Cobrar todas las órdenes de la mesa
-                          mesa.ordenes.forEach(orden => handleFinalizarOrden(orden));
-                        }}
+                        onClick={() => handleCobrarTodaLaMesa(mesa)}
                         disabled={processing}
                         className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                       >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Cobrar toda la mesa
+                        <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="truncate">
+                          {mesa.totalOrdenes === 1 ? 'Cobrar orden' : 'Cobrar toda la mesa'}
+                        </span>
                       </button>
                     </div>
                   )}
@@ -346,65 +441,65 @@ const Cobrar: React.FC = () => {
 
                 {/* Orders grouped by client - Expanded view */}
                 {expandedMesas.has(mesa.idMesa) && (
-                  <div className="p-4">
-                    <div className="space-y-4">
+                  <div className="p-4 sm:p-6">
+                    <div className="space-y-4 sm:space-y-6">
                       {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
-                        <div key={cliente} className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-3">
+                        <div key={cliente} className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                          <h4 className="font-medium text-gray-900 mb-3 truncate">
                             Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
                           </h4>
                           <div className="space-y-3">
                             {ordenesCliente.map((orden) => (
-                              <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div>
-                                    <h5 className="font-medium text-gray-900">
+                              <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                                  <div className="min-w-0 flex-1">
+                                    <h5 className="font-medium text-gray-900 truncate">
                                       Orden #{orden._id?.toString().slice(-6)}
                                     </h5>
                                     {orden.notas && (
                                       <div className="flex items-start space-x-1 mt-1">
                                         <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                        <p className="text-xs text-gray-700 italic line-clamp-2">
+                                        <p className="text-xs text-gray-700 italic line-clamp-2 break-words">
                                           {orden.notas}
                                         </p>
                                       </div>
                                     )}
-                                    <p className="text-sm text-gray-600 flex items-center">
-                                      <Clock className="w-4 h-4 mr-1" />
+                                    <p className="text-sm text-gray-600 flex items-center mt-1">
+                                      <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
                                       {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
                                     </p>
                                   </div>
-                                  <div className="text-right">
+                                  <div className="text-left sm:text-right flex-shrink-0">
                                     <p className="text-lg font-semibold text-green-600">${orden.total?.toFixed(2)}</p>
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
                                       orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
                                       : 'bg-blue-100 text-blue-800'
                                     }`}>{orden.estatus}</span>
                                   </div>
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
                                   <button 
                                     onClick={() => handleGenerateTicket(orden)} 
                                     className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
                                   >
-                                    <Receipt className="w-4 h-4 mr-1" />
-                                    PDF
+                                    <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span className="truncate">PDF</span>
                                   </button>
                                   <button 
                                     onClick={() => handlePrintTicket(orden)} 
                                     className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
                                   >
-                                    <Printer className="w-4 h-4 mr-1" />
-                                    Imprimir
+                                    <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span className="truncate">Imprimir</span>
                                   </button>
                                   <button 
                                     onClick={() => handleFinalizarOrden(orden)} 
                                     disabled={processing} 
                                     className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                   >
-                                    <CheckCircle className="w-4 h-4 mr-1" />
-                                    Cobrar
+                                    <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span className="truncate">Cobrar</span>
                                   </button>
                                 </div>
                               </div>
@@ -420,17 +515,131 @@ const Cobrar: React.FC = () => {
                                   ${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}
                                 </span>
                               </div>
-                              <button
-                                onClick={() => {
-                                  // Cobrar todas las órdenes del cliente
-                                  ordenesCliente.forEach(orden => handleFinalizarOrden(orden));
-                                }}
-                                disabled={processing}
-                                className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Cobrar todas las órdenes de {cliente}
-                              </button>
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      // Generar ticket conjunto para el cliente
+                                      const clienteTicketContent = `
+                                        <div class="header">
+                                          <h2>RESTAURANTE</h2>
+                                          <p>Ticket de Venta - Cliente: ${cliente}</p>
+                                          <div class="line"></div>
+                                        </div>
+                                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+                                        <p><strong>Hora:</strong> ${new Date().toLocaleTimeString('es-ES')}</p>
+                                        <p><strong>Mesa:</strong> ${mesa.nombreMesa}</p>
+                                        <p><strong>Cliente:</strong> ${cliente}</p>
+                                        <div class="line"></div>
+                                        ${ordenesCliente.map((orden: OrdenCompleta) => `
+                                          <h3>ORDEN #${orden._id?.toString().slice(-6)}</h3>
+                                          <h4>Platillos:</h4>
+                                          ${orden.platillos?.length 
+                                            ? orden.platillos.map((p: any) => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
+                                            : '<p>Sin platillos</p>'
+                                          }
+                                          <h4>Productos:</h4>
+                                          ${orden.productos?.length
+                                            ? orden.productos.map((p: any) => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
+                                            : '<p>Sin productos</p>'
+                                          }
+                                          <p><strong>Subtotal:</strong> $${orden.total?.toFixed(2)}</p>
+                                          <div class="line"></div>
+                                        `).join('')}
+                                        <div class="total">
+                                          <p>TOTAL CLIENTE: $${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}</p>
+                                        </div>
+                                        <div class="line"></div>
+                                        <p style="text-align: center;">¡Gracias por su preferencia!</p>
+                                      `;
+                                      const blob = new Blob([clienteTicketContent], { type: 'text/html' });
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `ticket-cliente-${cliente.replace(/\s/g, '-').toLowerCase()}.html`;
+                                      a.click();
+                                      URL.revokeObjectURL(url);
+                                    }}
+                                    className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
+                                  >
+                                    <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span className="truncate">PDF Cliente</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Imprimir ticket conjunto para el cliente
+                                      const clienteTicketContent = `
+                                        <div class="header">
+                                          <h2>RESTAURANTE</h2>
+                                          <p>Ticket de Venta - Cliente: ${cliente}</p>
+                                          <div class="line"></div>
+                                        </div>
+                                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+                                        <p><strong>Hora:</strong> ${new Date().toLocaleTimeString('es-ES')}</p>
+                                        <p><strong>Mesa:</strong> ${mesa.nombreMesa}</p>
+                                        <p><strong>Cliente:</strong> ${cliente}</p>
+                                        <div class="line"></div>
+                                        ${ordenesCliente.map((orden: OrdenCompleta) => `
+                                          <h3>ORDEN #${orden._id?.toString().slice(-6)}</h3>
+                                          <h4>Platillos:</h4>
+                                          ${orden.platillos?.length 
+                                            ? orden.platillos.map((p: any) => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
+                                            : '<p>Sin platillos</p>'
+                                          }
+                                          <h4>Productos:</h4>
+                                          ${orden.productos?.length
+                                            ? orden.productos.map((p: any) => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
+                                            : '<p>Sin productos</p>'
+                                          }
+                                          <p><strong>Subtotal:</strong> $${orden.total?.toFixed(2)}</p>
+                                          <div class="line"></div>
+                                        `).join('')}
+                                        <div class="total">
+                                          <p>TOTAL CLIENTE: $${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}</p>
+                                        </div>
+                                        <div class="line"></div>
+                                        <p style="text-align: center;">¡Gracias por su preferencia!</p>
+                                      `;
+                                      const printWindow = window.open('', '_blank');
+                                      if (printWindow) {
+                                        printWindow.document.write(`
+                                          <html>
+                                            <head>
+                                              <title>Ticket - Cliente ${cliente}</title>
+                                              <style>
+                                                body { font-family: monospace; font-size: 12px; margin: 20px; }
+                                                .header { text-align: center; margin-bottom: 20px; }
+                                                .line { border-bottom: 1px dashed #000; margin: 10px 0; }
+                                                .total { font-weight: bold; font-size: 14px; }
+                                                h3 { margin-top: 15px; margin-bottom: 5px; }
+                                                h4 { margin-top: 10px; margin-bottom: 3px; }
+                                              </style>
+                                            </head>
+                                            <body>${clienteTicketContent}</body>
+                                          </html>
+                                        `);
+                                        printWindow.document.close();
+                                        printWindow.print();
+                                      }
+                                    }}
+                                    className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
+                                  >
+                                    <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span className="truncate">Imprimir</span>
+                                  </button>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    // Cobrar todas las órdenes del cliente
+                                    ordenesCliente.forEach(orden => handleFinalizarOrden(orden));
+                                  }}
+                                  disabled={processing}
+                                  className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                                  <span className="truncate">Cobrar todas las órdenes de {cliente}</span>
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -438,25 +647,40 @@ const Cobrar: React.FC = () => {
                     </div>
                     
                     {/* Option to pay entire table when expanded */}
-                    {mesa.totalOrdenes > 1 && (
-                      <div className="mt-4 pt-4 border-t border-gray-200 bg-green-50 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-lg font-semibold text-gray-900">Total de la mesa:</span>
-                          <span className="text-xl font-bold text-green-600">${mesa.totalMonto.toFixed(2)}</span>
+                    <div className="mt-4 pt-4 border-t border-gray-200 bg-green-50 rounded-lg p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                        <span className="text-lg font-semibold text-gray-900 truncate">Total de la mesa:</span>
+                        <span className="text-xl font-bold text-green-600">${mesa.totalMonto.toFixed(2)}</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={() => handleGenerateMesaTicket(mesa)}
+                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
+                          >
+                            <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">Ticket Mesa PDF</span>
+                          </button>
+                          <button
+                            onClick={() => handlePrintMesaTicket(mesa)}
+                            className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
+                          >
+                            <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">Imprimir Mesa</span>
+                          </button>
                         </div>
                         <button
-                          onClick={() => {
-                            // Cobrar todas las órdenes de la mesa
-                            mesa.ordenes.forEach(orden => handleFinalizarOrden(orden));
-                          }}
+                          onClick={() => handleCobrarTodaLaMesa(mesa)}
                           disabled={processing}
                           className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-lg font-medium"
                         >
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          Cobrar toda la mesa {mesa.nombreMesa}
+                          <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+                          <span className="truncate">
+                            {mesa.totalOrdenes === 1 ? `Cobrar orden de ${mesa.nombreMesa}` : `Cobrar toda la mesa ${mesa.nombreMesa}`}
+                          </span>
                         </button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>

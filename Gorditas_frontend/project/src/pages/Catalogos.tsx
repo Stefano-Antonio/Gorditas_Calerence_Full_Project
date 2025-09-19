@@ -396,20 +396,20 @@ const Catalogos: React.FC = () => {
   };
 
   return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Catálogos</h1>
-            <p className="text-gray-600 mt-1">Gestiona los catálogos maestros del sistema</p>
+      <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">Catálogos</h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">Gestiona los catálogos maestros del sistema</p>
           </div>
           {/* Solo mostrar botón de nuevo si NO es tipos de usuario */}
           {selectedModel.id !== 'tipousuario' && (
             <button
               onClick={handleCreate}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+              className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo {selectedModel.name.slice(0, -1)}
+              <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Nuevo {selectedModel.name.slice(0, -1)}</span>
             </button>
           )}
         </div>
@@ -426,12 +426,12 @@ const Catalogos: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Model Selection */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
             <div className="flex items-center space-x-2 mb-4">
-              <Settings className="w-5 h-5 text-orange-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Catálogos</h2>
+              <Settings className="w-5 h-5 text-orange-600 flex-shrink-0" />
+              <h2 className="text-lg font-semibold text-gray-900 truncate">Catálogos</h2>
             </div>
             
             <div className="space-y-2">
@@ -439,7 +439,7 @@ const Catalogos: React.FC = () => {
                 <button
                   key={model.id}
                   onClick={() => setSelectedModel(model)}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors truncate ${
                     selectedModel.id === model.id
                       ? 'bg-orange-100 text-orange-700 font-medium'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -452,26 +452,26 @@ const Catalogos: React.FC = () => {
           </div>
 
           {/* Items List */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">{selectedModel.name}</h2>
+          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 truncate">{selectedModel.name}</h2>
               {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
               {selectedModel.id !== 'tipousuario' && (
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Search className="w-4 h-4 text-gray-400" />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1 sm:flex-initial">
+                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="min-w-0 flex-1 sm:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                       placeholder="Buscar..."
                     />
                   </div>
                   {selectedModel.hasActivo && (
-                    <div className="flex items-center space-x-2">
-                      <Filter className="w-4 h-4 text-gray-400" />
-                      <label className="flex items-center">
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <label className="flex items-center whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={showActiveOnly}
@@ -492,15 +492,15 @@ const Catalogos: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Tipo de Usuario</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Descripción</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Tipo de Usuario</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Descripción</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tiposUsuarioFijos.map(tipo => (
                       <tr key={tipo.value} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-gray-900">{tipo.label}</td>
-                        <td className="py-3 px-4 text-gray-700">{tipo.descripcion}</td>
+                        <td className="py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base truncate">{tipo.label}</td>
+                        <td className="py-3 px-2 sm:px-4 text-gray-700 text-sm sm:text-base break-words">{tipo.descripcion}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -512,29 +512,29 @@ const Catalogos: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Nombre</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Estado</th>
                       {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">Precio</th>
+                        <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Precio</th>
                       )}
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredItems.map((item) => (
                       <tr key={item._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{item.nombre}</p>
+                        <td className="py-3 px-2 sm:px-4">
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{item.nombre}</p>
                             {item.descripcion && (
-                              <p className="text-sm text-gray-600">{item.descripcion}</p>
+                              <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words">{item.descripcion}</p>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-2 sm:px-4">
                           {selectedModel.hasActivo ? (
                             <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                                 item.activo
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-red-100 text-red-800'
@@ -543,29 +543,29 @@ const Catalogos: React.FC = () => {
                               {item.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           ) : (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 whitespace-nowrap">
                               N/A
                             </span>
                           )}
                         </td>
                         {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
-                          <td className="py-3 px-4">
-                            <span className="font-medium text-green-600">
+                          <td className="py-3 px-2 sm:px-4">
+                            <span className="font-medium text-green-600 text-sm sm:text-base whitespace-nowrap">
                               ${((item as any).costo || (item as any).precio || 0).toFixed(2)}
                             </span>
                           </td>
                         )}
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
+                        <td className="py-3 px-2 sm:px-4">
+                          <div className="flex space-x-1 sm:space-x-2">
                             <button
                               onClick={() => handleEdit(item)}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(item)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              className="p-1 text-red-600 hover:bg-red-50 rounded flex-shrink-0"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -588,16 +588,16 @@ const Catalogos: React.FC = () => {
 
         {/* Modal solo si NO es tipos de usuario */}
         {showModal && selectedModel.id !== 'tipousuario' && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 truncate">
                 {editingItem ? 'Editar' : 'Crear'} {selectedModel.name.slice(0, -1)}
               </h3>
               
               <div className="space-y-4">
                 {selectedModel.fields.map((field) => (
                   <div key={field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                       {getFieldLabel(field)}
                     </label>
                     {renderField(field, formData[field])}
@@ -614,17 +614,17 @@ const Catalogos: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex space-x-3 mt-6">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
                 >
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>

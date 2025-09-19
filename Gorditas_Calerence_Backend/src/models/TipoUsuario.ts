@@ -8,7 +8,7 @@ export interface ITipoUsuarioDocument extends Omit<ITipoUsuario, '_id'>, Documen
 const tipoUsuarioSchema = new Schema<ITipoUsuarioDocument>({
   _id: { type: Number, required: true },
   nombre: { type: String, required: true, trim: true },
-  descripcion: { type: String, required: true, trim: true }
+  descripcion: { type: String, required: false, trim: true }
 }, {
   timestamps: true,
   versionKey: false

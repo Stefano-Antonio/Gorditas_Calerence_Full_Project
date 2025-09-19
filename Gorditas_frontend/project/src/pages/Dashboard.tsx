@@ -275,30 +275,6 @@ const Dashboard: React.FC = () => {
     return statusFlow[currentStatus as keyof typeof statusFlow];
   };
 
-  const canUserUpdateStatus = (currentStatus: string) => {
-    const userRole = user?.nombreTipoUsuario;
-    
-    // Admin can update any status
-    if (userRole === 'Admin') return true;
-    
-    // Mesero can update Pendiente to Recepcion and Entregada to Pagada
-    if (userRole === 'Mesero') {
-      return currentStatus === 'Pendiente' || currentStatus === 'Entregada';
-    }
-    
-    // Despachador can update Recepcion to Preparacion and Preparacion to Surtida
-    if (userRole === 'Despachador') {
-      return currentStatus === 'Recepcion' || currentStatus === 'Preparacion';
-    }
-    
-    // Encargado can update Entregada to Pagada
-    if (userRole === 'Encargado') {
-      return currentStatus === 'Entregada';
-    }
-    
-    return false;
-  };
-
   const renderWorkflowActions = (orden: OrdenWorkflow) => {
     const userRole = user?.nombreTipoUsuario;
     const currentStatus = orden.estatus;
@@ -485,19 +461,22 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Ventas Hoy</p>
-              <p className="text-3xl font-bold text-gray-900">
-                ${stats.ventasHoy.toFixed(2)}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+        {/* Ventas Hoy - Solo para Admin */}
+        {user?.nombreTipoUsuario === 'Admin' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Ventas Hoy</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  ${stats.ventasHoy.toFixed(2)}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
@@ -511,22 +490,25 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Stock Bajo</p>
-              <p className={`text-3xl font-bold ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {stats.productosLowStock}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats.productosLowStock === 0 ? 'Todo en orden' : `cuentas con ${stats.productosLowStock} producto con${stats.productosLowStock !== 1 ? 's' : ''} menos de 10 items`}
-              </p>
-            </div>
-            <div className={`p-3 rounded-lg ${stats.productosLowStock > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
-              <AlertCircle className={`w-6 h-6 ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-green-600'}`} />
+        {/* Stock Bajo - Solo para Admin */}
+        {user?.nombreTipoUsuario === 'Admin' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Stock Bajo</p>
+                <p className={`text-3xl font-bold ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {stats.productosLowStock}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.productosLowStock === 0 ? 'Todo en orden' : `cuentas con ${stats.productosLowStock} producto con${stats.productosLowStock !== 1 ? 's' : ''} menos de 10 items`}
+                </p>
+              </div>
+              <div className={`p-3 rounded-lg ${stats.productosLowStock > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
+                <AlertCircle className={`w-6 h-6 ${stats.productosLowStock > 0 ? 'text-red-600' : 'text-green-600'}`} />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Alert Messages */}
@@ -688,15 +670,21 @@ const Dashboard: React.FC = () => {
               <span className="text-sm font-medium text-gray-700">Inventario</span>
               </Link>
             
+            {/* Catálogos - Solo para Admin, Mesero y Despachador */}
+            {user?.nombreTipoUsuario !== 'Encargado' && (
               <Link to="/catalogos" className="flex flex-col items-center p-4 border-2 border-dashed border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
               <Users className="w-8 h-8 text-orange-600 mb-2" />
               <span className="text-sm font-medium text-gray-700">Catálogos</span>
               </Link>
+            )}
             
+            {/* Reportes - Solo para Admin */}
+            {user?.nombreTipoUsuario === 'Admin' && (
               <Link to="/reportes" className="flex flex-col items-center p-4 border-2 border-dashed border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
               <TrendingUp className="w-8 h-8 text-orange-600 mb-2" />
               <span className="text-sm font-medium text-gray-700">Reportes</span>
               </Link>
+            )}
           </div>
         </div>
       </div>

@@ -72,6 +72,7 @@ export interface TipoGasto extends BaseEntity {
 
 // Transactional models
 export interface Orden extends BaseEntity {
+  idMesa: number;
   mesa: string;
   tipoOrden?: string;
   usuario?: string;

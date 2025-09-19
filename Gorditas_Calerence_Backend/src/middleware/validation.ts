@@ -33,11 +33,11 @@ export const createOrdenSchema = Joi.object({
   idTipoOrden: Joi.number().required(),
   nombreTipoOrden: Joi.string().required(),
   idMesa: Joi.number().optional(),
-  nombreMesa: Joi.string().optional(),
-  nombreCliente: Joi.string().max(100).optional(),
+  nombreMesa: Joi.string().allow('').optional(),
+  nombreCliente: Joi.string().max(100).allow('').optional(),
   total: Joi.number().min(0).required(),
-  estatus: Joi.string().optional(),
-  notas: Joi.string().max(500).optional()
+  estatus: Joi.string().allow('').optional(),
+  notas: Joi.string().max(500).allow('').optional()
 });
 
 export const addProductToOrdenSchema = Joi.object({
@@ -61,5 +61,62 @@ export const createGastoSchema = Joi.object({
   nombre: Joi.string().required(),
   idTipoGasto: Joi.number().required(),
   gastoTotal: Joi.number().min(0).required(),
-  descripcion: Joi.string().optional()
+  descripcion: Joi.string().allow('').optional()
+});
+
+// Schemas for catalogs
+export const createGuisoSchema = Joi.object({
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  activo: Joi.boolean().optional()
+});
+
+export const createPlatilloSchema = Joi.object({
+  idTipoPlatillo: Joi.number().required(),
+  nombreTipoPlatillo: Joi.string().allow('').optional(),
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  costo: Joi.number().min(0).required(),
+  precio: Joi.number().min(0).required(),
+  activo: Joi.boolean().optional()
+});
+
+export const createProductoSchema = Joi.object({
+  idTipoProducto: Joi.number().required(),
+  nombreTipoProducto: Joi.string().allow('').optional(),
+  nombre: Joi.string().required(),
+  cantidad: Joi.number().min(0).required(),
+  costo: Joi.number().min(0).required(),
+  activo: Joi.boolean().optional()
+});
+
+export const createTipoProductoSchema = Joi.object({
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  activo: Joi.boolean().optional()
+});
+
+export const createTipoPlatilloSchema = Joi.object({
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  activo: Joi.boolean().optional()
+});
+
+export const createTipoGastoSchema = Joi.object({
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  activo: Joi.boolean().optional()
+});
+
+export const createMesaSchema = Joi.object({
+  numero: Joi.number().required(),
+  nombre: Joi.string().allow('').optional(),
+  capacidad: Joi.number().min(1).optional(),
+  activo: Joi.boolean().optional()
+});
+
+export const createTipoOrdenSchema = Joi.object({
+  nombre: Joi.string().required(),
+  descripcion: Joi.string().allow('').optional(),
+  activo: Joi.boolean().optional()
 });

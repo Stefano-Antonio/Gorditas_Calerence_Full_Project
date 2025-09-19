@@ -21,9 +21,14 @@ router.get('/ventas', authenticate, isEncargado,
 
     // Filtro por rango de fechas
     if (fechaInicio && fechaFin) {
-      filter.fechaHora = {
-        $gte: new Date(fechaInicio),
-        $lte: new Date(fechaFin)
+      // Crear fechas en la zona horaria local y ajustar rangos
+      const fechaInicioDate = new Date(fechaInicio + 'T00:00:00.000Z');
+      const fechaFinDate = new Date(fechaFin + 'T23:59:59.999Z');
+      
+      // Para ventas, usar fechaPago en lugar de fechaHora
+      filter.fechaPago = {
+        $gte: fechaInicioDate,
+        $lte: fechaFinDate
       };
     }
 
@@ -65,7 +70,13 @@ router.get('/ventas', authenticate, isEncargado,
         { $match: filter },
         {
           $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } },
+            _id: { 
+              $dateToString: { 
+                format: '%Y-%m-%d', 
+                date: '$fechaPago',
+                timezone: 'America/Mexico_City'
+              } 
+            },
             ventas: { $sum: '$total' },
             ordenes: { $sum: 1 }
           }
@@ -132,9 +143,13 @@ router.get('/gastos', authenticate, isEncargado,
     const filter: any = {};
     
     if (fechaInicio && fechaFin) {
+      // Crear fechas en la zona horaria local y ajustar rangos
+      const fechaInicioDate = new Date(fechaInicio + 'T00:00:00.000Z');
+      const fechaFinDate = new Date(fechaFin + 'T23:59:59.999Z');
+      
       filter.fecha = {
-        $gte: new Date(fechaInicio),
-        $lte: new Date(fechaFin)
+        $gte: fechaInicioDate,
+        $lte: fechaFinDate
       };
     }
 
@@ -173,7 +188,13 @@ router.get('/gastos', authenticate, isEncargado,
       { $match: filter },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$fecha' } },
+          _id: { 
+            $dateToString: { 
+              format: '%Y-%m-%d', 
+              date: '$fecha',
+              timezone: 'America/Mexico_City'
+            } 
+          },
           gastos: { $sum: '$gastoTotal' },
           cantidad: { $sum: 1 }
         }
@@ -250,10 +271,13 @@ router.get('/productos-vendidos', authenticate, isEncargado,
     
     if (fechaInicio && fechaFin) {
       // Necesitamos hacer lookup con Orden para filtrar por fecha
+      const fechaInicioDate = new Date(fechaInicio + 'T00:00:00.000Z');
+      const fechaFinDate = new Date(fechaFin + 'T23:59:59.999Z');
+      
       const ordenesFiltradas = await Orden.find({
         fechaHora: {
-          $gte: new Date(fechaInicio),
-          $lte: new Date(fechaFin)
+          $gte: fechaInicioDate,
+          $lte: fechaFinDate
         },
         estatus: OrdenStatus.ENTREGADA
       }).select('_id');
@@ -303,8 +327,8 @@ router.get('/productos-vendidos', authenticate, isEncargado,
           'orden.estatus': OrdenStatus.ENTREGADA,
           ...(fechaInicio && fechaFin ? {
             'orden.fechaHora': {
-              $gte: new Date(fechaInicio),
-              $lte: new Date(fechaFin)
+              $gte: new Date(fechaInicio + 'T00:00:00.000Z'),
+              $lte: new Date(fechaFin + 'T23:59:59.999Z')
             }
           } : {})
         }

@@ -8,7 +8,7 @@ const gastoSchema = new Schema<IGastoDocument>({
   idTipoGasto: { type: Number, required: true },
   nombreTipoGasto: { type: String, required: true, trim: true },
   gastoTotal: { type: Number, required: true, min: 0 },
-  descripcion: { type: String, trim: true },
+  descripcion: { type: String, required: false, trim: false },
   fecha: { type: Date, default: Date.now }
 }, {
   timestamps: true,

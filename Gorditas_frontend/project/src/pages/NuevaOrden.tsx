@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Minus, 
-  ShoppingCart, 
+import {
+  Plus,
+  Minus,
   Check,
   ArrowLeft,
   ArrowRight,
@@ -17,6 +16,14 @@ interface PlatilloSeleccionado {
   cantidad: number;
 }
 
+interface OrdenEnProceso {
+  nombreCliente: string;
+  notas: string;
+  platillos: PlatilloSeleccionado[];
+  productos: any[];
+  total: number;
+}
+
 const NuevaOrden: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null);
@@ -24,6 +31,8 @@ const NuevaOrden: React.FC = () => {
   const [platillosSeleccionados, setPlatillosSeleccionados] = useState<PlatilloSeleccionado[]>([]);
   // Agrega estado para productos seleccionados
   const [productosSeleccionados, setProductosSeleccionados] = useState<any[]>([]);
+  // Estado para acumular múltiples órdenes de la misma mesa
+  const [ordenesEnProceso, setOrdenesEnProceso] = useState<OrdenEnProceso[]>([]);
   
   const [mesas, setMesas] = useState<Mesa[]>([]);
   const [mesasOcupadas, setMesasOcupadas] = useState<Set<string>>(new Set());
@@ -49,6 +58,26 @@ const NuevaOrden: React.FC = () => {
     { step: 3, title: 'Agregar Items', completed: platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 },
     { step: 4, title: 'Validar y Confirmar', completed: false },
   ];
+
+  // Función para guardar la orden actual en el array de órdenes en proceso
+  const guardarOrdenActual = () => {
+    if (!nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)) {
+      setError('Complete todos los campos antes de agregar otra orden');
+      return false;
+    }
+
+    const totalOrden = getTotalOrden();
+    const nuevaOrden: OrdenEnProceso = {
+      nombreCliente: nombreSuborden,
+      notas: notas,
+      platillos: [...platillosSeleccionados],
+      productos: [...productosSeleccionados],
+      total: totalOrden
+    };
+
+    setOrdenesEnProceso(prev => [...prev, nuevaOrden]);
+    return true;
+  };
 
   useEffect(() => {
     loadInitialData();
@@ -125,6 +154,13 @@ const NuevaOrden: React.FC = () => {
       setError('Selecciona un producto');
       return;
     }
+
+    // Validar que la cantidad sea suficiente
+    if (selectedProducto.cantidad < cantidadProducto) {
+      setError('Stock insuficiente para el producto seleccionado');
+      return;
+    }
+
     const nuevo = {
       idProducto: selectedProducto._id,
       nombreProducto: selectedProducto.nombre,
@@ -134,6 +170,7 @@ const NuevaOrden: React.FC = () => {
     setProductosSeleccionados(prev => [...prev, nuevo]);
     setSelectedProducto(null);
     setCantidadProducto(1);
+    setError('');
   };
 
   const handleAddPlatillo = () => {
@@ -164,115 +201,128 @@ const NuevaOrden: React.FC = () => {
       return;
     }
 
+    // Guardar la orden actual antes de procesarlas
+    const ordenActualGuardada = guardarOrdenActual();
+    if (!ordenActualGuardada) return;
+
+    // Combinar la orden actual con las órdenes en proceso
+    const todasLasOrdenes = [
+      ...ordenesEnProceso,
+      {
+        nombreCliente: nombreSuborden,
+        notas: notas,
+        platillos: [...platillosSeleccionados],
+        productos: [...productosSeleccionados],
+        total: getTotalOrden()
+      }
+    ];
+
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      // Calcula el total en el frontend justo antes de crear la orden, usando el estado actual
-      const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
-      // Calcula el total sumando platillos y productos seleccionados
-      const totalPlatillos = platillosSeleccionados.reduce(
-        (sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad),
-        0
-      );
-      const totalProductos = productosSeleccionados.reduce(
-        (sum, item) => sum + (item.costoProducto * item.cantidad),
-        0
-      );
-      const totalCalculado = totalPlatillos + totalProductos;
-      const ordenData = {
-        idMesa: selectedMesa._id,
-        nombreMesa: selectedMesa.nombre,
-        idTipoOrden: 1, // Mesa type
-        nombreTipoOrden: 'Mesa',
-        nombreCliente: nombreSuborden, // Usar nombreSuborden como nombre del cliente
-        total: totalCalculado,
-        estatus,
-        notas: notas || undefined // Include notes if provided
-      };
-
-      const ordenResponse = await apiService.createOrden(ordenData);
-      const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
-      if (!ordenResponse.success || !ordenDataWithId?._id) {
-        setError('Error creando orden');
-        setLoading(false);
-        return;
-      }
-      const ordenId = ordenDataWithId._id;
-
-      // 2. Crear la suborden
-      const subordenData = { nombre: nombreSuborden };
-      const subordenResponse = await apiService.addSuborden(ordenId, subordenData);
-      if (
-        !subordenResponse.success ||
-        !(subordenResponse.data && (subordenResponse.data as { _id?: string })._id)
-      ) {
-        setError('Error creando suborden');
-        setLoading(false);
-        return;
-      }
-
-      const subordenId = (subordenResponse.data as { _id: string })._id;
-
-      // 3. Agregar los platillos seleccionados a la suborden
-      for (const item of platillosSeleccionados) {
-        const platilloData = {
-          idPlatillo: Number(item.platillo._id),
-          nombrePlatillo: item.platillo.nombre,
-          idGuiso: Number(item.guiso._id),
-          nombreGuiso: item.guiso.nombre,
-          costoPlatillo: item.platillo.costo,
-          cantidad: item.cantidad
+      // Procesar cada orden por separado
+      for (const ordenData of todasLasOrdenes) {
+        const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
+        
+        const nuevaOrdenData = {
+          idMesa: selectedMesa._id,
+          nombreMesa: selectedMesa.nombre,
+          idTipoOrden: 1,
+          nombreTipoOrden: 'Mesa',
+          nombreCliente: ordenData.nombreCliente,
+          total: ordenData.total,
+          estatus,
+          notas: ordenData.notas || undefined
         };
 
-        const platilloResponse = await apiService.addPlatillo(subordenId, platilloData);
-        if (!platilloResponse.success) {
-          setError(`Error agregando platillo: ${item.platillo.nombre}`);
+        const ordenResponse = await apiService.createOrden(nuevaOrdenData);
+        const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
+        if (!ordenResponse.success || !ordenDataWithId?._id) {
+          setError(`Error creando orden para ${ordenData.nombreCliente}`);
           setLoading(false);
           return;
         }
-      }
+        const ordenId = ordenDataWithId._id;
 
-      // 4. Agregar los productos seleccionados a la orden
-      for (const producto of productosSeleccionados) {
-        const productoData = {
-          ...producto,
-          idOrden: ordenId
-        };
-        const productoResponse = await apiService.addProducto(ordenId, productoData);
-        if (!productoResponse.success) {
-          setError(`Error agregando producto: ${producto.nombreProducto || producto.nombre}`);
+        // Crear la suborden
+        const subordenData = { nombre: ordenData.nombreCliente };
+        const subordenResponse = await apiService.addSuborden(ordenId, subordenData);
+        if (!subordenResponse.success || !(subordenResponse.data && (subordenResponse.data as { _id?: string })._id)) {
+          setError(`Error creando suborden para ${ordenData.nombreCliente}`);
           setLoading(false);
           return;
         }
-      }
 
-      // Consultar la orden para obtener el total actualizado
-      let totalFinal = 0;
-      try {
-        const ordenFinalResponse = await apiService.getOrden(ordenId);
-        if (ordenFinalResponse.success && ordenFinalResponse.data) {
-          totalFinal = ordenFinalResponse.data.total ?? 0;
+        const subordenId = (subordenResponse.data as { _id: string })._id;
+
+        // Agregar platillos
+        for (const item of ordenData.platillos) {
+          const platilloData = {
+            idPlatillo: Number(item.platillo._id),
+            nombrePlatillo: item.platillo.nombre,
+            idGuiso: Number(item.guiso._id),
+            nombreGuiso: item.guiso.nombre,
+            costoPlatillo: item.platillo.costo,
+            cantidad: item.cantidad
+          };
+
+          const platilloResponse = await apiService.addPlatillo(subordenId, platilloData);
+          if (!platilloResponse.success) {
+            setError(`Error agregando platillo: ${item.platillo.nombre} para ${ordenData.nombreCliente}`);
+            setLoading(false);
+            return;
+          }
         }
-      } catch (e) {
-        // Si falla, deja el total en 0
+
+        // Agregar productos
+        for (const producto of ordenData.productos) {
+          const productoData = {
+            ...producto,
+            idOrden: ordenId
+          };
+          const productoResponse = await apiService.addProducto(ordenId, productoData);
+          if (!productoResponse.success) {
+            setError(`Error agregando producto: ${producto.nombreProducto || producto.nombre} para ${ordenData.nombreCliente}, stock insuficiente`);
+            setOrdenesEnProceso(prev => prev.filter(o => o.nombreCliente !== ordenData.nombreCliente));
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Ensure the order is not added to resumen if stock is insufficient
+        if (error.includes('stock insuficiente')) {
+          setOrdenesEnProceso(prev => prev.filter(o => o.nombreCliente !== ordenData.nombreCliente));
+          continue;
+        }
       }
 
-      setSuccess(`Orden creada exitosamente. Total: $${(totalFinal ?? 0).toFixed(2)}`);
+      const totalTodasLasOrdenes = todasLasOrdenes.reduce((sum, orden) => sum + orden.total, 0);
+      setSuccess(`${todasLasOrdenes.length} orden${todasLasOrdenes.length > 1 ? 'es' : ''} creada${todasLasOrdenes.length > 1 ? 's' : ''} exitosamente. Total: $${totalTodasLasOrdenes.toFixed(2)}`);
+      
       setTimeout(() => {
         setCurrentStep(1);
         setSelectedMesa(null);
         setNombreSuborden('');
+        setNotas('');
         setPlatillosSeleccionados([]);
+        setProductosSeleccionados([]);
+        setOrdenesEnProceso([]); // Limpiar órdenes en proceso
+        setSelectedPlatillo(null);
+        setSelectedGuiso(null);
+        setSelectedProducto(null);
+        setCantidad(1);
+        setCantidadProducto(1);
+        setIsOrderComplete(true);
         setSuccess('');
         setError('');
-        loadInitialData(); // <-- Recarga los datos iniciales
-      }, 2000);
+        loadInitialData();
+      }, 3000);
 
     } catch (error) {
-      console.error('Error al crear la orden:', error);
-      setError('Error creando la orden');
+      console.error('Error al crear las órdenes:', error);
+      setError('Error creando las órdenes');
     } finally {
       setLoading(false);
     }
@@ -300,6 +350,12 @@ const NuevaOrden: React.FC = () => {
         0
       )
     );
+  };
+
+  const getTotalTodasLasOrdenes = () => {
+    const totalOrdenesEnProceso = ordenesEnProceso.reduce((sum, orden) => sum + orden.total, 0);
+    const totalOrdenActual = getTotalOrden();
+    return totalOrdenesEnProceso + totalOrdenActual;
   };
 
   if (success) {
@@ -435,7 +491,7 @@ const NuevaOrden: React.FC = () => {
                       <div className="space-y-1">
                         {mesaInfo.ordenes.map((orden: any, index: number) => (
                           <div key={index} className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                            Folio #{orden.folio || 'N/A'} - Estado: {orden.estatus} - Total: ${orden.total?.toFixed(2) || '0.00'}
+                            Folio #{orden.folio || 'N/A'} - Cliente: {orden.nombreCliente || 'Sin nombre'} - Estado: {orden.estatus} - Total: ${orden.total?.toFixed(2) || '0.00'}
                           </div>
                         ))}
                       </div>
@@ -452,7 +508,7 @@ const NuevaOrden: React.FC = () => {
           </div>
         )}
 
-        {/* Step 2: Create Suborder */}
+        {/* Step 2: Create Suborden */}
         {currentStep === 2 && (
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Crear Suborden</h2>
@@ -705,19 +761,19 @@ const NuevaOrden: React.FC = () => {
             
             <div className="space-y-6">
               {/* Order Validation Section */}
-              <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+              <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-200">
                 <h3 className="font-medium text-blue-900 mb-4">Validación de Orden</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-blue-800">¿La orden está completa?</span>
-                    <div className="flex space-x-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <span className="text-sm text-blue-800 flex-shrink-0">¿La orden está completa?</span>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <label className="flex items-center">
                         <input
                           type="radio"
                           name="orderComplete"
                           checked={isOrderComplete}
                           onChange={() => setIsOrderComplete(true)}
-                          className="mr-2 text-blue-600"
+                          className="mr-2 text-blue-600 flex-shrink-0"
                         />
                         <span className="text-sm text-blue-800">Sí, completa</span>
                       </label>
@@ -727,7 +783,7 @@ const NuevaOrden: React.FC = () => {
                           name="orderComplete"
                           checked={!isOrderComplete}
                           onChange={() => setIsOrderComplete(false)}
-                          className="mr-2 text-orange-600"
+                          className="mr-2 text-orange-600 flex-shrink-0"
                         />
                         <span className="text-sm text-blue-800">No, pendiente</span>
                       </label>
@@ -745,58 +801,171 @@ const NuevaOrden: React.FC = () => {
               </div>
 
               <div className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-4">Resumen de la Orden</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium">{selectedMesa?.nombre}</span>
+                <h3 className="font-medium text-gray-900 mb-4">Resumen de las Órdenes</h3>
+                
+                {/* Órdenes ya guardadas en proceso */}
+                {ordenesEnProceso.map((orden, index) => (
+                  <div key={index} className="mb-4 p-4 bg-white rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-700 mb-3">Orden #{index + 1} - {orden.nombreCliente}</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-gray-600 min-w-0 flex-shrink-0">Platillos:</span>
+                        <span className="sm:ml-2 font-medium">{orden.platillos.length} items</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-gray-600 min-w-0 flex-shrink-0">Productos:</span>
+                        <span className="sm:ml-2 font-medium">{orden.productos.length} items</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-gray-600 min-w-0 flex-shrink-0">Total:</span>
+                        <span className="sm:ml-2 font-medium text-green-600">${orden.total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-gray-600 min-w-0 flex-shrink-0">Notas:</span>
+                        <span className="sm:ml-2 text-sm truncate">{orden.notas || 'Sin notas'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-gray-600">Suborden:</span>
-                    <span className="ml-2 font-medium">{nombreSuborden}</span>
+                ))}
+
+                {/* Orden actual */}
+                <div className="mb-4 p-4 bg-white rounded-lg border border-orange-200">
+                  <h4 className="font-medium text-orange-700 mb-3">Orden Actual - {nombreSuborden}</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Mesa:</span>
+                      <span className="sm:ml-2 font-medium truncate">{selectedMesa?.nombre}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Cliente:</span>
+                      <span className="sm:ml-2 font-medium truncate">{nombreSuborden}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Platillos:</span>
+                      <span className="sm:ml-2 font-medium">{platillosSeleccionados.length} items</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Productos:</span>
+                      <span className="sm:ml-2 font-medium">{productosSeleccionados.length} items</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Total orden:</span>
+                      <span className="sm:ml-2 font-medium text-orange-600">${getTotalOrden().toFixed(2)}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-600 min-w-0 flex-shrink-0">Estado:</span>
+                      <span className={`sm:ml-2 font-medium ${isOrderComplete ? 'text-green-600' : 'text-orange-600'}`}>
+                        {isOrderComplete ? 'Recepción' : 'Pendiente'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-gray-600">Platillos:</span>
-                    <span className="ml-2 font-medium">{platillosSeleccionados.length} items</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Productos:</span>
-                    <span className="ml-2 font-medium">{productosSeleccionados.length} items</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Total:</span>
-                    <span className="ml-2 font-medium text-orange-600">${getTotalOrden().toFixed(2)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Estado:</span>
-                    <span className={`ml-2 font-medium ${isOrderComplete ? 'text-green-600' : 'text-orange-600'}`}>
-                      {isOrderComplete ? 'Recepción' : 'Pendiente'}
+                  {notas && (
+                    <div className="mt-3 p-2 bg-orange-50 rounded border border-orange-100">
+                      <div className="flex flex-col sm:flex-row">
+                        <span className="text-gray-600 text-sm font-medium flex-shrink-0">Notas:</span>
+                        <span className="sm:ml-2 text-sm break-words">{notas}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total general */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                    <span className="text-base sm:text-lg font-semibold text-blue-900">
+                      Total General ({ordenesEnProceso.length + 1} orden{ordenesEnProceso.length + 1 > 1 ? 'es' : ''}):
+                    </span>
+                    <span className="text-lg sm:text-xl font-bold text-blue-600">
+                      ${getTotalTodasLasOrdenes().toFixed(2)}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-3">Detalle de Platillos</h4>
-                <div className="space-y-2">
-                  {platillosSeleccionados.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center text-sm">
-                      <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
-                      <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                {/* Detalles de órdenes guardadas */}
+                {ordenesEnProceso.map((orden, ordenIndex) => (
+                  <div key={ordenIndex} className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-3">
+                      Detalle Orden #{ordenIndex + 1} - {orden.nombreCliente}
+                    </h4>
+                    
+                    <h5 className="font-medium text-gray-900 mb-2">Platillos:</h5>
+                    <div className="space-y-1 mb-4">
+                      {orden.platillos.length === 0 ? (
+                        <span className="text-sm text-gray-500">No hay platillos</span>
+                      ) : (
+                        orden.platillos.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
+                            <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ))}
-                </div>
-                <h4 className="font-medium text-gray-900 mt-6 mb-3">Detalle de Productos</h4>
-                <div className="space-y-2">
-                  {productosSeleccionados.length === 0 ? (
-                    <span className="text-sm text-gray-500">No hay productos agregados</span>
-                  ) : (
-                    productosSeleccionados.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center text-sm">
-                        <span>{item.cantidad}x {item.nombreProducto}</span>
-                        <span className="font-medium">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+
+                    <h5 className="font-medium text-gray-900 mb-2">Productos:</h5>
+                    <div className="space-y-1 mb-4">
+                      {orden.productos.length === 0 ? (
+                        <span className="text-sm text-gray-500">No hay productos</span>
+                      ) : (
+                        orden.productos.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span>{item.cantidad}x {item.nombreProducto}</span>
+                            <span className="font-medium">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {orden.notas && (
+                      <div className="mt-2 p-2 bg-green-100 rounded">
+                        <span className="text-sm font-medium text-green-800">Notas: </span>
+                        <span className="text-sm text-green-700">{orden.notas}</span>
                       </div>
-                    ))
+                    )}
+                  </div>
+                ))}
+
+                {/* Detalles de la orden actual */}
+                <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <h4 className="font-medium text-orange-800 mb-3">
+                    Detalle Orden Actual - {nombreSuborden}
+                  </h4>
+                  
+                  <h5 className="font-medium text-gray-900 mb-2">Platillos:</h5>
+                  <div className="space-y-1 mb-4">
+                    {platillosSeleccionados.length === 0 ? (
+                      <span className="text-sm text-gray-500">No hay platillos</span>
+                    ) : (
+                      platillosSeleccionados.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center text-sm">
+                          <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
+                          <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <h5 className="font-medium text-gray-900 mb-2">Productos:</h5>
+                  <div className="space-y-1 mb-4">
+                    {productosSeleccionados.length === 0 ? (
+                      <span className="text-sm text-gray-500">No hay productos</span>
+                    ) : (
+                      productosSeleccionados.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center text-sm">
+                          <span>{item.cantidad}x {item.nombreProducto}</span>
+                          <span className="font-medium">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {notas && (
+                    <div className="mt-2 p-2 bg-orange-100 rounded">
+                      <span className="text-sm font-medium text-orange-800">Notas: </span>
+                      <span className="text-sm text-orange-700">{notas}</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -813,20 +982,50 @@ const NuevaOrden: React.FC = () => {
                 )}
                 {loading ? 'Creando Orden...' : 'Confirmar y Crear Orden'}
               </button>
+
+              {/* Button to add another order for the same table */}
+              <button
+                onClick={() => {
+                  // Guardar la orden actual antes de limpiar
+                  const guardada = guardarOrdenActual();
+                  if (guardada) {
+                    // Reset form but keep the selected table and saved orders
+                    setCurrentStep(2);
+                    setNombreSuborden('');
+                    setNotas('');
+                    setPlatillosSeleccionados([]);
+                    setProductosSeleccionados([]);
+                    setSelectedPlatillo(null);
+                    setSelectedGuiso(null);
+                    setSelectedProducto(null);
+                    setCantidad(1);
+                    setCantidadProducto(1);
+                    setIsOrderComplete(true);
+                    setError('');
+                    setSuccess('');
+                  }
+                }}
+                disabled={loading || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
+                className="w-full bg-orange-600 text-white px-6 py-4 rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center mt-3"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Agregar Orden de otro cliente
+              </button>
             </div>
           </div>
         )}
 
         {/* Navigation Buttons */}
         <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-          <button
+            <button
             onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
             disabled={currentStep === 1}
             className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+            >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Anterior
-          </button>
+            <span className="block sm:hidden">ant</span>
+            <span className="hidden sm:block">Anterior</span>
+            </button>
 
           {currentStep < 4 && (
             <button
@@ -834,7 +1033,8 @@ const NuevaOrden: React.FC = () => {
               disabled={!canProceedToNext()}
               className="flex items-center px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Siguiente
+              <span className="block sm:hidden">sig</span>
+              <span className="hidden sm:block">Siguiente</span>
               <ArrowRight className="w-4 h-4 ml-2" />
             </button>
           )}

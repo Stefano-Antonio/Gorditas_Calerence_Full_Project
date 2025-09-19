@@ -5,36 +5,105 @@ import {
   CheckCircle, 
   Clock,
   Users,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
+import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo } from '../types';
 
 interface OrdenConDetalles extends Orden {
   productos?: OrdenDetalleProducto[];
   platillos?: OrdenDetallePlatillo[];
 }
 
+interface MesaAgrupada {
+  idMesa: number;
+  nombreMesa: string;
+  ordenes: OrdenConDetalles[];
+  totalOrdenes: number;
+  totalMonto: number;
+  clientes: { [cliente: string]: OrdenConDetalles[] };
+}
+
 const Despachar: React.FC = () => {
   const [ordenes, setOrdenes] = useState<OrdenConDetalles[]>([]);
+  const [mesas, setMesas] = useState<Mesa[]>([]);
+  const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
+  const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<OrdenConDetalles | null>(null);
   const [loading, setLoading] = useState(true);
   const [dispatching, setDispatching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [hasNewOrders, setHasNewOrders] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
   useEffect(() => {
     loadData();
-    // Set up polling for real-time updates - more frequent for better responsiveness
-    const interval = setInterval(loadData, 10000); // Refresh every 10 seconds
+    // Set up polling for real-time updates
+    const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
+  // Function to group orders by table
+  const groupOrdersByTable = (ordenes: OrdenConDetalles[], _mesas: Mesa[]): MesaAgrupada[] => {
+    const grouped: { [idMesa: number]: MesaAgrupada } = {};
+    
+    ordenes.forEach(orden => {
+      const idMesa = orden.idMesa || 0; // 0 for orders without table
+      const nombreMesa = orden.nombreMesa || 'Sin Mesa';
+      
+      if (!grouped[idMesa]) {
+        grouped[idMesa] = {
+          idMesa,
+          nombreMesa,
+          ordenes: [],
+          totalOrdenes: 0,
+          totalMonto: 0,
+          clientes: {}
+        };
+      }
+      
+      grouped[idMesa].ordenes.push(orden);
+      grouped[idMesa].totalOrdenes += 1;
+      grouped[idMesa].totalMonto += orden.total;
+      
+      // Group by client
+      const cliente = orden.nombreCliente || 'Sin nombre';
+      if (!grouped[idMesa].clientes[cliente]) {
+        grouped[idMesa].clientes[cliente] = [];
+      }
+      grouped[idMesa].clientes[cliente].push(orden);
+    });
+    
+    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };
+
+  const toggleMesaExpansion = (idMesa: number) => {
+    const newExpanded = new Set(expandedMesas);
+    if (newExpanded.has(idMesa)) {
+      newExpanded.delete(idMesa);
+    } else {
+      newExpanded.add(idMesa);
+    }
+    setExpandedMesas(newExpanded);
+  };
+
   const loadData = async () => {
     try {
-      const ordenesRes = await apiService.getOrdenes();
+      const [ordenesRes, mesasRes] = await Promise.all([
+        apiService.getOrdenes(),
+        apiService.getCatalog<Mesa>('mesa')
+      ]);
+
+      let mesasArray: Mesa[] = [];
+      if (mesasRes.success) {
+        if (Array.isArray(mesasRes.data)) {
+          mesasArray = mesasRes.data;
+        } else if (Array.isArray(mesasRes.data?.items)) {
+          mesasArray = mesasRes.data.items;
+        }
+        setMesas(mesasArray);
+      }
 
       if (ordenesRes.success) {
         let ordenesArray: Orden[] = [];
@@ -43,27 +112,47 @@ const Despachar: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        // Mostrar órdenes en estado 'Surtida' y 'Recepcion' para despacho
+        
+        // Filtrar órdenes para despacho
         const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
           ['Surtida', 'Recepcion'].includes(orden.estatus)
         );
+
+        // Obtener los detalles de cada orden (productos y platillos)
+        const ordenesConDetalles: OrdenConDetalles[] = await Promise.all(
+          ordenesParaDespachar.map(async (orden): Promise<OrdenConDetalles> => {
+            try {
+              const detallesRes = await apiService.getOrdenDetails(orden._id!);
+              if (detallesRes.success && detallesRes.data) {
+                return {
+                  ...orden,
+                  productos: detallesRes.data.productos || [],
+                  platillos: detallesRes.data.platillos || []
+                };
+              } else {
+                console.warn(`No se pudieron cargar detalles para orden ${orden._id}:`, detallesRes.error);
+                return {
+                  ...orden,
+                  productos: [],
+                  platillos: []
+                };
+              }
+            } catch (error) {
+              console.error(`Error cargando detalles de orden ${orden._id}:`, error);
+              return {
+                ...orden,
+                productos: [],
+                platillos: []
+              };
+            }
+          })
+        );
+
+        setOrdenes(ordenesConDetalles);
         
-        // Detectar nuevas órdenes comparando con el estado actual
-        const currentOrderIds = ordenes.map(o => o._id);
-        const newOrderIds = ordenesParaDespachar.map(o => o._id);
-        const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
-        
-        if (hasNewData && ordenes.length > 0) {
-          setHasNewOrders(true);
-          setSuccess('Nuevas órdenes para despachar detectadas');
-          setTimeout(() => {
-            setHasNewOrders(false);
-            setSuccess('');
-          }, 5000);
-        }
-        
-        setOrdenes(ordenesParaDespachar);
-        setLastUpdateTime(new Date());
+        // Group orders by table
+        const grouped = groupOrdersByTable(ordenesConDetalles, mesasArray);
+        setMesasAgrupadas(grouped);
       }
     } catch (error) {
       setError('Error cargando órdenes');
@@ -106,23 +195,179 @@ const Despachar: React.FC = () => {
     }
   };
 
+  const handleMarkAllAsDelivered = async (orden: OrdenConDetalles) => {
+    try {
+      // Cargar detalles de la orden primero
+      const response = await apiService.getOrdenDetails(orden._id!);
+      
+      if (response.success) {
+        const data = response.data;
+        const platillos = data.platillos || [];
+        const productos = data.productos || [];
+        
+        // Marcar todos los productos como entregados
+        for (const producto of productos) {
+          if (!producto.entregado) {
+            await apiService.markProductoEntregado(producto._id);
+          }
+        }
+        
+        // Solo marcar platillos como entregados si la orden está surtida
+        if (orden.estatus === 'Surtida') {
+          for (const platillo of platillos) {
+            if (!platillo.entregado) {
+              await apiService.markPlatilloEntregado(platillo._id);
+            }
+          }
+        }
+        
+        // Actualizar el estado local de selectedOrden si es la orden seleccionada
+        if (selectedOrden && selectedOrden._id === orden._id) {
+          const updatedOrden = {
+            ...selectedOrden,
+            productos: selectedOrden.productos?.map(p => ({ ...p, entregado: true })),
+            platillos: orden.estatus === 'Surtida' 
+              ? selectedOrden.platillos?.map(p => ({ ...p, entregado: true }))
+              : selectedOrden.platillos
+          };
+          
+          // Si la orden será marcada como 'Entregada', actualizar el estatus local también
+          if (orden.estatus === 'Surtida') {
+            updatedOrden.estatus = 'Entregada';
+          }
+          
+          setSelectedOrden(updatedOrden);
+        }
+        
+        // Actualizar también la lista local de órdenes
+        setOrdenes(prevOrdenes => {
+          const updatedOrdenes = prevOrdenes.map(ord => {
+            if (ord._id === orden._id) {
+              const updatedOrder = {
+                ...ord,
+                productos: ord.productos?.map(p => ({ ...p, entregado: true })),
+                platillos: orden.estatus === 'Surtida' 
+                  ? ord.platillos?.map(p => ({ ...p, entregado: true }))
+                  : ord.platillos
+              };
+              
+              // Si la orden será marcada como 'Entregada', actualizar el estatus local también
+              if (orden.estatus === 'Surtida') {
+                updatedOrder.estatus = 'Entregada';
+              }
+              
+              return updatedOrder;
+            }
+            return ord;
+          });
+          
+          // Filtrar órdenes entregadas para que no aparezcan en la lista de despacho
+          return updatedOrdenes.filter(ord => ord.estatus !== 'Entregada');
+        });
+        
+        // Actualizar también las mesas agrupadas
+        setMesasAgrupadas(prevMesas => {
+          const updatedMesas = prevMesas.map(mesa => ({
+            ...mesa,
+            ordenes: mesa.ordenes.filter(ord => ord._id !== orden._id || ord.estatus !== 'Entregada')
+          })).filter(mesa => mesa.ordenes.length > 0); // Remover mesas sin órdenes
+          return updatedMesas;
+        });
+        
+        // Si la orden seleccionada fue entregada completamente, deseleccionarla
+        if (selectedOrden && selectedOrden._id === orden._id && orden.estatus === 'Surtida') {
+          setSelectedOrden(null);
+        }
+        
+        // Solo actualizar el estado de la orden a 'Entregada' si está surtida y todo está entregado
+        if (orden.estatus === 'Surtida') {
+          const updateResponse = await apiService.updateOrdenStatus(orden._id!, 'Entregada');
+          
+          if (updateResponse.success) {
+            setSuccess(`Orden ${orden.folio || orden._id?.slice(-6)} marcada como entregada completamente`);
+          } else {
+            setError('Error al completar la entrega de la orden');
+          }
+        } else {
+          setSuccess(`Productos de la orden ${orden.folio || orden._id?.slice(-6)} marcados como entregados`);
+        }
+        
+        
+        await loadData(); // Refresh the list
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error cargando detalles de la orden');
+      }
+    } catch (error) {
+      setError('Error al marcar la orden como entregada');
+    }
+  };
+
+  const handleMarkAllMesaAsDelivered = async (mesa: MesaAgrupada) => {
+    try {
+      setLoading(true);
+      
+      // Procesar todas las órdenes de la mesa de forma secuencial
+      for (const orden of mesa.ordenes) {
+        // Cargar detalles de la orden
+        const response = await apiService.getOrdenDetails(orden._id!);
+        
+        if (response.success) {
+          const data = response.data;
+          const platillos = data.platillos || [];
+          const productos = data.productos || [];
+          
+          // Marcar todos los productos como entregados
+          for (const producto of productos) {
+            if (!producto.entregado) {
+              await apiService.markProductoEntregado(producto._id);
+            }
+          }
+          
+          // Solo marcar platillos como entregados si la orden está surtida
+          if (orden.estatus === 'Surtida') {
+            for (const platillo of platillos) {
+              if (!platillo.entregado) {
+                await apiService.markPlatilloEntregado(platillo._id);
+              }
+            }
+            
+            // Actualizar estado de la orden a 'Entregada'
+            await apiService.updateOrdenStatus(orden._id!, 'Entregada');
+          }
+        }
+      }
+      
+      // Si alguna orden seleccionada era de esta mesa, deseleccionarla
+      if (selectedOrden && mesa.ordenes.some(o => o._id === selectedOrden._id)) {
+        setSelectedOrden(null);
+      }
+      
+      setSuccess(`Todas las órdenes de ${mesa.nombreMesa} han sido entregadas`);
+      
+      // Recargar datos una sola vez al final
+      await loadData();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setError('Error al entregar todas las órdenes de la mesa');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMarkAsDelivered = async (itemId: string, type: 'producto' | 'platillo') => {
     if (!selectedOrden) return;
 
-    // Permitir marcar productos como entregados en "Recepcion" y "Surtida"
-    // Permitir marcar platillos como entregados solo en "Surtida"
-    if (type === 'producto') {
-      if (!['Recepcion', 'Surtida'].includes(selectedOrden.estatus)) {
-        setError('Solo se pueden marcar productos como entregados en órdenes con estatus "Recepcion" o "Surtida"');
-        setTimeout(() => setError(''), 3000);
-        return;
-      }
-    } else if (type === 'platillo') {
-      if (selectedOrden.estatus !== 'Surtida') {
-        setError('Solo se pueden marcar platillos como entregados en órdenes con estatus "Surtida"');
-        setTimeout(() => setError(''), 3000);
-        return;
-      }
+    // Si la orden está en Recepcion, solo permitir marcar productos como entregados
+    if (selectedOrden.estatus === 'Recepcion' && type === 'platillo') {
+      setError('Los platillos no se pueden marcar como entregados hasta que la orden esté surtida');
+      setTimeout(() => setError(''), 3000);
+      return;
     }
 
     try {
@@ -164,19 +409,6 @@ const Despachar: React.FC = () => {
   const handleCompleteDispatch = async () => {
     if (!selectedOrden) return;
 
-    // Solo permitir completar despacho si la orden está en "Surtida" y todos los items están entregados
-    if (selectedOrden.estatus !== 'Surtida') {
-      setError('Solo se puede completar el despacho de órdenes en estatus "Surtida"');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    if (!isOrderReadyForDispatch(selectedOrden)) {
-      setError('Todos los items deben estar marcados como entregados antes de completar el despacho');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
     setDispatching(true);
     try {
       const response = await apiService.updateOrdenStatus(selectedOrden._id!, 'Entregada');
@@ -184,7 +416,7 @@ const Despachar: React.FC = () => {
       if (response.success) {
         setSuccess('Orden despachada exitosamente');
         setSelectedOrden(null);
-        await loadData();
+        await loadData(); // This will refresh both orders and grouping
       } else {
         setError('Error al completar el despacho');
       }
@@ -193,6 +425,61 @@ const Despachar: React.FC = () => {
     } finally {
       setDispatching(false);
     }
+  };
+
+  const getMesaInfo = (mesaId: string) => {
+    return mesas.find(mesa => mesa._id === mesaId);
+  };
+
+  const getDeliveryButtonInfo = (orden: OrdenConDetalles) => {
+    const hasDeliverableProducts = orden.productos && orden.productos.length > 0 && 
+                                  orden.productos.some(p => p.entregado !== true);
+    const hasDeliverableDishes = orden.platillos && orden.platillos.length > 0 && 
+                                orden.platillos.some(p => p.entregado !== true);
+    
+    const isMobile = window.innerWidth < 640;
+    if (orden.estatus === 'Recepcion') {
+      // Para órdenes en recepción solo consideramos productos
+      if (hasDeliverableProducts) {
+      const text = isMobile
+        ? 'Entregar Productos'.split(' ').map(w => w.slice(0, 3)).join(' ')
+        : 'Entregar Productos';
+      return { text, disabled: false, className: 'bg-green-600 hover:bg-green-700' };
+      } else {
+      const text = isMobile
+        ? 'Productos Entregados'.split(' ').map(w => w.slice(0, 3)).join(' ')
+        : 'Productos Entregados';
+      return { text, disabled: true, className: 'bg-gray-400 cursor-not-allowed' };
+      }
+    } else {
+      // Para órdenes surtidas consideramos productos y platillos
+      if (hasDeliverableProducts || hasDeliverableDishes) {
+      const text = isMobile
+        ? 'Entregar Todo'.split(' ').map(w => w.slice(0, 3)).join(' ')
+        : 'Entregar Todo';
+      return { text, disabled: false, className: 'bg-green-600 hover:bg-green-700' };
+      } else {
+      const text = isMobile
+        ? 'Todo Entregado'.split(' ').map(w => w.slice(0, 3)).join(' ')
+        : 'Todo Entregado';
+      return { text, disabled: true, className: 'bg-gray-400 cursor-not-allowed' };
+      }
+    }
+  };
+
+  const hasMesaDeliverableItems = (mesa: MesaAgrupada) => {
+    return mesa.ordenes.some(orden => {
+      const hasDeliverableProducts = orden.productos && orden.productos.length > 0 && 
+                                    orden.productos.some(p => p.entregado !== true);
+      const hasDeliverableDishes = orden.platillos && orden.platillos.length > 0 && 
+                                  orden.platillos.some(p => p.entregado !== true);
+      
+      if (orden.estatus === 'Recepcion') {
+        return hasDeliverableProducts;
+      } else {
+        return hasDeliverableProducts || hasDeliverableDishes;
+      }
+    });
   };
 
   const isOrderReadyForDispatch = (orden: OrdenConDetalles) => {
@@ -214,7 +501,7 @@ const Despachar: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Despachar Órdenes</h1>
-          <p className="text-gray-600 mt-1">Gestiona la entrega de órdenes surtidas</p>
+          <p className="text-gray-600 mt-1">Gestiona la entrega de órdenes surtidas y productos de órdenes en recepción</p>
         </div>
         <div className="bg-white rounded-lg px-3 sm:px-4 py-2 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-2">
@@ -223,19 +510,6 @@ const Despachar: React.FC = () => {
               {ordenes.length} órdenes para despacho
             </span>
           </div>
-        </div>
-        {hasNewOrders && (
-          <div className="bg-blue-100 rounded-lg px-3 py-2 shadow-sm border border-blue-200">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-xs font-medium text-blue-700">
-                Nuevas órdenes listas
-              </span>
-            </div>
-          </div>
-        )}
-        <div className="text-xs text-gray-500">
-          Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
         </div>
       </div>
 
@@ -252,84 +526,193 @@ const Despachar: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Orders List */}
+        {/* Tables with Orders */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center space-x-2 mb-6">
             <Package className="w-5 h-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Órdenes para Despacho</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Mesas para Despacho</h2>
           </div>
 
           <div className="space-y-4">
-            {ordenes.length === 0 ? (
+            {mesasAgrupadas.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No hay órdenes disponibles para despacho</p>
               </div>
             ) : (
-              ordenes.map((orden) => {
-                return (
-                  <div
-                    key={orden._id}
-                    onClick={() => loadOrdenDetails(orden)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                      selectedOrden?._id === orden._id
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                    }`}
+              mesasAgrupadas.map((mesa) => (
+                <div key={mesa.idMesa} className="border border-gray-200 rounded-lg">
+                  {/* Mesa Header - Clickable to expand/collapse */}
+                  <div 
+                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleMesaExpansion(mesa.idMesa)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Users className="w-5 h-5 text-green-600" />
                         </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {orden.nombreMesa || 'Sin Mesa'}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-medium text-gray-900 break-words">
+                            {mesa.nombreMesa}
                           </h3>
-                          {orden.nombreCliente && (
-                            <p className="text-sm font-medium text-blue-600">
-                              Cliente: {orden.nombreCliente}
-                            </p>
-                          )}
-                          <p className="text-sm text-gray-600">
-                            {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          <p className="text-sm text-gray-600 truncate">
+                            {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'} surtida{mesa.totalOrdenes === 1 ? '' : 's'}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-green-600">
-                          ${orden.total.toFixed(2)}
-                        </p>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          orden.estatus === 'Surtida' 
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {orden.estatus}
-                        </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="text-left sm:text-right">
+                          <p className="text-sm font-medium text-green-600">
+                            ${mesa.totalMonto.toFixed(2)}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {mesa.ordenes.some(o => o.estatus === 'Recepcion') && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                En Recepción
+                              </span>
+                            )}
+                            {mesa.ordenes.some(o => o.estatus === 'Surtida') && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                Surtida
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          {/* Solo mostrar botón "Entregar Todo Mesa" si hay elementos pendientes */}
+                          {hasMesaDeliverableItems(mesa) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAllMesaAsDelivered(mesa);
+                              }}
+                              className="px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition-colors flex items-center flex-shrink-0"
+                              title="Entregar todas las órdenes de esta mesa"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              <span className="hidden sm:inline">Entregar Mesa</span>
+                              <span className="sm:hidden">Entregar</span>
+                            </button>
+                          )}
+                          {expandedMesas.has(mesa.idMesa) ? (
+                            <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                );
-              })
+
+                  {/* Orders grouped by client - Expanded view */}
+                  {expandedMesas.has(mesa.idMesa) && (
+                    <div className="border-t border-gray-100 p-4">
+                      <div className="space-y-4">
+                        {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
+                          <div key={cliente} className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="font-medium text-gray-900 mb-3 truncate">
+                              Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
+                            </h4>
+                            <div className="space-y-3">
+                              {ordenesCliente.map((orden) => (
+                                <div
+                                  key={orden._id}
+                                  onClick={() => loadOrdenDetails(orden)}
+                                  className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                                    selectedOrden?._id === orden._id
+                                      ? 'border-orange-500 bg-orange-50'
+                                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                  }`}
+                                >
+                                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <h5 className="font-medium text-gray-900 truncate">
+                                        Orden #{orden.folio || orden._id?.slice(-6)}
+                                      </h5>
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+                                        <p className="text-sm text-gray-600">
+                                          {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </p>
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full self-start ${
+                                          orden.estatus === 'Recepcion' 
+                                            ? 'bg-blue-100 text-blue-800' 
+                                            : 'bg-green-100 text-green-800'
+                                        }`}>
+                                          {orden.estatus}
+                                        </span>
+                                      </div>
+                                      {orden.notas && (
+                                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                                          <strong>Notas:</strong> <span className="break-words">{orden.notas}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                      <div className="text-left sm:text-right">
+                                        <p className="text-sm font-medium text-green-600">
+                                          ${orden.total.toFixed(2)}
+                                        </p>
+                                      </div>
+                                      <div className="flex justify-start sm:justify-end">
+                                        {(() => {
+                                          const buttonInfo = getDeliveryButtonInfo(orden);
+                                          return (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!buttonInfo.disabled) {
+                                                  handleMarkAllAsDelivered(orden);
+                                                }
+                                              }}
+                                              disabled={buttonInfo.disabled}
+                                              className={`px-2 py-1 text-white text-xs rounded transition-colors flex items-center flex-shrink-0 ${buttonInfo.className}`}
+                                            >
+                                              <CheckCircle className="w-3 h-3 mr-1" />
+                                              <span className="truncate">{buttonInfo.text}</span>
+                                            </button>
+                                          );
+                                        })()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>
 
         {/* Order Details */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {selectedOrden ? `Detalles - ${selectedOrden.nombreMesa || 'Sin Mesa'}` : 'Selecciona una orden'}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 min-w-0 flex-1">
+              {selectedOrden ? (
+                <span className="truncate block">
+                  Detalles - Mesa {selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}
+                  {selectedOrden.nombreCliente && (
+                    <span className="text-base text-gray-600"> • {selectedOrden.nombreCliente}</span>
+                  )}
+                </span>
+              ) : (
+                'Selecciona una orden'
+              )}
             </h2>
-            {selectedOrden && isOrderReadyForDispatch(selectedOrden) && selectedOrden.estatus === 'Surtida' && (
+            {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
               <button
                 onClick={handleCompleteDispatch}
                 disabled={dispatching}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center flex-shrink-0"
               >
                 {dispatching ? (
                   <>
@@ -339,7 +722,8 @@ const Despachar: React.FC = () => {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    Completar Despacho
+                    <span className="hidden sm:inline">Completar Despacho</span>
+                    <span className="sm:hidden">Completar</span>
                   </>
                 )}
               </button>
@@ -356,10 +740,10 @@ const Despachar: React.FC = () => {
               {/* Order Summary */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="font-medium text-gray-900 mb-2">Resumen de la Orden</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium">{selectedOrden.nombreMesa || 'Sin Mesa'}</span>
+                    <span className="ml-2 font-medium truncate">{getMesaInfo(selectedOrden.mesa)?.numero}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Total:</span>
@@ -376,7 +760,7 @@ const Despachar: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-gray-600">Estado:</span>
-                    <span className="ml-2 font-medium">{selectedOrden.estatus}</span>
+                    <span className="ml-2 font-medium truncate">{selectedOrden.estatus}</span>
                   </div>
                 </div>
               </div>
@@ -389,31 +773,26 @@ const Despachar: React.FC = () => {
                     {selectedOrden.productos.map((producto, index) => (
                       <div
                         key={index}
-                        className={`flex items-center justify-between p-3 rounded-lg ${
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
                           producto.entregado ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
                         }`}
                       >
-                        <div>
-                          <p className="font-medium text-gray-900">{producto.producto || producto.nombreProducto || `Producto ${index + 1}`}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 truncate">{producto.producto || producto.nombreProducto || `Producto ${index + 1}`}</p>
                           <p className="text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-600">
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <span className="text-sm font-medium text-green-600 flex-shrink-0">
                             ${producto.subtotal?.toFixed(2) ?? producto.importe?.toFixed(2) ?? '0.00'}
                           </span>
                           {producto.entregado ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                           ) : (
                             <button
                               onClick={() => handleMarkAsDelivered(producto._id!, 'producto')}
-                              disabled={!['Recepcion', 'Surtida'].includes(selectedOrden.estatus)}
-                              className={`px-3 py-1 text-white text-xs rounded transition-colors ${
-                                ['Recepcion', 'Surtida'].includes(selectedOrden.estatus)
-                                  ? 'bg-orange-600 hover:bg-orange-700'
-                                  : 'bg-gray-400 cursor-not-allowed'
-                              }`}
+                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
                             >
-                              {['Recepcion', 'Surtida'].includes(selectedOrden.estatus) ? 'Entregar' : 'No disponible'}
+                              Entregar
                             </button>
                           )}
                         </div>
@@ -436,32 +815,38 @@ const Despachar: React.FC = () => {
                     {selectedOrden.platillos.map((platillo, index) => (
                       <div
                         key={index}
-                        className={`flex items-center justify-between p-3 rounded-lg ${
-                          platillo.entregado ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
+                          selectedOrden.estatus === 'Recepcion' 
+                            ? 'bg-yellow-50 border border-yellow-200' 
+                            : platillo.entregado 
+                              ? 'bg-green-50 border border-green-200' 
+                              : 'bg-gray-50'
                         }`}
                       >
-                        <div>
-                          <p className="font-medium text-gray-900">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
-                          <p className="text-sm text-gray-600">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 truncate">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                          <p className="text-sm text-gray-600 truncate">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
                           <p className="text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
+                          {selectedOrden.estatus === 'Recepcion' && (
+                            <p className="text-xs text-yellow-700 font-medium">Preparando...</p>
+                          )}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-600">
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <span className="text-sm font-medium text-gray-900 flex-shrink-0">
                             ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
                           </span>
-                          {platillo.entregado ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          {selectedOrden.estatus === 'Recepcion' ? (
+                            <div className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
+                              Preparando
+                            </div>
+                          ) : platillo.entregado ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                           ) : (
                             <button
                               onClick={() => handleMarkAsDelivered(platillo._id!, 'platillo')}
-                              disabled={selectedOrden.estatus !== 'Surtida'}
-                              className={`px-3 py-1 text-white text-xs rounded transition-colors ${
-                                selectedOrden.estatus === 'Surtida'
-                                  ? 'bg-orange-600 hover:bg-orange-700'
-                                  : 'bg-gray-400 cursor-not-allowed'
-                              }`}
+                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
                             >
-                              {selectedOrden.estatus === 'Surtida' ? 'Entregar' : 'Sueriendo...'}
+                              Entregar
                             </button>
                           )}
                         </div>
@@ -477,19 +862,21 @@ const Despachar: React.FC = () => {
               )}
 
               {/* Delivery Status */}
-              <div className="bg-blue-50 p-4 rounded-lg">
+              <div className={`p-4 rounded-lg ${
+                selectedOrden.estatus === 'Recepcion' 
+                  ? 'bg-blue-50 border border-blue-200' 
+                  : 'bg-blue-50'
+              }`}>
                 <div className="flex items-center space-x-2 mb-2">
                   <Clock className="w-5 h-5 text-blue-600" />
                   <h3 className="font-medium text-blue-900">Estado de Entrega</h3>
                 </div>
                 <p className="text-sm text-blue-700">
-                  {selectedOrden.estatus === 'Recepcion'
-                    ? 'En esta orden puedes entregar productos. Los platillos solo se pueden entregar cuando esté "Surtida".'
-                    : selectedOrden.estatus === 'Surtida'
-                      ? isOrderReadyForDispatch(selectedOrden)
-                        ? 'Todos los items han sido entregados. La orden está lista para completar el despacho.'
-                        : 'Puedes marcar tanto productos como platillos como entregados.'
-                      : 'Esta orden no está disponible para despacho.'
+                  {selectedOrden.estatus === 'Recepcion' 
+                    ? 'Esta orden está en recepción. Puedes entregar productos, pero los platillos están en preparación.'
+                    : isOrderReadyForDispatch(selectedOrden)
+                      ? 'Todos los items han sido entregados. La orden está lista para completar el despacho.'
+                      : 'Marca todos los items como entregados para completar el despacho.'
                   }
                 </p>
               </div>

@@ -8,13 +8,19 @@ import {
   Search,
   ShoppingCart,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  StickyNote,
+  ChevronDown,
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto } from '../types';
+import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada } from '../types';
 
 const EditarOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
+  const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
   const [nombreCliente, setNombreCliente] = useState('');
   const [subordenes, setSubordenes] = useState<Suborden[]>([]);
@@ -44,6 +50,50 @@ const EditarOrden: React.FC = () => {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
 // Removed duplicate loadData and useEffect block
+
+  // Function to group orders by table
+  const groupOrdersByTable = (ordenes: Orden[]): MesaAgrupada[] => {
+    const grouped: { [idMesa: number]: MesaAgrupada } = {};
+    
+    ordenes.forEach(orden => {
+      const idMesa = orden.idMesa || 0; // 0 for orders without table
+      const nombreMesa = orden.nombreMesa || 'Sin Mesa';
+      
+      if (!grouped[idMesa]) {
+        grouped[idMesa] = {
+          idMesa,
+          nombreMesa,
+          ordenes: [],
+          totalOrdenes: 0,
+          totalMonto: 0,
+          clientes: {}
+        };
+      }
+      
+      grouped[idMesa].ordenes.push(orden);
+      grouped[idMesa].totalOrdenes += 1;
+      grouped[idMesa].totalMonto += orden.total;
+      
+      // Group by client
+      const cliente = orden.nombreCliente || 'Sin nombre';
+      if (!grouped[idMesa].clientes[cliente]) {
+        grouped[idMesa].clientes[cliente] = [];
+      }
+      grouped[idMesa].clientes[cliente].push(orden);
+    });
+    
+    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };
+
+  const toggleMesaExpansion = (idMesa: number) => {
+    const newExpanded = new Set(expandedMesas);
+    if (newExpanded.has(idMesa)) {
+      newExpanded.delete(idMesa);
+    } else {
+      newExpanded.add(idMesa);
+    }
+    setExpandedMesas(newExpanded);
+  };
 
   useEffect(() => {
     loadData();
@@ -88,6 +138,10 @@ const EditarOrden: React.FC = () => {
       
       setOrdenes(ordenesEditables);
       setLastUpdateTime(new Date());
+      
+      // Group orders by table
+      const grouped = groupOrdersByTable(ordenesEditables);
+      setMesasAgrupadas(grouped);
     }
 
     // Filtrar y adaptar catálogos
@@ -337,20 +391,20 @@ const EditarOrden: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Editar Orden</h1>
-          <p className="text-gray-600 mt-1">Selecciona una orden para ver detalles y modificar</p>
+    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Editar Orden</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Selecciona una orden para ver detalles y modificar</p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
+          className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
           title="Actualizar"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
+          <RefreshCw className={`w-4 h-4 mr-2 flex-shrink-0 ${loading ? 'animate-spin' : ''}`} />
+          <span className="truncate">Actualizar</span>
         </button>
       </div>
 
@@ -366,73 +420,134 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <Edit3 className="w-5 h-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Órdenes Editables</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="flex items-center space-x-2 mb-4 sm:mb-6">
+            <Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">Órdenes Editables</h2>
           </div>
 
-          <div className="space-y-4">
-            {ordenes.length === 0 ? (
-              <div className="text-center py-8">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay órdenes disponibles para editar</p>
+          <div className="space-y-3 sm:space-y-4">
+            {mesasAgrupadas.length === 0 ? (
+              <div className="text-center py-6 sm:py-8">
+                <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-gray-500 text-sm sm:text-base">No hay órdenes disponibles para editar</p>
               </div>
             ) : (
-              ordenes.map((orden) => (
-                <div
-                  key={orden._id}
-                  className={`p-4 rounded-lg border-2 transition-colors ${
-                    selectedOrden?._id === orden._id
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div 
-                      onClick={() => loadOrdenDetails(orden)}
-                      className="flex-1 cursor-pointer"
-                    >
-                      <h3 className="font-medium text-gray-900">
-                        {orden.nombreMesa || 'Sin Mesa'}
-                      </h3>
-                      <p className="text-sm text-gray-600 font-medium">
-                        Cliente: {orden.nombreCliente || 'Sin nombre'}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                      <p className="text-sm font-medium text-green-600">
-                        Total: ${orden.total.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {orden.estatus}
-                      </span>
-                      {orden.estatus === 'Pendiente' && (
-                        <button
-                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
-                          disabled={updatingStatus === orden._id}
-                          className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center"
-                        >
-                          {updatingStatus === orden._id ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                              Actualizando...
-                            </>
-                          ) : (
-                            'Confrimar orden'
-                          )}
-                        </button>
-                      )}
+              mesasAgrupadas.map((mesa) => (
+                <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  {/* Mesa Header - Clickable to expand/collapse */}
+                  <div 
+                    className="p-3 sm:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleMesaExpansion(mesa.idMesa)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                            {mesa.nombreMesa}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">
+                            {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                        <div className="text-right">
+                          <p className="text-sm sm:text-lg font-semibold text-green-600">
+                            ${mesa.totalMonto.toFixed(2)}
+                          </p>
+                          <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Total mesa</p>
+                        </div>
+                        {expandedMesas.has(mesa.idMesa) ? (
+                          <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Orders grouped by client - Expanded view */}
+                  {expandedMesas.has(mesa.idMesa) && (
+                    <div className="p-3 sm:p-4">
+                      <div className="space-y-3 sm:space-y-4">
+                        {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
+                          <div key={cliente} className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                            <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base truncate">
+                              Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
+                            </h4>
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                              {ordenesCliente.map((orden) => (
+                                <div
+                                  key={orden._id}
+                                  className={`bg-white rounded-lg border p-3 sm:p-4 transition-colors ${
+                                    selectedOrden?._id === orden._id
+                                      ? 'border-orange-500 bg-orange-50'
+                                      : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                                  }`}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                                    <div 
+                                      onClick={() => loadOrdenDetails(orden)}
+                                      className="flex-1 cursor-pointer min-w-0"
+                                    >
+                                      <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                                        Orden #{orden._id?.toString().slice(-6)}
+                                      </h5>
+                                      {orden.notas && (
+                                        <div className="flex items-start space-x-1 mt-1">
+                                          <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                          <p className="text-xs text-gray-700 italic line-clamp-2 break-words">
+                                            {orden.notas}
+                                          </p>
+                                        </div>
+                                      )}
+                                      <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                                        {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                      <p className="text-sm font-medium text-green-600 mt-1">
+                                        Total: ${orden.total.toFixed(2)}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-row sm:flex-col items-center sm:items-end space-x-2 sm:space-x-0 sm:space-y-2 flex-shrink-0">
+                                      <span className="px-2 sm:px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
+                                        {orden.estatus}
+                                      </span>
+                                      {orden.estatus === 'Pendiente' && (
+                                        <button
+                                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
+                                          disabled={updatingStatus === orden._id}
+                                          className="px-2 sm:px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center whitespace-nowrap"
+                                        >
+                                          {updatingStatus === orden._id ? (
+                                            <>
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1 flex-shrink-0"></div>
+                                              <span className="hidden sm:inline">Actualizando...</span>
+                                              <span className="sm:hidden">...</span>
+                                            </>
+                                          ) : (
+                                            <span className="hidden sm:inline">Confirmar orden</span>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -440,79 +555,80 @@ const EditarOrden: React.FC = () => {
         </div>
 
         {/* Order Details */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                 {selectedOrden
                   ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
                   : 'Selecciona una orden'}
               </h2>
               {selectedOrden && selectedOrden.nombreCliente && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
                   Cliente: <span className="font-medium">{selectedOrden.nombreCliente}</span>
                 </p>
               )}
             </div>
             {selectedOrden && (
-              <div className="flex space-x-2">
+              <div className="flex flex-row space-x-2 flex-shrink-0">
                 <button
                   onClick={() => setShowAddPlatillo(true)}
-                  className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                  className="px-2 sm:px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs sm:text-sm flex items-center"
                 >
-                  <Plus className="w-4 h-4 inline mr-1" />
-                  Platillo
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Platillo</span>
                 </button>
                 <button
                   onClick={() => setShowAddProducto(true)}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="px-2 sm:px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm flex items-center"
                 >
-                  <Plus className="w-4 h-4 inline mr-1" />
-                  Producto
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">Producto</span>
                 </button>
               </div>
             )}
           </div>
 
           {!selectedOrden ? (
-            <div className="text-center py-12">
-              <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Selecciona una orden para ver los detalles</p>
+            <div className="text-center py-8 sm:py-12">
+              <ShoppingCart className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+              <p className="text-gray-500 text-sm sm:text-base">Selecciona una orden para ver los detalles</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Platillos */}
               <div>
-                <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
+                <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Platillos</h3>
                 <div className="space-y-2">
                     {platillosDetalle.length === 0 ? (
-                      <p className="text-gray-500 text-sm">No hay platillos agregados</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">No hay platillos agregados</p>
                     ) : (
                       platillosDetalle.map((detalle, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
-                            <p className="text-sm text-gray-600">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
-                            <p className="text-sm text-gray-600">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
-                            <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                             {/* Status indicators for dispatched items */}
-                            <div className="flex space-x-2 mt-2">
+                            <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
                               {detalle.listo && (
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full whitespace-nowrap">
                                   Listo
                                 </span>
                               )}
                               {detalle.entregado && (
-                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full whitespace-nowrap">
                                   Entregado
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-end flex-shrink-0">
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar platillo"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -525,61 +641,39 @@ const EditarOrden: React.FC = () => {
 
               {/* Productos */}
               <div>
-                <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
+                <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Productos</h3>
                 <div className="space-y-2">
                     {productosDetalle.length === 0 ? (
-                      <p className="text-gray-500 text-sm">No hay productos agregados</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">No hay productos agregados</p>
                     ) : (
                       productosDetalle.map((detalle, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{detalle.nombreProducto || detalle.producto || `Producto ${index + 1}`}</p>
-                            <p className="text-sm text-gray-600">Tipo: {detalle.idProducto ? detalle.idProducto : 'N/A'}</p>
-                            <p className="text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{detalle.nombreProducto || detalle.producto || `Producto ${index + 1}`}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">Tipo: {detalle.idProducto ? detalle.idProducto : 'N/A'}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                             {/* Status indicators for dispatched items */}
-                            <div className="flex space-x-2 mt-2">
+                            <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
                               {detalle.listo && (
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full whitespace-nowrap">
                                   Listo
                                 </span>
                               )}
                               {detalle.entregado && (
-                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full whitespace-nowrap">
                                   Entregado
                                 </span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-end flex-shrink-0">
                             <button
                               onClick={() => handleRemoveProducto(detalle._id!)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar producto"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
-      {/* Modal de confirmación para eliminar platillo/producto */}
-      {confirmDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">¿Estás seguro que deseas eliminar este {confirmDelete.type === 'platillo' ? 'platillo' : 'producto'}?</h3>
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDeleteAction}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-              >
-                {saving ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
                           </div>
                         </div>
                       ))
@@ -593,17 +687,17 @@ const EditarOrden: React.FC = () => {
 
       {/* Add Platillo Modal */}
       {showAddPlatillo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Agregar Platillo</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Platillo</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Platillo</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Platillo</label>
                 <select
                   value={selectedPlatillo}
                   onChange={(e) => setSelectedPlatillo(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 >
                   <option value="">Seleccionar platillo</option>
                   {(platillos || []).filter(p => p.activo).map((platillo) => (
@@ -615,11 +709,11 @@ const EditarOrden: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Guiso</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Guiso</label>
                 <select
                   value={selectedGuiso}
                   onChange={(e) => setSelectedGuiso(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 >
                   <option value="">Seleccionar guiso</option>
                   {(guisos || []).filter(g => g.activo).map((guiso) => (
@@ -631,18 +725,18 @@ const EditarOrden: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Cantidad</label>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="text-lg font-semibold w-12 text-center">{cantidad}</span>
+                  <span className="text-base sm:text-lg font-semibold w-12 text-center">{cantidad}</span>
                   <button
                     onClick={() => setCantidad(cantidad + 1)}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -650,10 +744,10 @@ const EditarOrden: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowAddPlatillo(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
               >
                 Cancelar
               </button>
@@ -662,7 +756,7 @@ const EditarOrden: React.FC = () => {
                   handleAddPlatillo();
                 }}
                 disabled={saving || !selectedPlatillo || !selectedGuiso}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                className="flex-1 px-3 sm:px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm sm:text-base"
               >
                 {saving ? 'Agregando...' : 'Agregar'}
               </button>
@@ -673,17 +767,17 @@ const EditarOrden: React.FC = () => {
 
       {/* Add Producto Modal */}
       {showAddProducto && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Agregar Producto</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Producto</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Producto</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Producto</label>
                 <select
                   value={selectedProducto}
                   onChange={(e) => setSelectedProducto(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 >
                   <option value="">Seleccionar producto</option>
                   {(productos || []).filter(p => p.activo).map((producto) => (
@@ -695,18 +789,18 @@ const EditarOrden: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Cantidad</label>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="text-lg font-semibold w-12 text-center">{cantidad}</span>
+                  <span className="text-base sm:text-lg font-semibold w-12 text-center">{cantidad}</span>
                   <button
                     onClick={() => setCantidad(cantidad + 1)}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -714,19 +808,45 @@ const EditarOrden: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowAddProducto(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAddProducto}
                 disabled={saving || !selectedProducto}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
               >
                 {saving ? 'Agregando...' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar platillo/producto */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-sm">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+              ¿Estás seguro que deseas eliminar este {confirmDelete.type === 'platillo' ? 'platillo' : 'producto'}?
+            </h3>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteAction}
+                disabled={saving}
+                className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
+              >
+                {saving ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>
           </div>

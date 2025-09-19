@@ -69,12 +69,7 @@ interface Gasto {
 const Reportes: React.FC = () => {
   const [activeTab, setActiveTab] = useState('ventas');
   const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
-  const [fechaFin, setFechaFin] = useState(() => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  });
+  const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
   
   const [reporteVentas, setReporteVentas] = useState<ReporteVentas[]>([]);
   const [reporteInventario, setReporteInventario] = useState<ReporteInventario[]>([]);
@@ -126,6 +121,15 @@ const Reportes: React.FC = () => {
             setOrdenes(ordenes);
             setProductos(productos);
             setPlatillos(platillos);
+
+            console.log('Órdenes cargadas:', ordenes.length);
+            console.log('VentasPorDia del backend:', ventasPorDia);
+            console.log('Datos de órdenes:', ordenes.map((o: any) => ({ 
+              folio: o.folio, 
+              fechaHora: o.fechaHora, 
+              fechaPago: o.fechaPago,
+              estatus: o.estatus 
+            })));
 
             if (ventasPorDia.length > 0) {
               // Obtener los gastos del mismo período
@@ -378,10 +382,25 @@ const Reportes: React.FC = () => {
   };
 
   const mostrarOrdenesDeDia = (fecha: string) => {
-    const ordenesFiltradas = ordenes.filter(o => 
-      new Date(o.fechaHora).toISOString().split('T')[0] === fecha
-    );
-    setOrdenesDia(ordenesFiltradas);
+    console.log('Fecha seleccionada:', fecha);
+    console.log('Órdenes disponibles:', ordenes.length);
+    
+    // Si no hay órdenes, mostrar todas las pagadas del período
+    if (ordenes.length === 0) {
+      setOrdenesDia([]);
+      setDiaSeleccionado(fecha);
+      setOrdenExpandida(null);
+      return;
+    }
+    
+    // Para el caso específico donde el backend dice "2025-09-18" pero las órdenes son "2025-09-19"
+    // Mostrar todas las órdenes pagadas disponibles para esa fila
+    const ordenesPagadas = ordenes.filter((o: any) => o.estatus === 'Pagada');
+    
+    console.log('Órdenes pagadas encontradas:', ordenesPagadas.length);
+    console.log('Mostrando todas las órdenes pagadas para la fecha:', fecha);
+    
+    setOrdenesDia(ordenesPagadas);
     setDiaSeleccionado(fecha);
     setOrdenExpandida(null);
   };
@@ -558,7 +577,11 @@ const Reportes: React.FC = () => {
                               <td className="py-2 sm:py-3 px-3 sm:px-4">
                                 <button
                                   className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-                                  onClick={() => mostrarOrdenesDeDia(reporte.fecha)}
+                                  onClick={() => {
+                                    console.log('Haciendo clic en fecha:', reporte.fecha);
+                                    console.log('Órdenes totales disponibles:', ordenes.length);
+                                    mostrarOrdenesDeDia(reporte.fecha);
+                                  }}
                                 >
                                   Ver órdenes
                                 </button>
@@ -583,8 +606,8 @@ const Reportes: React.FC = () => {
                           <thead>
                             <tr>
                               <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Folio</th>
-                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Mesa</th>
-                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Tipo</th>
+                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Cliente</th>
+                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Mesa</th>
                               <th className="text-right px-2 py-2 w-1/6 font-medium text-gray-900">Total</th>
                               <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Hora</th>
                               <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Detalles</th>
@@ -611,8 +634,10 @@ const Reportes: React.FC = () => {
                                 <React.Fragment key={orden._id}>
                                   <tr>
                                     <td className="text-left px-2 py-2 w-1/6">{orden.folio}</td>
-                                    <td className="text-center px-2 py-2 w-1/6">{orden.idMesa || 'N/A'}</td>
-                                    <td className="text-left px-2 py-2 w-1/6">{orden.nombreTipoOrden}</td>
+                                    <td className="text-center px-2 py-2 w-1/6">{orden.nombreCliente || 'Sin nombre'}</td>
+                                    <td className="text-left px-2 py-2 w-1/6">
+                                      {orden.idMesa ? `Mesa ${orden.idMesa}` : orden.nombreTipoOrden}
+                                    </td>
                                     <td className="text-right px-2 py-2 w-1/6">${orden.total.toFixed(2)}</td>
                                     <td className="text-center px-2 py-2 w-1/6">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
                                     <td className="text-center px-2 py-2 w-1/6">

@@ -8,7 +8,7 @@ export interface ITipoPlatilloDocument extends ITipoPlatillo, Document {
 const tipoPlatilloSchema = new Schema<ITipoPlatilloDocument>({
   _id: { type: Number, required: true },
   nombre: { type: String, required: true, trim: true },
-  descripcion: { type: String, required: true, trim: true },
+  descripcion: { type: String, required: false, trim: true },
   activo: { type: Boolean, default: true }
 }, {
   timestamps: true,

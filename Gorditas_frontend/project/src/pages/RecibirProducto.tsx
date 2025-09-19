@@ -231,18 +231,18 @@ const RecibirProductos: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Inventario</h1>
-          <p className="text-gray-600 mt-1">Administra el stock y precios de los productos</p>
+    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">Gestión de Inventario</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Administra el stock y precios de los productos</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+          className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Producto
+          <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
+          <span className="truncate">Nuevo Producto</span>
         </button>
       </div>
 
@@ -259,22 +259,22 @@ const RecibirProductos: React.FC = () => {
       )}
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Search className="w-4 h-4 text-gray-400" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="flex items-center space-x-2 min-w-0 flex-1 sm:flex-initial">
+              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="min-w-0 flex-1 sm:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 placeholder="Buscar productos..."
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <label className="flex items-center">
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <label className="flex items-center whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={showActiveOnly}
@@ -285,42 +285,42 @@ const RecibirProductos: React.FC = () => {
               </label>
             </div>
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 whitespace-nowrap flex-shrink-0">
             Total productos: {filteredProductos.length}
           </div>
         </div>
       </div>
 
       {/* Lista de Productos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center space-x-2 mb-6">
-          <Package className="w-5 h-5 text-orange-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Inventario de Productos</h2>
+          <Package className="w-5 h-5 text-orange-600 flex-shrink-0" />
+          <h2 className="text-lg font-semibold text-gray-900 truncate">Inventario de Productos</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Producto</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Stock</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Costo</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Estado</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Acciones</th>
+                <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Producto</th>
+                <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Stock</th>
+                <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Costo</th>
+                <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Estado</th>
+                <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filteredProductos.map((producto) => (
                 <tr key={producto._id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-900">{producto.nombre}</div>
+                  <td className="py-3 px-2 sm:px-4">
+                    <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{producto.nombre}</div>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-2 sm:px-4">
                     {producto.editando ? (
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
                         <button
                           onClick={() => handleQuitarCantidad(producto, 1)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-red-600 hover:bg-red-50 rounded flex-shrink-0"
                           disabled={saving}
                         >
                           <Minus className="w-4 h-4" />
@@ -336,26 +336,26 @@ const RecibirProductos: React.FC = () => {
                             );
                             setProductos(updatedProductos);
                           }}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          className="w-16 sm:w-20 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                           min="0"
                         />
                         <button
                           onClick={() => handleAgregarCantidad(producto, 1)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          className="p-1 text-green-600 hover:bg-green-50 rounded flex-shrink-0"
                           disabled={saving}
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
-                      <span className={`font-medium ${
+                      <span className={`font-medium text-sm sm:text-base ${
                         producto.cantidad < 10 ? 'text-red-600' : 'text-gray-900'
                       }`}>
                         {producto.cantidad}
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-2 sm:px-4">
                     {producto.editando ? (
                       <input
                         type="number"
@@ -368,17 +368,17 @@ const RecibirProductos: React.FC = () => {
                           );
                           setProductos(updatedProductos);
                         }}
-                        className="w-24 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-20 sm:w-24 px-1 sm:px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                         min="0"
                         step="0.01"
                       />
                     ) : (
-                      <span className="font-medium text-green-600">
+                      <span className="font-medium text-green-600 text-sm sm:text-base whitespace-nowrap">
                         ${producto.costo.toFixed(2)}
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-2 sm:px-4">
                     {producto.editando ? (
                       <select
                         value={producto.activoNuevo !== undefined ? (producto.activoNuevo ? 'true' : 'false') : (producto.activo !== false ? 'true' : 'false')}
@@ -390,14 +390,14 @@ const RecibirProductos: React.FC = () => {
                           );
                           setProductos(updatedProductos);
                         }}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                       >
                         <option value="true">Activo</option>
                         <option value="false">Inactivo</option>
                       </select>
                     ) : (
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                           producto.activo !== false
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
@@ -407,21 +407,21 @@ const RecibirProductos: React.FC = () => {
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4">
-                    <div className="flex space-x-2">
+                  <td className="py-3 px-2 sm:px-4">
+                    <div className="flex space-x-1 sm:space-x-2">
                       {producto.editando ? (
                         <>
                           <button
                             onClick={() => handleSave(producto)}
                             disabled={saving}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
+                            className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50 flex-shrink-0"
                           >
                             <Save className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleCancel(producto)}
                             disabled={saving}
-                            className="p-1 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
+                            className="p-1 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50 flex-shrink-0"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -430,13 +430,13 @@ const RecibirProductos: React.FC = () => {
                         <>
                           <button
                             onClick={() => handleEdit(producto)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(producto)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            className="p-1 text-red-600 hover:bg-red-50 rounded flex-shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -460,34 +460,34 @@ const RecibirProductos: React.FC = () => {
 
       {/* Modal para crear producto */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 truncate">
               Nuevo Producto
             </h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                   Nombre*
                 </label>
                 <input
                   type="text"
                   value={nuevoProducto.nombre}
                   onChange={(e) => setNuevoProducto({...nuevoProducto, nombre: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                   placeholder="Nombre del producto"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                   Tipo de Producto*
                 </label>
                 <select
                   value={nuevoProducto.idTipoProducto}
                   onChange={(e) => setNuevoProducto({...nuevoProducto, idTipoProducto: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                 >
                   <option value="">Selecciona tipo</option>
                   {tiposProducto.map(tipo => (
@@ -497,40 +497,40 @@ const RecibirProductos: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                   Código de Barras
                 </label>
                 <input
                   type="text"
                   value={nuevoProducto.codigoBarras}
                   onChange={(e) => setNuevoProducto({...nuevoProducto, codigoBarras: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                   placeholder="Código de barras"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                     Cantidad Inicial
                   </label>
                   <input
                     type="number"
                     value={nuevoProducto.cantidad}
                     onChange={(e) => setNuevoProducto({...nuevoProducto, cantidad: parseInt(e.target.value) || 0})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                     min="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
                     Costo
                   </label>
                   <input
                     type="number"
                     value={nuevoProducto.costo}
                     onChange={(e) => setNuevoProducto({...nuevoProducto, costo: parseFloat(e.target.value) || 0})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                     min="0"
                     step="0.01"
                   />
@@ -538,17 +538,17 @@ const RecibirProductos: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateProducto}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {saving ? 'Guardando...' : 'Crear Producto'}
               </button>

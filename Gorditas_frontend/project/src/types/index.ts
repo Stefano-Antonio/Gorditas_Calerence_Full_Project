@@ -72,6 +72,7 @@ export interface TipoGasto extends BaseEntity {
 
 // Transactional models
 export interface Orden extends BaseEntity {
+  idMesa: number;
   mesa: string;
   tipoOrden?: string;
   usuario?: string;
@@ -83,6 +84,7 @@ export interface Orden extends BaseEntity {
   nombreMesa?: string;
   nombreCliente?: string;
   folio?: string;
+  notas?: string;
 }
 
 export interface Suborden extends BaseEntity {
@@ -186,4 +188,14 @@ export interface OrderStep {
   step: number;
   title: string;
   completed: boolean;
+}
+
+// Mesa grouping interface for order management
+export interface MesaAgrupada {
+  idMesa: number;
+  nombreMesa: string;
+  ordenes: Orden[];
+  totalOrdenes: number;
+  totalMonto: number;
+  clientes: { [cliente: string]: Orden[] };
 }

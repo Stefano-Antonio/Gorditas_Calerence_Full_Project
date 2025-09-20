@@ -12,7 +12,8 @@ import {
   StickyNote,
   ChevronDown,
   ChevronRight,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada, Extra, TipoExtra } from '../types';
@@ -55,6 +56,11 @@ const EditarOrden: React.FC = () => {
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  // Estados para editar notas de platillos
+  const [editingNota, setEditingNota] = useState<string | null>(null);
+  const [tempNota, setTempNota] = useState('');
+  const [savingNota, setSavingNota] = useState(false);
 
   // Ref for order details section
   const orderDetailsRef = useRef<HTMLDivElement>(null);
@@ -473,6 +479,42 @@ const EditarOrden: React.FC = () => {
     }
   };
 
+  // Funciones para manejar la edición de notas
+  const handleEditNota = (platilloId: string, currentNota: string) => {
+    setEditingNota(platilloId);
+    setTempNota(currentNota || '');
+  };
+
+  const handleSaveNota = async (platilloId: string) => {
+    if (!selectedOrden) return;
+    
+    setSavingNota(true);
+    setError('');
+    
+    try {
+      const response = await apiService.updatePlatilloNota(platilloId, tempNota);
+      
+      if (response.success) {
+        setSuccess('Nota actualizada exitosamente');
+        await loadOrdenDetails(selectedOrden);
+        setEditingNota(null);
+        setTempNota('');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error actualizando la nota');
+      }
+    } catch (error) {
+      setError('Error actualizando la nota');
+    } finally {
+      setSavingNota(false);
+    }
+  };
+
+  const handleCancelEditNota = () => {
+    setEditingNota(null);
+    setTempNota('');
+  };
+
   const handleUpdateStatus = async (ordenId: string, newStatus: string) => {
     setUpdatingStatus(ordenId);
     setError('');
@@ -717,12 +759,62 @@ const EditarOrden: React.FC = () => {
                         <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
-                            {detalle.notas && (
-                              <p className="text-xs text-blue-600 italic mt-1">
-                                Notas: {detalle.notas}
-                              </p>
+                            
+                            {/* Sección de notas - editable */}
+                            {editingNota === detalle._id ? (
+                              <div className="flex items-center space-x-2 mt-2">
+                                <input
+                                  type="text"
+                                  value={tempNota}
+                                  onChange={(e) => setTempNota(e.target.value)}
+                                  className="flex-1 px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  placeholder="Escribe una nota..."
+                                  disabled={savingNota}
+                                />
+                                <button
+                                  onClick={() => handleSaveNota(detalle._id!)}
+                                  disabled={savingNota}
+                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  {savingNota ? 'Guardando...' : 'Guardar'}
+                                </button>
+                                <button
+                                  onClick={handleCancelEditNota}
+                                  disabled={savingNota}
+                                  className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-start space-x-1 flex-1">
+                                    <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      {detalle.notas ? (
+                                        <p className="text-xs text-blue-600 italic break-words">
+                                          Notas: {detalle.notas}
+                                        </p>
+                                      ) : (
+                                        <p className="text-xs text-gray-400 italic">
+                                          Sin notas
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleEditNota(detalle._id!, detalle.notas || '')}
+                                    className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                                    title={detalle.notas ? "Editar nota" : "Agregar nota"}
+                                  >
+                                    {detalle.notas ? "Editar" : "Agregar"} nota
+                                  </button>
+                                </div>
+                              </div>
                             )}
-                            <p className="text-xs sm:text-sm text-gray-600 truncate">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
+                            
+                            <p className="text-xs sm:text-sm text-gray-600 truncate mt-1">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                             

@@ -1,7 +1,7 @@
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
-//const API_BASE_URL = `http://localhost:5000/api`;
-const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
+const API_BASE_URL = `http://localhost:5000/api`;
+//const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
 
 class ApiService {
   async getOrden(ordenId: string) {
@@ -266,6 +266,13 @@ class ApiService {
   async removeDetalleExtra(detalleExtraId: string) {
     return this.request(`/ordenes/extra/${detalleExtraId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async updatePlatilloNota(platilloId: string, notas: string) {
+    return this.request(`/ordenes/platillo/${platilloId}/nota`, {
+      method: 'PUT',
+      body: JSON.stringify({ notas }),
     });
   }
 }

@@ -456,6 +456,22 @@ router.put('/platillo/:id/entregado', authenticate,
   })
 );
 
+// PUT /api/ordenes/platillo/:id/nota - Actualizar nota del platillo
+router.put('/platillo/:id/nota', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const { notas } = req.body;
+    
+    const platillo = await OrdenDetallePlatillo.findById(req.params.id);
+    if (!platillo) {
+      return res.status(404).json(createResponse(false, null, 'Platillo no encontrado'));
+    }
+
+    await OrdenDetallePlatillo.findByIdAndUpdate(req.params.id, { notas });
+    
+    res.json(createResponse(true, null, 'Nota del platillo actualizada exitosamente'));
+  })
+);
+
 // PUT /api/ordenes/extra/:id/listo - Marcar extra como listo
 router.put('/extra/:id/listo', authenticate, 
   asyncHandler(async (req: any, res: any) => {

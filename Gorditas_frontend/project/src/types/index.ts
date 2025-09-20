@@ -112,6 +112,7 @@ export interface OrdenDetallePlatillo extends BaseEntity {
   nombrePlatillo?: string;
   idPlatillo?: number;
   nombreGuiso?: string;
+  notas?: string; // Notas específicas del platillo
   extras?: OrdenDetalleExtra[]; // Extras vinculados a este platillo
 }
 

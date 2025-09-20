@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Edit3, 
   Plus, 
@@ -55,6 +55,9 @@ const EditarOrden: React.FC = () => {
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  // Ref for order details section
+  const orderDetailsRef = useRef<HTMLDivElement>(null);
 
 // Removed duplicate loadData and useEffect block
 
@@ -274,6 +277,16 @@ const EditarOrden: React.FC = () => {
         setSubordenes(response.data.subordenes || []);
         setPlatillosDetalle(response.data.platillos || []);
         setProductosDetalle(response.data.productos || []);
+
+        // Scroll to order details on mobile
+        setTimeout(() => {
+          if (orderDetailsRef.current && window.innerWidth < 1280) { // xl breakpoint
+            orderDetailsRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }, 100);
       } else {
         setError('Error cargando detalles de la orden');
         setSubordenes([]);
@@ -488,8 +501,8 @@ const EditarOrden: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 p-2 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-6">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Editar Orden</h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Selecciona una orden para ver detalles y modificar</p>
@@ -517,12 +530,12 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
 
-      <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
+      <div className="grid gap-3 sm:gap-6 grid-cols-1 xl:grid-cols-2">
         {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex items-center space-x-2 mb-4 sm:mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6 min-w-0">
+          <div className="flex items-center space-x-2 mb-3 sm:mb-6">
             <Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">Órdenes Editables</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">Órdenes Editables</h2>
           </div>
 
           <div className="space-y-3 sm:space-y-4">
@@ -539,26 +552,26 @@ const EditarOrden: React.FC = () => {
                     className="p-3 sm:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => toggleMesaExpansion(mesa.idMesa)}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-2 sm:gap-3">
                       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 break-words hyphens-auto">
                             {mesa.nombreMesa}
                           </h3>
-                          <p className="text-xs sm:text-sm text-gray-600 truncate">
+                          <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                             {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                      <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                         <div className="text-right">
-                          <p className="text-sm sm:text-lg font-semibold text-green-600">
+                          <p className="text-xs sm:text-base font-semibold text-green-600 whitespace-nowrap">
                             ${mesa.totalMonto.toFixed(2)}
                           </p>
-                          <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Total mesa</p>
+                          <p className="text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">Total</p>
                         </div>
                         {expandedMesas.has(mesa.idMesa) ? (
                           <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
@@ -575,7 +588,7 @@ const EditarOrden: React.FC = () => {
                       <div className="space-y-3 sm:space-y-4">
                         {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
                           <div key={cliente} className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                            <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base truncate">
+                            <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base break-words">
                               Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
                             </h4>
                             <div className="grid grid-cols-1 gap-3 sm:gap-4">
@@ -593,7 +606,7 @@ const EditarOrden: React.FC = () => {
                                       onClick={() => loadOrdenDetails(orden)}
                                       className="flex-1 cursor-pointer min-w-0"
                                     >
-                                      <h5 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                                      <h5 className="font-medium text-gray-900 text-sm sm:text-base break-words">
                                         Orden #{orden._id?.toString().slice(-6)}
                                       </h5>
                                       {orden.notas && (
@@ -652,16 +665,16 @@ const EditarOrden: React.FC = () => {
         </div>
 
         {/* Order Details */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
+        <div ref={orderDetailsRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6 gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                 {selectedOrden
                   ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
                   : 'Selecciona una orden'}
               </h2>
               {selectedOrden && selectedOrden.nombreCliente && (
-                <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
+                <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
                   Cliente: <span className="font-medium">{selectedOrden.nombreCliente}</span>
                 </p>
               )}
@@ -704,6 +717,11 @@ const EditarOrden: React.FC = () => {
                         <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{detalle.nombrePlatillo || detalle.platillo || `Platillo ${index + 1}`}</p>
+                            {detalle.notas && (
+                              <p className="text-xs text-blue-600 italic mt-1">
+                                Notas: {detalle.notas}
+                              </p>
+                            )}
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
@@ -814,8 +832,8 @@ const EditarOrden: React.FC = () => {
 
       {/* Add Platillo Modal */}
       {showAddPlatillo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-md">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Platillo</h3>
             
             <div className="space-y-3 sm:space-y-4">
@@ -894,8 +912,8 @@ const EditarOrden: React.FC = () => {
 
       {/* Add Producto Modal */}
       {showAddProducto && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-md">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Producto</h3>
             
             <div className="space-y-3 sm:space-y-4">
@@ -956,8 +974,8 @@ const EditarOrden: React.FC = () => {
 
       {/* Modal de confirmación para eliminar platillo/producto */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-sm">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-sm">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
               ¿Estás seguro que deseas eliminar este {confirmDelete.type === 'platillo' ? 'platillo' : 'producto'}?
             </h3>
@@ -982,8 +1000,8 @@ const EditarOrden: React.FC = () => {
 
       {/* Modal de Extras */}
       {showExtrasModal && selectedPlatilloForExtras && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-96 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-lg p-3 sm:p-6 max-w-md w-full max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-purple-700">
                 Gestionar Extras - {platillosDetalle.find(p => p._id === selectedPlatilloForExtras)?.nombrePlatillo}

@@ -47,6 +47,7 @@ export interface IPlatillo {
   descripcion?: string;
   costo: number;
   precio: number; // Added for frontend compatibility
+  notas?: string; // Campo para notas adicionales del platillo
   activo: boolean;
 }
 
@@ -116,6 +117,7 @@ export interface IOrdenDetallePlatillo {
   costoPlatillo: number;
   cantidad: number;
   importe: number;
+  notas?: string; // Notas específicas del platillo
   listo?: boolean;
   entregado?: boolean;
   extras?: IOrdenDetalleExtra[]; // Extras vinculados a este platillo

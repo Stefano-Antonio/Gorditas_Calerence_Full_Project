@@ -54,7 +54,8 @@ export const addPlatilloToSubordenSchema = Joi.object({
   idGuiso: Joi.number().required(),
   nombreGuiso: Joi.string().required(),
   costoPlatillo: Joi.number().min(0).required(),
-  cantidad: Joi.number().min(1).required()
+  cantidad: Joi.number().min(1).required(),
+  notas: Joi.string().max(200).allow('').optional() // Notas específicas del platillo
 });
 
 export const addExtraToOrdenSchema = Joi.object({

@@ -312,11 +312,12 @@ const Dashboard: React.FC = () => {
             <button
               onClick={() => updateOrderStatus(orden._id, 'Preparacion')}
               disabled={isUpdating}
-              className="flex items-center space-x-1 px-2 py-1 bg-yellow-100 text-yellow-600 rounded text-xs hover:bg-yellow-200 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-yellow-100 text-yellow-600 rounded text-[10px] sm:text-xs hover:bg-yellow-200 transition-colors disabled:opacity-50 whitespace-nowrap"
               title="Iniciar preparación"
             >
               {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ChefHat className="w-3 h-3" />}
-              <span>Preparar</span>
+              <span className="hidden sm:inline">Preparar</span>
+              <span className="sm:hidden">Prep.</span>
             </button>
           );
         }
@@ -328,11 +329,12 @@ const Dashboard: React.FC = () => {
             <button
               onClick={() => updateOrderStatus(orden._id, 'Surtida')}
               disabled={isUpdating}
-              className="flex items-center space-x-1 px-2 py-1 bg-purple-100 text-purple-600 rounded text-xs hover:bg-purple-200 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-purple-100 text-purple-600 rounded text-[10px] sm:text-xs hover:bg-purple-200 transition-colors disabled:opacity-50 whitespace-nowrap"
               title="Marcar como surtida"
             >
               {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Package className="w-3 h-3" />}
-              <span>Surtir</span>
+              <span className="hidden sm:inline">Surtir</span>
+              <span className="sm:hidden">Surt.</span>
             </button>
           );
         }
@@ -350,11 +352,12 @@ const Dashboard: React.FC = () => {
                 }
               }}
               disabled={isUpdating}
-              className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-green-100 text-green-600 rounded text-[10px] sm:text-xs hover:bg-green-200 transition-colors disabled:opacity-50 whitespace-nowrap"
               title="Cobrar orden"
             >
               {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
-              <span>Cobrar</span>
+              <span className="hidden sm:inline">Cobrar</span>
+              <span className="sm:hidden">Cobr.</span>
             </button>
           );
         }
@@ -366,11 +369,12 @@ const Dashboard: React.FC = () => {
             <button
               onClick={() => updateOrderStatus(orden._id, 'Pagada')}
               disabled={isUpdating}
-              className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-600 rounded text-xs hover:bg-green-200 transition-colors disabled:opacity-50"
+              className="flex items-center space-x-1 px-1.5 sm:px-2 py-1 bg-green-100 text-green-600 rounded text-[10px] sm:text-xs hover:bg-green-200 transition-colors disabled:opacity-50 whitespace-nowrap"
               title="Cobrar orden"
             >
               {isUpdating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
-              <span>Cobrar</span>
+              <span className="hidden sm:inline">Cobrar</span>
+              <span className="sm:hidden">Cobr.</span>
             </button>
           );
         }
@@ -400,8 +404,8 @@ const Dashboard: React.FC = () => {
         ) : (
           <>
             <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">{nextStatus}</span>
-            <span className="sm:hidden">{nextStatus.substring(0, 4)}.</span>
+            <span className="hidden md:inline">{nextStatus}</span>
+            <span className="md:hidden">{nextStatus.substring(0, 4)}.</span>
           </>
         )}
       </button>
@@ -540,14 +544,14 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Status Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 mb-6">
             {Object.entries(stats.ordenesPorEstatus).map(([status, count]) => (
               <div key={status} className="text-center">
-                <div className={`inline-flex items-center space-x-1 px-3 py-2 rounded-lg ${getStatusColor(status)}`}>
+                <div className={`inline-flex items-center space-x-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg ${getStatusColor(status)} min-w-0`}>
                   {getStatusIcon(status)}
-                  <span className="text-sm font-medium">{count}</span>
+                  <span className="text-xs sm:text-sm font-medium">{count}</span>
                 </div>
-                <p className="text-xs text-gray-600 mt-1">{status}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600 mt-1 truncate px-1">{status}</p>
               </div>
             ))}
           </div>
@@ -562,35 +566,37 @@ const Dashboard: React.FC = () => {
                 {ordenesWorkflow.map((orden) => (
                   <div
                     key={orden._id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors gap-3 sm:gap-4"
                   >
-                    <div className="flex items-center space-x-4 mb-2 sm:mb-0">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(orden.estatus)}
-                        <div>
-                          <p className="font-medium text-gray-900">{orden.folio}</p>
-                          <p className="text-sm text-gray-600">{orden.mesa}</p>
-                          <p className="text-xs text-blue-600 font-medium">Cliente: {orden.cliente}</p>
+                    <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto min-w-0 flex-1">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <div className="flex-shrink-0">
+                          {getStatusIcon(orden.estatus)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{orden.folio}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">{orden.mesa}</p>
+                          <p className="text-[10px] sm:text-xs text-blue-600 font-medium truncate">Cliente: {orden.cliente}</p>
                         </div>
                       </div>
                       
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(orden.estatus)}`}>
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 flex-shrink-0">
+                        <span className={`px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full ${getStatusColor(orden.estatus)} whitespace-nowrap`}>
                           {orden.estatus}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">
                           {orden.tiempoTranscurrido}
                         </span>
                         {/* Order modification indicator */}
                         {orden.estatus === 'Pendiente' && (
-                          <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded whitespace-nowrap">
+                          <span className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-orange-100 text-orange-600 rounded whitespace-nowrap">
                             Val.
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end w-full sm:w-auto gap-2">
+                    <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2 flex-shrink-0">
                       <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                         ${orden.total.toFixed(2)}
                       </span>
@@ -602,7 +608,7 @@ const Dashboard: React.FC = () => {
                       
                       <Link
                         to="/editar-orden"
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                       >
                         <Edit className="w-4 h-4" />
                       </Link>

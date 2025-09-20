@@ -333,8 +333,8 @@ const SurtirOrden: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3 sm:space-y-6 px-2 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6">
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Órdenes Recientes</h1>
           <p className="text-gray-600 mt-1">Gestiona las órdenes que acaban de hacerse y están listas para preparar</p>
@@ -385,7 +385,7 @@ const SurtirOrden: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {mesasAgrupadas.map((mesa) => {
             const mesaPriorityColor = getMesaPriorityColor(mesa);
             
@@ -403,7 +403,7 @@ const SurtirOrden: React.FC = () => {
               <div key={mesa.idMesa} className={`bg-white rounded-xl shadow-sm border-2 ${mesaPriorityColor}`}>
                 {/* Mesa Header - Clickable to expand/collapse */}
                 <div 
-                  className="p-4 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-3 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMesaExpansion(mesa.idMesa)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -442,7 +442,7 @@ const SurtirOrden: React.FC = () => {
                   </div>
                 </div>              {/* Orders grouped by client - Expanded view */}
               {expandedMesas.has(mesa.idMesa) && (
-                <div className="p-4 sm:p-6">
+                <div className="p-3 sm:p-6">
                   <div className="space-y-4 sm:space-y-6">
                     {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
                       <div key={cliente} className="bg-gray-50 rounded-lg p-4 sm:p-6">
@@ -597,9 +597,9 @@ const SurtirOrden: React.FC = () => {
 
       {/* Order Details Modal */}
       {selectedOrden && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+            <div className="p-3 sm:p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
@@ -618,7 +618,7 @@ const SurtirOrden: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-6">
+            <div className="p-3 sm:p-6 space-y-6">
               {/* Products Section */}
               {selectedOrden.productos && selectedOrden.productos.length > 0 && (
                 <div>
@@ -678,6 +678,11 @@ const SurtirOrden: React.FC = () => {
                             }`}></div>
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-900 break-words">{platillo.platillo}</p>
+                              {platillo.notas && (
+                                <p className="text-xs text-blue-600 italic mt-1 break-words">
+                                  Notas: {platillo.notas}
+                                </p>
+                              )}
                               <p className="text-sm text-gray-600 break-words">
                                 Guiso: {platillo.guiso} | Cantidad: {platillo.cantidad}
                               </p>
@@ -796,7 +801,7 @@ const SurtirOrden: React.FC = () => {
       )}
 
       {/* Legend */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Código de Prioridad</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="flex items-center space-x-3">

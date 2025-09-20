@@ -378,77 +378,77 @@ const Cobrar: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-3 sm:space-y-4 px-1 sm:px-2 lg:px-3 max-w-full mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cobrar</h1>
-          <p className="text-gray-600 mt-1">Procesa el pago y finaliza las órdenes</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 break-words">Cobrar</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base break-words">Procesa el pago y finaliza las órdenes</p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {hasNewOrders && (
-            <div className="bg-yellow-100 rounded-lg px-3 py-2 shadow-sm border border-yellow-200">
+            <div className="bg-yellow-100 rounded-lg px-2 py-1 sm:px-3 sm:py-2 shadow-sm border border-yellow-200">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse flex-shrink-0"></div>
-                <span className="text-xs font-medium text-yellow-700">
+                <span className="text-xs font-medium text-yellow-700 truncate">
                   Nuevas órdenes para cobrar
                 </span>
               </div>
             </div>
           )}
-          <div className="text-xs text-gray-500 text-center sm:text-left">
+          <div className="text-xs text-gray-500 text-center sm:text-left truncate">
             Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-600 px-2 sm:px-3 py-2 rounded-lg">
+          <span className="break-words">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
-          {success}
+        <div className="bg-green-50 border border-green-200 text-green-600 px-2 sm:px-3 py-2 rounded-lg">
+          <span className="break-words">{success}</span>
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Órdenes para Cobrar</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-4 lg:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 break-words">Órdenes para Cobrar</h2>
         {mesasAgrupadas.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
             <p className="text-gray-500">No hay órdenes para cobrar</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {mesasAgrupadas.map((mesa) => (
               <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* Mesa Header - Clickable to expand/collapse */}
                 <div 
-                  className="p-4 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-2 sm:p-3 lg:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMesaExpansion(mesa.idMesa)}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center space-x-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-green-600" />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 break-words">
+                        <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 break-words hyphens-auto">
                           {mesa.nombreMesa}
                         </h3>
-                        <p className="text-sm text-gray-600 truncate">
+                        <p className="text-xs sm:text-sm text-gray-600 break-words">
                           {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                       <div className="text-left sm:text-right">
-                        <p className="text-base sm:text-lg font-semibold text-green-600">
+                        <p className="text-sm sm:text-base lg:text-lg font-semibold text-green-600 break-words">
                           ${mesa.totalMonto.toFixed(2)}
                         </p>
-                        <p className="text-xs sm:text-sm text-gray-600">Total mesa</p>
+                        <p className="text-xs sm:text-sm text-gray-600 break-words">Total mesa</p>
                       </div>
                       <div className="flex items-center justify-between sm:justify-end">
                         {expandedMesas.has(mesa.idMesa) ? (
@@ -462,29 +462,29 @@ const Cobrar: React.FC = () => {
                   
                   {/* Quick actions for the entire table when collapsed */}
                   {!expandedMesas.has(mesa.idMesa) && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="mt-2 pt-2 border-t border-gray-100 space-y-1 sm:space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
                         <button
                           onClick={() => handleGenerateMesaTicket(mesa)}
-                          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
+                          className="flex-1 bg-blue-600 text-white py-1 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-xs sm:text-sm"
                         >
-                          <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <Receipt className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                           <span className="truncate">Ticket Mesa</span>
                         </button>
                         <button
                           onClick={() => handlePrintMesaTicket(mesa)}
-                          className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
+                          className="flex-1 bg-gray-600 text-white py-1 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-xs sm:text-sm"
                         >
-                          <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <Printer className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                           <span className="truncate">Imprimir</span>
                         </button>
                       </div>
                       <button
                         onClick={() => handleCobrarTodaLaMesa(mesa)}
                         disabled={processing}
-                        className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                        className="w-full bg-green-600 text-white py-1 sm:py-2 px-2 sm:px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-xs sm:text-sm"
                       >
-                        <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
                         <span className="truncate">
                           {mesa.totalOrdenes === 1 ? 'Cobrar orden' : 'Cobrar toda la mesa'}
                         </span>
@@ -495,49 +495,51 @@ const Cobrar: React.FC = () => {
 
                 {/* Orders grouped by client - Expanded view */}
                 {expandedMesas.has(mesa.idMesa) && (
-                  <div className="p-4 sm:p-6">
-                    <div className="space-y-4 sm:space-y-6">
+                  <div className="p-2 sm:p-3 lg:p-4">
+                    <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                       {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
-                        <div key={cliente} className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                          <h4 className="font-medium text-gray-900 mb-3 truncate">
+                        <div key={cliente} className="bg-gray-50 rounded-lg p-2 sm:p-3 lg:p-4">
+                          <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base break-words">
                             Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
                           </h4>
-                          <div className="space-y-3">
+                          <div className="space-y-2 sm:space-y-3">
                             {ordenesCliente.map((orden) => (
-                              <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                              <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-2 sm:p-3 lg:p-4">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                      <h5 className="font-medium text-gray-900 truncate">
+                                      <h5 className="font-medium text-gray-900 break-words text-sm sm:text-base">
                                         Orden #{orden._id?.toString().slice(-6)}
                                       </h5>
                                       <button
                                         onClick={() => toggleOrdenExpansion(orden._id?.toString() || '')}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                                       >
                                         {expandedOrdenes.has(orden._id?.toString() || '') ? (
-                                          <ChevronDown className="w-4 h-4" />
+                                          <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                                         ) : (
-                                          <ChevronRight className="w-4 h-4" />
+                                          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                                         )}
                                       </button>
                                     </div>
                                     {orden.notas && (
                                       <div className="flex items-start space-x-1 mt-1">
                                         <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                        <p className="text-xs text-gray-700 italic line-clamp-2 break-words">
+                                        <p className="text-xs text-gray-700 italic break-words">
                                           {orden.notas}
                                         </p>
                                       </div>
                                     )}
-                                    <p className="text-sm text-gray-600 flex items-center mt-1">
-                                      <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
-                                      {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1">
+                                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                                      <span className="break-words">
+                                        {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                      </span>
                                     </p>
                                   </div>
                                   <div className="text-left sm:text-right flex-shrink-0">
-                                    <p className="text-lg font-semibold text-green-600">${orden.total?.toFixed(2)}</p>
-                                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                                    <p className="text-sm sm:text-base lg:text-lg font-semibold text-green-600 break-words">${orden.total?.toFixed(2)}</p>
+                                    <span className={`inline-block px-1 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full break-words ${
                                       orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
                                       : 'bg-blue-100 text-blue-800'
                                     }`}>{orden.estatus}</span>
@@ -546,20 +548,20 @@ const Cobrar: React.FC = () => {
 
                                 {/* Detalles de la orden - Panel expandible */}
                                 {expandedOrdenes.has(orden._id?.toString() || '') && (
-                                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
-                                    <h6 className="font-medium text-gray-900 mb-2 text-sm">Detalles de la orden:</h6>
+                                  <div className="mb-2 sm:mb-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                    <h6 className="font-medium text-gray-900 mb-1 sm:mb-2 text-xs sm:text-sm break-words">Detalles de la orden:</h6>
                                     
                                     {/* Productos */}
                                     {orden.productos && orden.productos.length > 0 && (
-                                      <div className="mb-3">
-                                        <p className="text-xs font-medium text-gray-700 mb-1">Productos:</p>
+                                      <div className="mb-2 sm:mb-3">
+                                        <p className="text-xs font-medium text-gray-700 mb-1 break-words">Productos:</p>
                                         <div className="space-y-1">
                                           {orden.productos.map((producto, idx) => (
-                                            <div key={idx} className="flex justify-between items-center text-xs">
-                                              <span className="text-gray-600">
+                                            <div key={idx} className="flex justify-between items-start gap-1 text-xs">
+                                              <span className="text-gray-600 break-words flex-1 min-w-0">
                                                 {producto.cantidad}x {producto.nombreProducto || producto.nombre || 'Producto'}
                                               </span>
-                                              <span className="font-medium text-gray-900">
+                                              <span className="font-medium text-gray-900 flex-shrink-0">
                                                 ${(producto.importe || 0).toFixed(2)}
                                               </span>
                                             </div>
@@ -570,29 +572,36 @@ const Cobrar: React.FC = () => {
 
                                     {/* Platillos */}
                                     {orden.platillos && orden.platillos.length > 0 && (
-                                      <div className="mb-3">
-                                        <p className="text-xs font-medium text-gray-700 mb-1">Platillos:</p>
-                                        <div className="space-y-2">
+                                      <div className="mb-2 sm:mb-3">
+                                        <p className="text-xs font-medium text-gray-700 mb-1 break-words">Platillos:</p>
+                                        <div className="space-y-1 sm:space-y-2">
                                           {orden.platillos.map((platillo, idx) => (
                                             <div key={idx} className="space-y-1">
-                                              <div className="flex justify-between items-center text-xs">
-                                                <span className="text-gray-600">
+                                              <div className="flex justify-between items-start gap-1 text-xs">
+                                                <span className="text-gray-600 break-words flex-1 min-w-0">
                                                   {platillo.cantidad}x {platillo.nombrePlatillo} ({platillo.nombreGuiso})
                                                 </span>
-                                                <span className="font-medium text-gray-900">
+                                                <span className="font-medium text-gray-900 flex-shrink-0">
                                                   ${(platillo.importe || 0).toFixed(2)}
                                                 </span>
                                               </div>
                                               
+                                              {/* Notas del platillo */}
+                                              {platillo.notas && (
+                                                <div className="ml-2 sm:ml-3 text-xs text-blue-600 italic break-words">
+                                                  Nota: {platillo.notas}
+                                                </div>
+                                              )}
+                                              
                                               {/* Extras del platillo */}
                                               {platillo.extras && platillo.extras.length > 0 && (
-                                                <div className="ml-3 space-y-1">
+                                                <div className="ml-2 sm:ml-3 space-y-1">
                                                   {platillo.extras.map((extra: any, extraIdx: number) => (
-                                                    <div key={extraIdx} className="flex justify-between items-center text-xs">
-                                                      <span className="text-purple-600 italic">
+                                                    <div key={extraIdx} className="flex justify-between items-start gap-1 text-xs">
+                                                      <span className="text-purple-600 italic break-words flex-1 min-w-0">
                                                         + {extra.cantidad}x {extra.nombreExtra}
                                                       </span>
-                                                      <span className="font-medium text-purple-700">
+                                                      <span className="font-medium text-purple-700 flex-shrink-0">
                                                         ${(extra.importe || 0).toFixed(2)}
                                                       </span>
                                                     </div>
@@ -606,36 +615,36 @@ const Cobrar: React.FC = () => {
                                     )}
 
                                     {/* Total de la orden */}
-                                    <div className="pt-2 border-t border-gray-200">
-                                      <div className="flex justify-between items-center text-sm font-semibold">
-                                        <span className="text-gray-900">Total:</span>
-                                        <span className="text-green-600">${orden.total?.toFixed(2)}</span>
+                                    <div className="pt-1 sm:pt-2 border-t border-gray-200">
+                                      <div className="flex justify-between items-center text-xs sm:text-sm font-semibold">
+                                        <span className="text-gray-900 break-words">Total:</span>
+                                        <span className="text-green-600 break-words">${orden.total?.toFixed(2)}</span>
                                       </div>
                                     </div>
                                   </div>
                                 )}
 
-                                <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
                                   <button 
                                     onClick={() => handleGenerateTicket(orden)} 
-                                    className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
+                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
                                   >
-                                    <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <Receipt className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                                     <span className="truncate">PDF</span>
                                   </button>
                                   <button 
                                     onClick={() => handlePrintTicket(orden)} 
-                                    className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
+                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-gray-600 text-white text-xs sm:text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
                                   >
-                                    <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <Printer className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                                     <span className="truncate">Imprimir</span>
                                   </button>
                                   <button 
                                     onClick={() => handleFinalizarOrden(orden)} 
                                     disabled={processing} 
-                                    className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-green-600 text-white text-xs sm:text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                   >
-                                    <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                                     <span className="truncate">Cobrar</span>
                                   </button>
                                 </div>
@@ -645,15 +654,15 @@ const Cobrar: React.FC = () => {
                           
                           {/* Option to pay all orders for this client */}
                           {ordenesCliente.length > 1 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-gray-900">Total del cliente:</span>
-                                <span className="text-lg font-semibold text-green-600">
+                            <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200">
+                              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                                <span className="text-xs sm:text-sm font-medium text-gray-900 break-words">Total del cliente:</span>
+                                <span className="text-sm sm:text-base lg:text-lg font-semibold text-green-600 break-words">
                                   ${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}
                                 </span>
                               </div>
-                              <div className="space-y-2">
-                                <div className="flex gap-2">
+                              <div className="space-y-1 sm:space-y-2">
+                                <div className="flex gap-1 sm:gap-2">
                                   <button
                                     onClick={() => {
                                       // Generar ticket conjunto para el cliente

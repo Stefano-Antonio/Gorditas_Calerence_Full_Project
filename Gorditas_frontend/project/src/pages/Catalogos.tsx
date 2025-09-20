@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Settings, 
   Plus, 
@@ -47,6 +47,24 @@ const Catalogos: React.FC = () => {
   const [tiposUsuario, setTiposUsuario] = useState<any[]>(tiposUsuarioFijos);
 
   const [selectedModel, setSelectedModel] = useState(catalogModels[0]);
+  
+  // Ref for items list section
+  const itemsListRef = useRef<HTMLDivElement>(null);
+
+  // Handle model selection with scroll functionality
+  const handleModelSelect = (model: any) => {
+    setSelectedModel(model);
+    
+    // Scroll to items list in mobile view
+    if (window.innerWidth < 640 && itemsListRef.current) {
+      setTimeout(() => {
+        itemsListRef.current!.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    }
+  };
   useEffect(() => {
     // Cargar tipos para selects dinámicos
     const fetchTipos = async () => {
@@ -437,7 +455,7 @@ const Catalogos: React.FC = () => {
   };
 
   return (
-      <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6 px-1 py-2 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">Catálogos</h1>
@@ -456,31 +474,31 @@ const Catalogos: React.FC = () => {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+          <div className="bg-red-50 border border-red-200 text-red-600 px-1 py-2 sm:px-4 sm:py-3 rounded-lg text-sm break-words">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+          <div className="bg-green-50 border border-green-200 text-green-600 px-1 py-2 sm:px-4 sm:py-3 rounded-lg text-sm break-words">
             {success}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-6">
           {/* Model Selection */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Settings className="w-5 h-5 text-orange-600 flex-shrink-0" />
-              <h2 className="text-lg font-semibold text-gray-900 truncate">Catálogos</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-1 py-2 sm:p-6">
+            <div className="flex items-center space-x-2 mb-2 sm:mb-4">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">Catálogos</h2>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               {catalogModels.map((model) => (
                 <button
                   key={model.id}
-                  onClick={() => setSelectedModel(model)}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors truncate ${
+                  onClick={() => handleModelSelect(model)}
+                  className={`w-full text-left px-2 py-1 sm:px-3 sm:py-2 rounded-lg transition-colors truncate text-sm sm:text-base ${
                     selectedModel.id === model.id
                       ? 'bg-orange-100 text-orange-700 font-medium'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -493,26 +511,26 @@ const Catalogos: React.FC = () => {
           </div>
 
           {/* Items List */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 truncate">{selectedModel.name}</h2>
+          <div ref={itemsListRef} className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 px-1 py-2 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-3 sm:mb-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{selectedModel.name}</h2>
               {/* Solo mostrar búsqueda y filtro si NO es tipos de usuario */}
               {selectedModel.id !== 'tipousuario' && (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                  <div className="flex items-center space-x-2 min-w-0 flex-1 sm:flex-initial">
-                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                  <div className="flex items-center space-x-1 sm:space-x-2 min-w-0 flex-1 sm:flex-initial">
+                    <Search className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="min-w-0 flex-1 sm:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                      className="min-w-0 flex-1 sm:w-48 px-2 py-1 sm:px-3 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
                       placeholder="Buscar..."
                     />
                   </div>
                   {selectedModel.hasActivo && (
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                      <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <label className="flex items-center whitespace-nowrap">
+                    <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                      <Filter className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                      <label className="flex items-center whitespace-nowrap text-xs sm:text-sm">
                         <input
                           type="checkbox"
                           checked={showActiveOnly}
@@ -533,15 +551,15 @@ const Catalogos: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Tipo de Usuario</th>
-                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Descripción</th>
+                      <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Tipo de Usuario</th>
+                      <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Descripción</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tiposUsuarioFijos.map(tipo => (
                       <tr key={tipo.value} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base truncate">{tipo.label}</td>
-                        <td className="py-3 px-2 sm:px-4 text-gray-700 text-sm sm:text-base break-words">{tipo.descripcion}</td>
+                        <td className="py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base truncate">{tipo.label}</td>
+                        <td className="py-2 px-1 sm:py-3 sm:px-4 text-gray-700 text-xs sm:text-base break-words hyphens-auto">{tipo.descripcion}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -553,26 +571,26 @@ const Catalogos: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Nombre</th>
-                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Estado</th>
+                      <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Nombre</th>
+                      <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Estado</th>
                       {(selectedModel.id === 'producto' || selectedModel.id === 'platillo' || selectedModel.id === 'extra') && (
-                        <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Precio</th>
+                        <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Precio</th>
                       )}
-                      <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Acciones</th>
+                      <th className="text-left py-2 px-1 sm:py-3 sm:px-4 font-medium text-gray-900 text-xs sm:text-base">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredItems.map((item) => (
                       <tr key={item._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-2 sm:px-4">
+                        <td className="py-2 px-1 sm:py-3 sm:px-4">
                           <div className="min-w-0">
-                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{item.nombre}</p>
+                            <p className="font-medium text-gray-900 text-xs sm:text-base truncate break-words hyphens-auto">{item.nombre}</p>
                             {item.descripcion && (
-                              <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words">{item.descripcion}</p>
+                              <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words hyphens-auto">{item.descripcion}</p>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-2 sm:px-4">
+                        <td className="py-2 px-1 sm:py-3 sm:px-4">
                           {selectedModel.hasActivo ? (
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
@@ -590,25 +608,25 @@ const Catalogos: React.FC = () => {
                           )}
                         </td>
                         {(selectedModel.id === 'producto' || selectedModel.id === 'platillo' || selectedModel.id === 'extra') && (
-                          <td className="py-3 px-2 sm:px-4">
-                            <span className="font-medium text-green-600 text-sm sm:text-base whitespace-nowrap">
+                          <td className="py-2 px-1 sm:py-3 sm:px-4">
+                            <span className="font-medium text-green-600 text-xs sm:text-base whitespace-nowrap">
                               ${((item as any).costo || (item as any).precio || 0).toFixed(2)}
                             </span>
                           </td>
                         )}
-                        <td className="py-3 px-2 sm:px-4">
-                          <div className="flex space-x-1 sm:space-x-2">
+                        <td className="py-2 px-1 sm:py-3 sm:px-4">
+                          <div className="flex space-x-1">
                             <button
                               onClick={() => handleEdit(item)}
                               className="p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
                             >
-                              <Edit3 className="w-4 h-4" />
+                              <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(item)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded flex-shrink-0"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </td>
@@ -629,16 +647,16 @@ const Catalogos: React.FC = () => {
 
         {/* Modal solo si NO es tipos de usuario */}
         {showModal && selectedModel.id !== 'tipousuario' && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 truncate">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-1 py-2 sm:p-4">
+            <div className="bg-white rounded-xl px-2 py-3 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-4 truncate break-words hyphens-auto">
                 {editingItem ? 'Editar' : 'Crear'} {selectedModel.name.slice(0, -1)}
               </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-4">
                 {selectedModel.fields.map((field) => (
                   <div key={field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 truncate">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2 truncate break-words">
                       {getFieldLabel(field)}
                     </label>
                     {renderField(field, formData[field])}
@@ -647,7 +665,7 @@ const Catalogos: React.FC = () => {
                 
                 {selectedModel.hasActivo && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                       Estado
                     </label>
                     {renderField('activo', formData.activo)}
@@ -655,17 +673,17 @@ const Catalogos: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-3 sm:mt-6">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-2 py-1 sm:px-4 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-base"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 px-2 py-1 sm:px-4 sm:py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors text-xs sm:text-base"
                 >
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>

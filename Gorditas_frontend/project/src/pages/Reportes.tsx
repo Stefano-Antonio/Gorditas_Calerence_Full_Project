@@ -192,10 +192,17 @@ const Reportes: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Cerrar la sección de "Ver órdenes" cuando cambian los filtros
+    setDiaSeleccionado(null);
+    setOrdenExpandida(null);
     loadReports();
   }, [activeTab, fechaInicio, fechaFin]);
 
   const loadReports = async () => {
+    // Cerrar sección de "Ver órdenes" al recargar manualmente
+    setDiaSeleccionado(null);
+    setOrdenExpandida(null);
+    
     setLoading(true);
     setError('');
     
@@ -964,7 +971,7 @@ const Reportes: React.FC = () => {
                                     <td className="text-left px-2 py-2 w-1/6">{orden.folio}</td>
                                     <td className="text-center px-2 py-2 w-1/6">{orden.nombreCliente || 'Sin nombre'}</td>
                                     <td className="text-left px-2 py-2 w-1/6">
-                                      {orden.idMesa ? `Mesa ${orden.idMesa}` : orden.nombreTipoOrden}
+                                      {orden.nombreMesa || orden.nombreTipoOrden}
                                     </td>
                                     <td className="text-right px-2 py-2 w-1/6">${orden.total.toFixed(2)}</td>
                                     <td className="text-center px-2 py-2 w-1/6">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
@@ -1038,6 +1045,25 @@ const Reportes: React.FC = () => {
                                                         <td className="text-center px-2 py-2 w-1/10">{pl.cantidad}</td>
                                                         <td className="text-right px-2 py-2 w-1/10">${pl.importe.toFixed(2)}</td>
                                                       </tr>
+                                                      
+                                                      {/* Mostrar notas del platillo si existen */}
+                                                      {pl.notas && (
+                                                        <tr className="bg-blue-50">
+                                                          <td className="text-left px-2 py-1 w-2/5 pl-6 text-blue-700 italic text-xs">
+                                                            Nota: {pl.notas}
+                                                          </td>
+                                                          <td className="text-left px-2 py-1 w-2/5 text-blue-600 italic text-xs">
+                                                            -
+                                                          </td>
+                                                          <td className="text-center px-2 py-1 w-1/10 text-blue-600 text-xs">
+                                                            -
+                                                          </td>
+                                                          <td className="text-right px-2 py-1 w-1/10 text-blue-600 text-xs">
+                                                            -
+                                                          </td>
+                                                        </tr>
+                                                      )}
+                                                      
                                                       {/* Mostrar extras si existen */}
                                                       {pl.extras && pl.extras.length > 0 ? pl.extras.map((extra: any) => (
                                                         <tr key={extra._id} className="bg-purple-50">

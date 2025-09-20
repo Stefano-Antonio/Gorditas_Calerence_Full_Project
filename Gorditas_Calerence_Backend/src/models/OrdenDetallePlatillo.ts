@@ -13,6 +13,7 @@ const ordenDetallePlatilloSchema = new Schema<IOrdenDetallePlatilloDocument>({
   costoPlatillo: { type: Number, required: true, min: 0 },
   cantidad: { type: Number, required: true, min: 1 },
   importe: { type: Number, required: true, min: 0 },
+  notas: { type: String, trim: true, maxlength: 200 }, // Notas específicas del platillo
   listo: { type: Boolean, default: false },
   entregado: { type: Boolean, default: false }
 }, {

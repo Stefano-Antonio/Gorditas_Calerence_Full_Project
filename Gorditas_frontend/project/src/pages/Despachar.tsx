@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Truck, 
   Package, 
@@ -37,6 +37,9 @@ const Despachar: React.FC = () => {
   const [dispatching, setDispatching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Ref for order details section
+  const orderDetailsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -190,6 +193,16 @@ const Despachar: React.FC = () => {
             productos,
             extras: data.extras || [] // Include general extras list
           });
+
+          // Scroll to order details on mobile
+          setTimeout(() => {
+            if (orderDetailsRef.current && window.innerWidth < 1024) { // lg breakpoint
+              orderDetailsRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+            }
+          }, 100);
       } else {
         setError('Error cargando detalles de la orden');
       }
@@ -586,8 +599,8 @@ const Despachar: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3 sm:space-y-6 px-2 sm:px-6 lg:px-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6">
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Despachar Órdenes</h1>
           <p className="text-gray-600 mt-1">Gestiona la entrega de órdenes surtidas y productos de órdenes en recepción</p>
@@ -614,10 +627,10 @@ const Despachar: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Tables with Orders */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6">
+          <div className="flex items-center space-x-2 mb-3 sm:mb-6">
             <Package className="w-5 h-5 text-orange-600" />
             <h2 className="text-lg font-semibold text-gray-900">Mesas para Despacho</h2>
           </div>
@@ -783,30 +796,37 @@ const Despachar: React.FC = () => {
         </div>
 
         {/* Order Details */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 min-w-0 flex-1">
-              {selectedOrden ? (
-                <span className="truncate block">
-                  Detalles - Mesa {selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}
-                  {selectedOrden.nombreCliente && (
-                    <span className="text-base text-gray-600"> • {selectedOrden.nombreCliente}</span>
-                  )}
-                </span>
-              ) : (
-                'Selecciona una orden'
-              )}
-            </h2>
+        <div ref={orderDetailsRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-6">
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:mb-6">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                {selectedOrden ? (
+                  <>
+                    <span className="block sm:inline">
+                      Detalles - Mesa {selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}
+                    </span>
+                    {selectedOrden.nombreCliente && (
+                      <span className="block sm:inline text-sm sm:text-base text-gray-600 mt-1 sm:mt-0"> 
+                        <span className="hidden sm:inline"> • </span>{selectedOrden.nombreCliente}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Selecciona una orden'
+                )}
+              </h2>
+            </div>
             {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
               <button
                 onClick={handleCompleteDispatch}
                 disabled={dispatching}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center flex-shrink-0"
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-green-600 text-white text-sm sm:text-base rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center flex-shrink-0"
               >
                 {dispatching ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Despachando...
+                    <span className="hidden sm:inline">Despachando...</span>
+                    <span className="sm:hidden">Despachando...</span>
                   </>
                 ) : (
                   <>
@@ -827,18 +847,18 @@ const Despachar: React.FC = () => {
           ) : (
             <div className="space-y-6">
               {/* Order Summary */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Resumen de la Orden</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2 text-sm sm:text-base">Resumen de la Orden</h3>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 text-xs sm:text-sm">
+                  <div className="flex justify-between sm:block">
                     <span className="text-gray-600">Mesa:</span>
-                    <span className="ml-2 font-medium truncate">{getMesaInfo(selectedOrden.mesa)?.numero}</span>
+                    <span className="ml-2 font-medium break-words">{getMesaInfo(selectedOrden.mesa)?.numero}</span>
                   </div>
-                  <div>
+                  <div className="flex justify-between sm:block">
                     <span className="text-gray-600">Total:</span>
                     <span className="ml-2 font-medium text-green-600">${selectedOrden.total.toFixed(2)}</span>
                   </div>
-                  <div>
+                  <div className="flex justify-between sm:block">
                     <span className="text-gray-600">Hora:</span>
                     <span className="ml-2 font-medium">
                       {new Date(selectedOrden.fechaHora ?? selectedOrden.fecha ?? '').toLocaleTimeString('es-ES', {
@@ -847,9 +867,9 @@ const Despachar: React.FC = () => {
                       })}
                     </span>
                   </div>
-                  <div>
+                  <div className="flex justify-between sm:block">
                     <span className="text-gray-600">Estado:</span>
-                    <span className="ml-2 font-medium truncate">{selectedOrden.estatus}</span>
+                    <span className="ml-2 font-medium break-words">{selectedOrden.estatus}</span>
                   </div>
                 </div>
               </div>
@@ -857,29 +877,32 @@ const Despachar: React.FC = () => {
               {/* Products */}
               {selectedOrden.productos && selectedOrden.productos.length > 0 ? (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
+                  <h3 className="font-medium text-gray-900 mb-3 text-sm sm:text-base">Productos</h3>
                   <div className="space-y-2">
                     {selectedOrden.productos.map((producto, index) => (
                       <div
                         key={index}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
+                        className={`flex flex-col gap-2 p-2 sm:p-3 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                           producto.entregado ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 truncate">{producto.producto || producto.nombreProducto || `Producto ${index + 1}`}</p>
-                          <p className="text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
+                          <p className="font-medium text-gray-900 text-sm sm:text-base break-words">{producto.producto || producto.nombreProducto || `Producto ${index + 1}`}</p>
+                          <p className="text-xs sm:text-sm text-gray-600">Cantidad: {producto.cantidad}</p>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                        <div className="flex items-center justify-between gap-2 sm:justify-end">
                           <span className="text-sm font-medium text-green-600 flex-shrink-0">
                             ${producto.subtotal?.toFixed(2) ?? producto.importe?.toFixed(2) ?? '0.00'}
                           </span>
                           {producto.entregado ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                              <span className="text-xs text-green-600 font-medium sm:hidden">Entregado</span>
+                            </div>
                           ) : (
                             <button
                               onClick={() => handleMarkAsDelivered(producto._id!, 'producto')}
-                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
+                              className="px-2 sm:px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
                             >
                               Entregar
                             </button>
@@ -891,20 +914,20 @@ const Despachar: React.FC = () => {
                 </div>
               ) : (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Productos</h3>
-                  <div className="text-sm text-gray-500">No hay productos en esta orden.</div>
+                  <h3 className="font-medium text-gray-900 mb-3 text-sm sm:text-base">Productos</h3>
+                  <div className="text-xs sm:text-sm text-gray-500">No hay productos en esta orden.</div>
                 </div>
               )}
 
               {/* Dishes */}
               {selectedOrden.platillos && selectedOrden.platillos.length > 0 ? (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
+                  <h3 className="font-medium text-gray-900 mb-3 text-sm sm:text-base">Platillos</h3>
                   <div className="space-y-2">
                     {selectedOrden.platillos.map((platillo, index) => (
                       <div key={index} className="space-y-2">
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
+                          className={`flex flex-col gap-2 p-2 sm:p-3 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
                             selectedOrden.estatus === 'Recepcion' 
                               ? 'bg-yellow-50 border border-yellow-200' 
                               : platillo.entregado 
@@ -913,27 +936,36 @@ const Despachar: React.FC = () => {
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-900 truncate">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
-                            <p className="text-sm text-gray-600 truncate">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
-                            <p className="text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
+                            <p className="font-medium text-gray-900 text-sm sm:text-base break-words">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                            {platillo.notas && (
+                              <p className="text-xs text-blue-600 italic mt-1 break-words">
+                                Notas: {platillo.notas}
+                              </p>
+                            )}
+                            <p className="text-xs sm:text-sm text-gray-600 break-words">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
                             {selectedOrden.estatus === 'Recepcion' && (
                               <p className="text-xs text-yellow-700 font-medium">Preparando...</p>
                             )}
                           </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <div className="flex items-center justify-between gap-2 sm:justify-end">
                             <span className="text-sm font-medium text-gray-900 flex-shrink-0">
                               ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
                             </span>
                             {selectedOrden.estatus === 'Recepcion' ? (
-                              <div className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
-                                Preparando
+                              <div className="px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
+                                <span className="hidden sm:inline">Preparando</span>
+                                <span className="sm:hidden">Prep.</span>
                               </div>
                             ) : platillo.entregado ? (
-                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                                <span className="text-xs text-green-600 font-medium sm:hidden">Entregado</span>
+                              </div>
                             ) : (
                               <button
                                 onClick={() => handleMarkAsDelivered(platillo._id!, 'platillo')}
-                                className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
+                                className="px-2 sm:px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
                               >
                                 Entregar
                               </button>
@@ -943,11 +975,11 @@ const Despachar: React.FC = () => {
                         
                         {/* Extras for this platillo */}
                         {platillo.extras && platillo.extras.length > 0 && (
-                          <div className="ml-4 space-y-1">
+                          <div className="ml-2 sm:ml-4 space-y-1">
                             {platillo.extras.map((extra: any) => (
                               <div
                                 key={extra._id}
-                                className={`flex items-center justify-between gap-2 p-1.5 rounded text-xs border-l-2 ${
+                                className={`flex flex-col gap-1 p-1.5 rounded text-xs border-l-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 ${
                                   selectedOrden.estatus === 'Recepcion'
                                     ? 'bg-yellow-50 border-l-yellow-400'
                                     : extra.entregado 
@@ -963,12 +995,12 @@ const Despachar: React.FC = () => {
                                         ? 'bg-green-500' 
                                         : 'bg-purple-400'
                                   }`}></div>
-                                  <span className="text-purple-900 font-medium truncate">
+                                  <span className="text-purple-900 font-medium break-words">
                                     {extra.nombreExtra} (x{extra.cantidad})
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <span className="text-purple-900 font-medium">
+                                <div className="flex items-center justify-between gap-1 flex-shrink-0 sm:justify-end">
+                                  <span className="text-purple-900 font-medium text-xs">
                                     ${(extra.importe ?? 0).toFixed(2)}
                                   </span>
                                   {selectedOrden.estatus === 'Recepcion' ? (
@@ -996,22 +1028,22 @@ const Despachar: React.FC = () => {
                 </div>
               ) : (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
-                  <div className="text-sm text-gray-500">No hay platillos en esta orden.</div>
+                  <h3 className="font-medium text-gray-900 mb-3 text-sm sm:text-base">Platillos</h3>
+                  <div className="text-xs sm:text-sm text-gray-500">No hay platillos en esta orden.</div>
                 </div>
               )}
 
               {/* Delivery Status */}
-              <div className={`p-4 rounded-lg ${
+              <div className={`p-3 sm:p-4 rounded-lg ${
                 selectedOrden.estatus === 'Recepcion' 
                   ? 'bg-blue-50 border border-blue-200' 
                   : 'bg-blue-50'
               }`}>
                 <div className="flex items-center space-x-2 mb-2">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-medium text-blue-900">Estado de Entrega</h3>
+                  <Clock className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600" />
+                  <h3 className="font-medium text-blue-900 text-sm sm:text-base">Estado de Entrega</h3>
                 </div>
-                <p className="text-sm text-blue-700">
+                <p className="text-xs sm:text-sm text-blue-700 break-words">
                   {selectedOrden.estatus === 'Recepcion' 
                     ? 'Esta orden está en recepción. Puedes entregar productos, pero los platillos y sus extras están en preparación.'
                     : isOrderReadyForDispatch(selectedOrden)

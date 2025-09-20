@@ -68,6 +68,22 @@ const Producto = mongoose.model('Producto', new mongoose.Schema({
   activo: Boolean
 }, { timestamps: true, versionKey: false }));
 
+const TipoExtra = mongoose.model('TipoExtra', new mongoose.Schema({
+  _id: Number,
+  nombre: String,
+  descripcion: String,
+  activo: Boolean
+}, { timestamps: true, versionKey: false }));
+
+const Extra = mongoose.model('Extra', new mongoose.Schema({
+  _id: Number,
+  nombre: String,
+  descripcion: String,
+  costo: Number,
+  idTipoExtra: Number,
+  activo: Boolean
+}, { timestamps: true, versionKey: false }));
+
 async function seedData() {
   try {
     // Clear existing data
@@ -79,6 +95,8 @@ async function seedData() {
     await TipoUsuario.deleteMany({});
     await TipoProducto.deleteMany({});
     await Producto.deleteMany({});
+    await TipoExtra.deleteMany({});
+    await Extra.deleteMany({});
 
     console.log('✅ Cleared existing data');
 
@@ -416,6 +434,41 @@ async function seedData() {
     ]);
 
     console.log('✅ Created 15 productos (5 of each type)');
+
+    // Create extra types
+    await TipoExtra.insertMany([
+      { _id: 1, nombre: 'Salsas', descripcion: 'Salsas y aderezos', activo: true },
+      { _id: 2, nombre: 'Quesos', descripcion: 'Tipos de queso', activo: true },
+      { _id: 3, nombre: 'Verduras', descripcion: 'Verduras adicionales', activo: true },
+      { _id: 4, nombre: 'Carnes', descripcion: 'Carnes extras', activo: true }
+    ]);
+
+    console.log('✅ Created extra types');
+
+    // Create extras
+    await Extra.insertMany([
+      // Salsas
+      { _id: 1, nombre: 'Salsa Verde', descripcion: 'Salsa verde picante', costo: 5, idTipoExtra: 1, activo: true },
+      { _id: 2, nombre: 'Salsa Roja', descripcion: 'Salsa roja tradicional', costo: 5, idTipoExtra: 1, activo: true },
+      { _id: 3, nombre: 'Salsa de Chile Chipotle', descripcion: 'Salsa de chile chipotle', costo: 8, idTipoExtra: 1, activo: true },
+      
+      // Quesos
+      { _id: 4, nombre: 'Queso Oaxaca', descripcion: 'Queso oaxaca fresco', costo: 12, idTipoExtra: 2, activo: true },
+      { _id: 5, nombre: 'Queso Manchego', descripcion: 'Queso manchego rallado', costo: 15, idTipoExtra: 2, activo: true },
+      { _id: 6, nombre: 'Queso Panela', descripcion: 'Queso panela en cubos', costo: 10, idTipoExtra: 2, activo: true },
+      
+      // Verduras
+      { _id: 7, nombre: 'Aguacate', descripcion: 'Rebanadas de aguacate', costo: 8, idTipoExtra: 3, activo: true },
+      { _id: 8, nombre: 'Nopales', descripcion: 'Nopales asados', costo: 6, idTipoExtra: 3, activo: true },
+      { _id: 9, nombre: 'Cebolla Morada', descripcion: 'Cebolla morada en aros', costo: 4, idTipoExtra: 3, activo: true },
+      
+      // Carnes
+      { _id: 10, nombre: 'Chorizo', descripcion: 'Chorizo mexicano', costo: 20, idTipoExtra: 4, activo: true },
+      { _id: 11, nombre: 'Chicharrón', descripcion: 'Chicharrón prensado', costo: 18, idTipoExtra: 4, activo: true },
+      { _id: 12, nombre: 'Carnitas', descripcion: 'Carnitas de cerdo', costo: 25, idTipoExtra: 4, activo: true }
+    ]);
+
+    console.log('✅ Created 12 extras (3 of each type)');
     console.log('🎉 Seed data creation completed successfully!');
     
   } catch (error) {

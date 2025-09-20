@@ -3,7 +3,6 @@ import {
   ChefHat, 
   Clock, 
   CheckCircle, 
-  AlertCircle,
   Users,
   Timer,
   Package,
@@ -14,16 +13,16 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo, MesaAgrupada } from '../types';
+import { Orden, OrdenDetalleProducto, OrdenDetallePlatillo, MesaAgrupada } from '../types';
 
 interface OrdenConDetalles extends Orden {
   productos?: OrdenDetalleProducto[];
   platillos?: OrdenDetallePlatillo[];
+  extras?: any[]; // Add extras property
 }
 
 const SurtirOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<OrdenConDetalles[]>([]);
-  const [mesas, setMesas] = useState<Mesa[]>([]);
   const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
   const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<OrdenConDetalles | null>(null);
@@ -43,7 +42,7 @@ const SurtirOrden: React.FC = () => {
   }, []);
 
   // Function to group orders by table
-  const groupOrdersByTable = (ordenes: OrdenConDetalles[], mesas: Mesa[]): MesaAgrupada[] => {
+  const groupOrdersByTable = (ordenes: OrdenConDetalles[]): MesaAgrupada[] => {
     const grouped: { [idMesa: number]: MesaAgrupada } = {};
     
     ordenes.forEach(orden => {
@@ -88,26 +87,7 @@ const SurtirOrden: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [ordenesRes, mesasRes] = await Promise.all([
-        apiService.getOrdenes(),
-        apiService.getCatalog<Mesa>('mesa')
-      ]);
-
-      let mesasArray: Mesa[] = [];
-      if (mesasRes.success) {
-        if (Array.isArray(mesasRes.data)) {
-          mesasArray = mesasRes.data;
-        } else if (Array.isArray(mesasRes.data?.items)) {
-          mesasArray = mesasRes.data.items;
-        }
-        setMesas(mesasArray);
-
-        // Update grouping if orders are already loaded
-        if (ordenes.length > 0) {
-          const grouped = groupOrdersByTable(ordenes, mesasArray);
-          setMesasAgrupadas(grouped);
-        }
-      }
+      const ordenesRes = await apiService.getOrdenes();
 
       if (ordenesRes.success) {
         let ordenesArray: Orden[] = [];
@@ -139,7 +119,7 @@ const SurtirOrden: React.FC = () => {
         setLastUpdateTime(new Date());
         
         // Group orders by table
-        const grouped = groupOrdersByTable(ordenesParaSurtir, mesasArray);
+        const grouped = groupOrdersByTable(ordenesParaSurtir);
         setMesasAgrupadas(grouped);
       }
     } catch (error) {
@@ -156,12 +136,13 @@ const SurtirOrden: React.FC = () => {
     if (response.success) {
       const data = response.data;
 
-      // Map platillos to expected format
+      // Map platillos to expected format and include extras
       const platillos = (data.platillos || []).map((p: any) => ({
         ...p,
         platillo: p.nombrePlatillo,
         guiso: p.nombreGuiso,
         subtotal: p.importe,
+        extras: p.extras || [] // Include extras from platillo
       }));
 
       // Map productos to expected format
@@ -175,6 +156,7 @@ const SurtirOrden: React.FC = () => {
         ...data,
         platillos,
         productos,
+        extras: data.extras || [] // Include general extras list
       });
     } else {
       setError('Error cargando detalles de la orden');
@@ -184,7 +166,7 @@ const SurtirOrden: React.FC = () => {
   }
 };
 
-  const handleMarkItemAsReady = async (itemId: string, type: 'producto' | 'platillo') => {
+  const handleMarkItemAsReady = async (itemId: string, type: 'producto' | 'platillo' | 'extra') => {
     if (!selectedOrden) return;
 
     setMarkingItem(itemId);
@@ -192,11 +174,14 @@ const SurtirOrden: React.FC = () => {
       let response;
       if (type === 'producto') {
         response = await apiService.markProductoListo(itemId);
-      } else {
+      } else if (type === 'platillo') {
         response = await apiService.markPlatilloListo(itemId);
+      } else if (type === 'extra') {
+        // Use updateExtraStatus to mark extra as ready
+        response = await apiService.updateExtraStatus(itemId, 'listo');
       }
 
-      if (response.success) {
+      if (response && response.success) {
         // Update local state
         if (type === 'producto') {
           setSelectedOrden(prev => ({
@@ -205,12 +190,26 @@ const SurtirOrden: React.FC = () => {
               p._id === itemId ? { ...p, listo: true } : p
             )
           }));
-        } else {
+        } else if (type === 'platillo') {
           setSelectedOrden(prev => ({
             ...prev!,
             platillos: prev!.platillos?.map(p => 
               p._id === itemId ? { ...p, listo: true } : p
             )
+          }));
+        } else if (type === 'extra') {
+          // Update both the general extras list and the nested extras in platillos
+          setSelectedOrden(prev => ({
+            ...prev!,
+            extras: prev!.extras?.map((e: any) => 
+              e._id === itemId ? { ...e, listo: true } : e
+            ),
+            platillos: prev!.platillos?.map(p => ({
+              ...p,
+              extras: p.extras?.map((e: any) => 
+                e._id === itemId ? { ...e, listo: true } : e
+              )
+            }))
           }));
         }
 
@@ -273,11 +272,14 @@ const SurtirOrden: React.FC = () => {
   const isOrderReadyToComplete = (orden: OrdenConDetalles) => {
     const allProductsReady = orden.productos?.every(p => p.listo) ?? true;
     const allDishesReady = orden.platillos?.every(p => p.listo) ?? true;
-    return allProductsReady && allDishesReady;
-  };
-
-  const getMesaInfo = (mesaId: string | number) => {
-    return mesas.find(mesa => mesa._id === String(mesaId) || mesa._id === mesaId);
+    
+    // Check if all extras are ready (both general extras and extras within platillos)
+    const allGeneralExtrasReady = orden.extras?.every((e: any) => e.listo) ?? true;
+    const allPlatilloExtrasReady = orden.platillos?.every(p => 
+      p.extras?.every((e: any) => e.listo) ?? true
+    ) ?? true;
+    
+    return allProductsReady && allDishesReady && allGeneralExtrasReady && allPlatilloExtrasReady;
   };
 
   const getTimeElapsed = (fecha: Date) => {
@@ -664,31 +666,90 @@ const SurtirOrden: React.FC = () => {
                   </h3>
                   <div className="space-y-2">
                     {selectedOrden.platillos.map((platillo) => (
-                      <div
-                        key={platillo._id}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border ${
-                          platillo.entregado ? 'bg-green-50 border-green-200' : platillo.listo ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 min-w-0 flex-1">
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                            platillo.entregado ? 'bg-green-500' : platillo.listo ? 'bg-yellow-500' : 'bg-gray-300'
-                          }`}></div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-900 break-words">{platillo.platillo}</p>
-                            <p className="text-sm text-gray-600 break-words">
-                              Guiso: {platillo.guiso} | Cantidad: {platillo.cantidad}
-                            </p>
+                      <div key={platillo._id} className="space-y-2">
+                        <div
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border ${
+                            platillo.entregado ? 'bg-green-50 border-green-200' : platillo.listo ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                              platillo.entregado ? 'bg-green-500' : platillo.listo ? 'bg-yellow-500' : 'bg-gray-300'
+                            }`}></div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 break-words">{platillo.platillo}</p>
+                              <p className="text-sm text-gray-600 break-words">
+                                Guiso: {platillo.guiso} | Cantidad: {platillo.cantidad}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-2">
+                            <span className="text-sm font-medium text-gray-900 flex-shrink-0">
+                              ${(platillo.subtotal ?? 0).toFixed(2)}
+                            </span>
+                            {platillo.entregado ? (
+                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            ) : null}
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-2">
-                          <span className="text-sm font-medium text-gray-900 flex-shrink-0">
-                            ${(platillo.subtotal ?? 0).toFixed(2)}
-                          </span>
-                          {platillo.entregado ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                          ) : null}
-                        </div>
+                        
+                        {/* Extras for this platillo */}
+                        {platillo.extras && platillo.extras.length > 0 && (
+                          <div className="ml-6 space-y-1">
+                            {platillo.extras.map((extra: any) => (
+                              <div
+                                key={extra._id}
+                                className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 rounded border-l-4 ${
+                                  extra.entregado ? 'bg-green-50 border-l-green-400' : extra.listo ? 'bg-yellow-50 border-l-yellow-400' : 'bg-purple-50 border-l-purple-400'
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                    extra.entregado ? 'bg-green-500' : extra.listo ? 'bg-yellow-500' : 'bg-purple-400'
+                                  }`}></div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-purple-900 break-words">
+                                      Extra: {extra.nombreExtra}
+                                    </p>
+                                    <p className="text-xs text-purple-700">
+                                      Cantidad: {extra.cantidad}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between sm:justify-end gap-2">
+                                  <span className="text-sm font-medium text-purple-900 flex-shrink-0">
+                                    ${(extra.importe ?? 0).toFixed(2)}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    {extra.entregado ? (
+                                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                    ) : extra.listo ? (
+                                      <CheckCircle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                                    ) : selectedOrden.estatus === 'Preparacion' ? (
+                                      <button
+                                        onClick={() => handleMarkItemAsReady(extra._id, 'extra')}
+                                        disabled={markingItem === extra._id}
+                                        className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                                      >
+                                        {markingItem === extra._id ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-600 mr-1"></div>
+                                            <span>...</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle className="w-3 h-3 mr-1" />
+                                            <span>Listo</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

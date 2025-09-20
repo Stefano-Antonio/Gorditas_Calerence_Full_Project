@@ -10,18 +10,14 @@ import {
   Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, OrdenDetalleProducto, MesaAgrupada } from '../types';
-
-interface OrdenCompleta extends Orden {
-  productos?: OrdenDetalleProducto[];
-  platillos?: any[];
-}
+import { Orden, OrdenCompleta, MesaAgrupada } from '../types';
 
 const Cobrar: React.FC = () => {
   // Eliminamos mesas y selectedMesa
   const [ordenesActivas, setOrdenesActivas] = useState<OrdenCompleta[]>([]);
   const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
   const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
+  const [expandedOrdenes, setExpandedOrdenes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -80,6 +76,16 @@ const Cobrar: React.FC = () => {
     setExpandedMesas(newExpanded);
   };
 
+  const toggleOrdenExpansion = (ordenId: string) => {
+    const newExpanded = new Set(expandedOrdenes);
+    if (newExpanded.has(ordenId)) {
+      newExpanded.delete(ordenId);
+    } else {
+      newExpanded.add(ordenId);
+    }
+    setExpandedOrdenes(newExpanded);
+  };
+
   const loadOrdenesActivas = async () => {
     try {
       const response = await apiService.getOrdenes();
@@ -115,19 +121,33 @@ const Cobrar: React.FC = () => {
           try {
             const detailsResponse = await apiService.getOrdenDetails(orden._id!);
             if (detailsResponse.success) {
-              ordenesConDetalles.push(detailsResponse.data);
+              const data = detailsResponse.data;
+              
+              // Map platillos to include extras
+              const platillosConExtras = (data.platillos || []).map((p: any) => ({
+                ...p,
+                extras: p.extras || []
+              }));
+              
+              ordenesConDetalles.push({
+                ...data,
+                platillos: platillosConExtras,
+                extras: data.extras || []
+              });
             } else {
               ordenesConDetalles.push({
                 ...orden,
                 productos: [],
-                platillos: []
+                platillos: [],
+                extras: []
               });
             }
           } catch {
             ordenesConDetalles.push({
               ...orden,
               productos: [],
-              platillos: []
+              platillos: [],
+              extras: []
             });
           }
         }
@@ -245,6 +265,26 @@ const Cobrar: React.FC = () => {
 
   const generateTicketContent = (orden: OrdenCompleta) => {
     const fecha = orden.fecha ? new Date(orden.fecha) : new Date();
+    
+    // Función para generar HTML de platillos con extras
+    const generatePlatillosHtml = () => {
+      if (!orden.platillos?.length) return '<p>Sin platillos</p>';
+      
+      return orden.platillos.map(p => {
+        let html = `<p>${p.cantidad}x ${p.nombrePlatillo} - $${(p.importe || 0).toFixed(2)}</p>`;
+        
+        // Agregar extras si existen
+        if (p.extras && p.extras.length > 0) {
+          const extrasHtml = p.extras.map((e: any) => 
+            `<p style="margin-left: 15px; font-size: 0.9em; color: #666;">+ ${e.cantidad}x ${e.nombreExtra} - $${(e.importe || 0).toFixed(2)}</p>`
+          ).join('');
+          html += extrasHtml;
+        }
+        
+        return html;
+      }).join('');
+    };
+    
     return `
       <div class="header">
         <h2>RESTAURANTE</h2>
@@ -256,10 +296,7 @@ const Cobrar: React.FC = () => {
       <p><strong>Orden:</strong> #${orden._id?.toString().slice(-6)}</p>
       <div class="line"></div>
       <h3>PLATILLOS</h3>
-      ${orden.platillos?.length 
-        ? orden.platillos.map(p => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
-        : '<p>Sin platillos</p>'
-      }
+      ${generatePlatillosHtml()}
       <h3>PRODUCTOS</h3>
       ${orden.productos?.length
         ? orden.productos.map(p => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
@@ -276,6 +313,26 @@ const Cobrar: React.FC = () => {
 
   const generateMesaTicketContent = (mesa: MesaAgrupada) => {
     const fecha = new Date();
+    
+    // Función para generar HTML de platillos con extras para mesa
+    const generatePlatillosHtmlForMesa = (platillos: any[]) => {
+      if (!platillos?.length) return '<p>  Sin platillos</p>';
+      
+      return platillos.map(p => {
+        let html = `<p>  ${p.cantidad}x ${p.nombrePlatillo} - $${(p.importe || 0).toFixed(2)}</p>`;
+        
+        // Agregar extras si existen
+        if (p.extras && p.extras.length > 0) {
+          const extrasHtml = p.extras.map((e: any) => 
+            `<p style="margin-left: 25px; font-size: 0.9em; color: #666;">+ ${e.cantidad}x ${e.nombreExtra} - $${(e.importe || 0).toFixed(2)}</p>`
+          ).join('');
+          html += extrasHtml;
+        }
+        
+        return html;
+      }).join('');
+    };
+    
     return `
       <div class="header">
         <h2>RESTAURANTE</h2>
@@ -292,10 +349,7 @@ const Cobrar: React.FC = () => {
         ${ordenesCliente.map((orden: OrdenCompleta) => `
           <p><strong>Orden #${orden._id?.toString().slice(-6)}</strong></p>
           <h4>Platillos:</h4>
-          ${orden.platillos?.length 
-            ? orden.platillos.map((p: any) => `<p>  ${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
-            : '<p>  Sin platillos</p>'
-          }
+          ${generatePlatillosHtmlForMesa(orden.platillos || [])}
           <h4>Productos:</h4>
           ${orden.productos?.length
             ? orden.productos.map((p: any) => `<p>  ${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
@@ -453,9 +507,21 @@ const Cobrar: React.FC = () => {
                               <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5">
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                                   <div className="min-w-0 flex-1">
-                                    <h5 className="font-medium text-gray-900 truncate">
-                                      Orden #{orden._id?.toString().slice(-6)}
-                                    </h5>
+                                    <div className="flex items-center gap-2">
+                                      <h5 className="font-medium text-gray-900 truncate">
+                                        Orden #{orden._id?.toString().slice(-6)}
+                                      </h5>
+                                      <button
+                                        onClick={() => toggleOrdenExpansion(orden._id?.toString() || '')}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      >
+                                        {expandedOrdenes.has(orden._id?.toString() || '') ? (
+                                          <ChevronDown className="w-4 h-4" />
+                                        ) : (
+                                          <ChevronRight className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                    </div>
                                     {orden.notas && (
                                       <div className="flex items-start space-x-1 mt-1">
                                         <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -477,6 +543,77 @@ const Cobrar: React.FC = () => {
                                     }`}>{orden.estatus}</span>
                                   </div>
                                 </div>
+
+                                {/* Detalles de la orden - Panel expandible */}
+                                {expandedOrdenes.has(orden._id?.toString() || '') && (
+                                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+                                    <h6 className="font-medium text-gray-900 mb-2 text-sm">Detalles de la orden:</h6>
+                                    
+                                    {/* Productos */}
+                                    {orden.productos && orden.productos.length > 0 && (
+                                      <div className="mb-3">
+                                        <p className="text-xs font-medium text-gray-700 mb-1">Productos:</p>
+                                        <div className="space-y-1">
+                                          {orden.productos.map((producto, idx) => (
+                                            <div key={idx} className="flex justify-between items-center text-xs">
+                                              <span className="text-gray-600">
+                                                {producto.cantidad}x {producto.nombreProducto || producto.nombre || 'Producto'}
+                                              </span>
+                                              <span className="font-medium text-gray-900">
+                                                ${(producto.importe || 0).toFixed(2)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Platillos */}
+                                    {orden.platillos && orden.platillos.length > 0 && (
+                                      <div className="mb-3">
+                                        <p className="text-xs font-medium text-gray-700 mb-1">Platillos:</p>
+                                        <div className="space-y-2">
+                                          {orden.platillos.map((platillo, idx) => (
+                                            <div key={idx} className="space-y-1">
+                                              <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-600">
+                                                  {platillo.cantidad}x {platillo.nombrePlatillo} ({platillo.nombreGuiso})
+                                                </span>
+                                                <span className="font-medium text-gray-900">
+                                                  ${(platillo.importe || 0).toFixed(2)}
+                                                </span>
+                                              </div>
+                                              
+                                              {/* Extras del platillo */}
+                                              {platillo.extras && platillo.extras.length > 0 && (
+                                                <div className="ml-3 space-y-1">
+                                                  {platillo.extras.map((extra: any, extraIdx: number) => (
+                                                    <div key={extraIdx} className="flex justify-between items-center text-xs">
+                                                      <span className="text-purple-600 italic">
+                                                        + {extra.cantidad}x {extra.nombreExtra}
+                                                      </span>
+                                                      <span className="font-medium text-purple-700">
+                                                        ${(extra.importe || 0).toFixed(2)}
+                                                      </span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Total de la orden */}
+                                    <div className="pt-2 border-t border-gray-200">
+                                      <div className="flex justify-between items-center text-sm font-semibold">
+                                        <span className="text-gray-900">Total:</span>
+                                        <span className="text-green-600">${orden.total?.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 <div className="flex flex-col sm:flex-row gap-2">
                                   <button 

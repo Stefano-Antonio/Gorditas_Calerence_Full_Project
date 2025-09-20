@@ -87,6 +87,12 @@ export interface Orden extends BaseEntity {
   notas?: string;
 }
 
+export interface OrdenCompleta extends Orden {
+  productos?: OrdenDetalleProducto[];
+  platillos?: OrdenDetallePlatillo[];
+  extras?: any[];
+}
+
 export interface Suborden extends BaseEntity {
   nombre: string;
   orden: string;
@@ -100,11 +106,13 @@ export interface OrdenDetallePlatillo extends BaseEntity {
   cantidad: number;
   precio?: number;
   subtotal?: number;
+  importe?: number;
   listo?: boolean;
   entregado?: boolean;
   nombrePlatillo?: string;
   idPlatillo?: number;
   nombreGuiso?: string;
+  extras?: OrdenDetalleExtra[]; // Extras vinculados a este platillo
 }
 
 export interface OrdenDetalleProducto extends BaseEntity {
@@ -194,8 +202,31 @@ export interface OrderStep {
 export interface MesaAgrupada {
   idMesa: number;
   nombreMesa: string;
-  ordenes: Orden[];
+  ordenes: OrdenCompleta[];
   totalOrdenes: number;
   totalMonto: number;
-  clientes: { [cliente: string]: Orden[] };
+  clientes: { [cliente: string]: OrdenCompleta[] };
+}
+
+export interface TipoExtra extends BaseEntity {
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface Extra extends BaseEntity {
+  nombre: string;
+  descripcion?: string;
+  costo: number;
+  idTipoExtra: string;
+}
+
+export interface OrdenDetalleExtra extends BaseEntity {
+  idOrdenDetallePlatillo: string;
+  idExtra: number;
+  nombreExtra: string;
+  costoExtra: number;
+  cantidad: number;
+  importe: number;
+  listo?: boolean;
+  entregado?: boolean;
 }

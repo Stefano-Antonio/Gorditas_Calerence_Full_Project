@@ -24,6 +24,8 @@ const catalogModels = [
   { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
+  { id: 'tipoextra', name: 'Tipos de Extra', fields: ['nombre', 'descripcion'], hasActivo: true },
+  { id: 'extra', name: 'Extras', fields: ['nombre', 'idTipoExtra', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
   { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
@@ -34,6 +36,7 @@ const Catalogos: React.FC = () => {
   // Tipos dinámicos para selects
   const [tiposPlatillo, setTiposPlatillo] = useState<any[]>([]);
   const [tiposProducto, setTiposProducto] = useState<any[]>([]);
+  const [tiposExtra, setTiposExtra] = useState<any[]>([]);
   // Tipos fijos para usuarios
   const tiposUsuarioFijos = [
     { value: 'Despachador', label: 'Despachador', descripcion: 'Atiende y despacha órdenes.' },
@@ -73,6 +76,20 @@ const Catalogos: React.FC = () => {
           }
         } else {
           setTiposProducto([]);
+        }
+      }
+      if (selectedModel.id === 'extra') {
+        const res = await apiService.getCatalog('tipoextra');
+        if (res.success && res.data) {
+          if (Array.isArray(res.data.items)) {
+            setTiposExtra(res.data.items);
+          } else if (Array.isArray(res.data)) {
+            setTiposExtra(res.data);
+          } else {
+            setTiposExtra([]);
+          }
+        } else {
+          setTiposExtra([]);
         }
       }
       if (selectedModel.id === 'usuario') {
@@ -169,6 +186,14 @@ const Catalogos: React.FC = () => {
       if (selectedModel.id === 'platillo') {
         // Map 'costo' to 'precio' for platillo creation
         formData.precio = formData.costo;
+        if (!formData.costo || formData.costo <= 0) {
+          setError('El campo "costo" es obligatorio y debe ser mayor a 0.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (selectedModel.id === 'extra') {
         if (!formData.costo || formData.costo <= 0) {
           setError('El campo "costo" es obligatorio y debe ser mayor a 0.');
           setSaving(false);
@@ -281,6 +306,21 @@ const Catalogos: React.FC = () => {
           </select>
         );
       }
+      case 'idTipoExtra': {
+        // Mostrar solo tipos de extra existentes
+        return (
+          <select
+            value={value || ''}
+            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            <option value="">Selecciona tipo de extra</option>
+            {(Array.isArray(tiposExtra) ? tiposExtra : []).map(tipo => (
+              <option key={tipo._id} value={tipo._id}>{tipo.nombre}</option>
+            ))}
+          </select>
+        );
+      }
       case 'idTipoProducto': {
         // Mostrar solo tipos de producto existentes
         return (
@@ -378,6 +418,7 @@ const Catalogos: React.FC = () => {
       descripcion: 'Descripción',
       codigoBarras: 'Código de Barras',
       idTipoProducto: 'Tipo de Producto',
+      idTipoExtra: 'Tipo de Extra',
       cantidad: 'Cantidad',
       costo: 'Costo',
       precio: 'Precio',
@@ -514,7 +555,7 @@ const Catalogos: React.FC = () => {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Nombre</th>
                       <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Estado</th>
-                      {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
+                      {(selectedModel.id === 'producto' || selectedModel.id === 'platillo' || selectedModel.id === 'extra') && (
                         <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Precio</th>
                       )}
                       <th className="text-left py-3 px-2 sm:px-4 font-medium text-gray-900 text-sm sm:text-base">Acciones</th>
@@ -548,7 +589,7 @@ const Catalogos: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        {(selectedModel.id === 'producto' || selectedModel.id === 'platillo') && (
+                        {(selectedModel.id === 'producto' || selectedModel.id === 'platillo' || selectedModel.id === 'extra') && (
                           <td className="py-3 px-2 sm:px-4">
                             <span className="font-medium text-green-600 text-sm sm:text-base whitespace-nowrap">
                               ${((item as any).costo || (item as any).precio || 0).toFixed(2)}

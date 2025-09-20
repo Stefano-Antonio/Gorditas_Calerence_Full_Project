@@ -8,12 +8,13 @@ import {
   ChefHat
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Mesa, Platillo, Guiso, OrderStep, ApiResponse } from '../types';
+import { Mesa, Platillo, Guiso, OrderStep, ApiResponse, Extra, TipoExtra } from '../types';
 
 interface PlatilloSeleccionado {
   platillo: Platillo;
   guiso: Guiso;
   cantidad: number;
+  extras: any[];
 }
 
 interface OrdenEnProceso {
@@ -31,6 +32,8 @@ const NuevaOrden: React.FC = () => {
   const [platillosSeleccionados, setPlatillosSeleccionados] = useState<PlatilloSeleccionado[]>([]);
   // Agrega estado para productos seleccionados
   const [productosSeleccionados, setProductosSeleccionados] = useState<any[]>([]);
+  // Estado temporal para extras antes de vincularlos a un platillo
+  const [extrasTemporales, setExtrasTemporales] = useState<any[]>([]);
   // Estado para acumular múltiples órdenes de la misma mesa
   const [ordenesEnProceso, setOrdenesEnProceso] = useState<OrdenEnProceso[]>([]);
   
@@ -39,8 +42,13 @@ const NuevaOrden: React.FC = () => {
   const [ordenesActivas, setOrdenesActivas] = useState<any[]>([]);
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [extras, setExtras] = useState<Extra[]>([]);
+  const [tiposExtras, setTiposExtras] = useState<TipoExtra[]>([]);
   const [selectedProducto, setSelectedProducto] = useState<any | null>(null);
   const [cantidadProducto, setCantidadProducto] = useState(1);
+  const [selectedExtra, setSelectedExtra] = useState<Extra | null>(null);
+  const [cantidadExtra, setCantidadExtra] = useState(1);
+  const [selectedTipoExtra, setSelectedTipoExtra] = useState<TipoExtra | null>(null);
   const [guisos, setGuisos] = useState<Guiso[]>([]);
   const [selectedPlatillo, setSelectedPlatillo] = useState<Platillo | null>(null);
   const [selectedGuiso, setSelectedGuiso] = useState<Guiso | null>(null);
@@ -85,11 +93,13 @@ const NuevaOrden: React.FC = () => {
 
   const loadInitialData = async () => {
     try {
-      const [mesasResponse, platillosResponse, guisosResponse, productosResponse, ordenesResponse] = await Promise.all([
+      const [mesasResponse, platillosResponse, guisosResponse, productosResponse, extrasResponse, tiposExtrasResponse, ordenesResponse] = await Promise.all([
         apiService.getCatalog<ApiResponse<Mesa>>('mesa'),
         apiService.getCatalog<ApiResponse<Platillo>>('platillo'),
         apiService.getCatalog<ApiResponse<Guiso>>('guiso'),
         apiService.getCatalog<ApiResponse<any>>('producto'),
+        apiService.getCatalog<ApiResponse<Extra>>('extra'),
+        apiService.getCatalog<ApiResponse<TipoExtra>>('tipoextra'),
         apiService.getOrdenes(),
       ]);
 
@@ -97,6 +107,8 @@ const NuevaOrden: React.FC = () => {
       setPlatillos(Array.isArray(platillosResponse.data?.items) ? platillosResponse.data.items : Array.isArray(platillosResponse.data) ? platillosResponse.data : []);
       setGuisos(Array.isArray(guisosResponse.data?.items) ? guisosResponse.data.items : Array.isArray(guisosResponse.data) ? guisosResponse.data : []);
       setProductos(Array.isArray(productosResponse.data?.items) ? productosResponse.data.items : Array.isArray(productosResponse.data) ? productosResponse.data : []);
+      setExtras(Array.isArray(extrasResponse.data?.items) ? extrasResponse.data.items : Array.isArray(extrasResponse.data) ? extrasResponse.data : []);
+      setTiposExtras(Array.isArray(tiposExtrasResponse.data?.items) ? tiposExtrasResponse.data.items : Array.isArray(tiposExtrasResponse.data) ? tiposExtrasResponse.data : []);
       
       // Procesar órdenes activas para identificar mesas ocupadas
       if (ordenesResponse.success && ordenesResponse.data) {
@@ -183,12 +195,42 @@ const NuevaOrden: React.FC = () => {
       platillo: selectedPlatillo,
       guiso: selectedGuiso,
       cantidad,
+      extras: [...extrasTemporales], // Incluir extras vinculados al platillo
     };
 
     setPlatillosSeleccionados(prev => [...prev, nuevo]);
     setSelectedPlatillo(null);
     setSelectedGuiso(null);
     setCantidad(1);
+    // Limpiar extras después de agregar el platillo
+    setExtrasTemporales([]);
+    setSelectedExtra(null);
+    setSelectedTipoExtra(null);
+    setCantidadExtra(1);
+  };
+
+  const handleAddExtra = () => {
+    if (!selectedExtra) {
+      setError('Selecciona un extra');
+      return;
+    }
+
+    const nuevo = {
+      idExtra: selectedExtra._id,
+      nombreExtra: selectedExtra.nombre,
+      costoExtra: selectedExtra.costo,
+      idTipoExtra: selectedExtra.idTipoExtra,
+      cantidad: cantidadExtra
+    };
+
+    setExtrasTemporales(prev => [...prev, nuevo]);
+    setSelectedExtra(null);
+    setCantidadExtra(1);
+    setError('');
+  };
+
+  const handleRemoveExtra = (index: number) => {
+    setExtrasTemporales(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRemovePlatillo = (index: number) => {
@@ -274,6 +316,26 @@ const NuevaOrden: React.FC = () => {
             setLoading(false);
             return;
           }
+
+          // Agregar extras del platillo si existen
+          if (item.extras && item.extras.length > 0) {
+            const platilloId = (platilloResponse.data as { _id: string })._id;
+            for (const extra of item.extras) {
+              const extraData = {
+                idExtra: Number(extra.idExtra),
+                nombreExtra: extra.nombreExtra,
+                costoExtra: extra.costoExtra,
+                cantidad: extra.cantidad
+              };
+
+              const extraResponse = await apiService.addExtra(platilloId, extraData);
+              if (!extraResponse.success) {
+                setError(`Error agregando extra: ${extra.nombreExtra} para ${ordenData.nombreCliente}`);
+                setLoading(false);
+                return;
+              }
+            }
+          }
         }
 
         // Agregar productos
@@ -308,11 +370,15 @@ const NuevaOrden: React.FC = () => {
         setNotas('');
         setPlatillosSeleccionados([]);
         setProductosSeleccionados([]);
+        setExtrasTemporales([]);
         setOrdenesEnProceso([]); // Limpiar órdenes en proceso
         setSelectedPlatillo(null);
         setSelectedGuiso(null);
         setSelectedProducto(null);
+        setSelectedExtra(null);
         setCantidad(1);
+        setCantidadProducto(1);
+        setCantidadExtra(1);
         setCantidadProducto(1);
         setIsOrderComplete(true);
         setSuccess('');
@@ -342,7 +408,10 @@ const NuevaOrden: React.FC = () => {
   const getTotalOrden = () => {
     return (
       platillosSeleccionados.reduce(
-        (sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad),
+        (sum, item) => sum + (
+          (item.platillo.costo ?? 0) * item.cantidad +
+          item.extras.reduce((extraSum, extra) => extraSum + (extra.costoExtra * extra.cantidad), 0)
+        ),
         0
       ) +
       productosSeleccionados.reduce(
@@ -596,6 +665,111 @@ const NuevaOrden: React.FC = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Extra Form - Moved here */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Extra
+                    </label>
+                    <select
+                      value={selectedTipoExtra ? String(selectedTipoExtra._id) : ''}
+                      onChange={(e) => {
+                        const tipo = tiposExtras.find(t => String(t._id) === e.target.value);
+                        setSelectedTipoExtra(tipo || null);
+                        setSelectedExtra(null); // Reset selected extra when type changes
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Seleccionar tipo de extra</option>
+                      {tiposExtras.filter(t => t.activo).map((tipo) => (
+                        <option key={tipo._id} value={tipo._id}>
+                          {tipo.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Extra
+                    </label>
+                    <select
+                      value={selectedExtra ? String(selectedExtra._id) : ''}
+                      onChange={(e) => {
+                        const extra = extras.find(ex => String(ex._id) === e.target.value);
+                        setSelectedExtra(extra || null);
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      disabled={!selectedTipoExtra}
+                    >
+                      <option value="">Seleccionar extra</option>
+                      {selectedTipoExtra && extras.filter(ex => ex.activo && String(ex.idTipoExtra) === String(selectedTipoExtra._id)).map((extra) => (
+                        <option key={extra._id} value={extra._id}>
+                          {extra.nombre} - ${extra.costo}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {selectedExtra && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Cantidad Extra
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setCantidadExtra(Math.max(1, cantidadExtra - 1))}
+                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="text-lg font-semibold w-12 text-center">{cantidadExtra}</span>
+                        <button
+                          type="button"
+                          onClick={() => setCantidadExtra(cantidadExtra + 1)}
+                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAddExtra}
+                      disabled={!selectedExtra}
+                      className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Plus className="w-5 h-5 inline mr-2" />
+                      Agregar Extra
+                    </button>
+                  </>
+                )}
+
+                {/* Lista de extras temporales */}
+                {extrasTemporales.length > 0 && (
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <h4 className="text-sm font-medium text-purple-800 mb-2">
+                      Extras para este platillo ({extrasTemporales.length}):
+                    </h4>
+                    <div className="space-y-2">
+                      {extrasTemporales.map((extra, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-purple-700">
+                            {extra.nombreExtra} (x{extra.cantidad}) - ${(extra.costoExtra * extra.cantidad).toFixed(2)}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveExtra(index)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cantidad
@@ -696,9 +870,36 @@ const NuevaOrden: React.FC = () => {
                         <p className="text-sm text-gray-600">
                           {item.guiso.nombre} • Cantidad: {item.cantidad}
                         </p>
-                        <p className="text-sm font-medium text-green-600">
-                          ${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}
-                        </p>
+                        {item.extras.length > 0 && (
+                          <div className="mt-1">
+                            <p className="text-xs text-purple-600 font-medium">Extras:</p>
+                            {item.extras.map((extra, extraIndex) => (
+                              <p key={extraIndex} className="text-xs text-purple-500">
+                                • {extra.nombreExtra} (x{extra.cantidad}) - ${(extra.costoExtra * extra.cantidad).toFixed(2)}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-sm font-medium text-green-600">
+                          {item.extras.length > 0 ? (
+                            <div>
+                              <div className="text-xs text-gray-500">
+                                Platillo: ${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)} + 
+                                Extras: ${item.extras.reduce((sum, extra) => sum + (extra.costoExtra * extra.cantidad), 0).toFixed(2)}
+                              </div>
+                              <div className="font-bold">
+                                Total: ${(
+                                  (item.platillo.costo ?? 0) * item.cantidad + 
+                                  item.extras.reduce((sum, extra) => sum + (extra.costoExtra * extra.cantidad), 0)
+                                ).toFixed(2)}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              ${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => handleRemovePlatillo(index)}
@@ -740,12 +941,7 @@ const NuevaOrden: React.FC = () => {
                   <div className="mt-4 p-4 bg-orange-50 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-900">Total:</span>
-                      <span className="text-xl font-bold text-orange-600">
-                        ${(
-                          platillosSeleccionados.reduce((sum, item) => sum + ((item.platillo.costo ?? 0) * item.cantidad), 0) +
-                          productosSeleccionados.reduce((sum, item) => sum + (item.costoProducto * item.cantidad), 0)
-                        ).toFixed(2)}
-                      </span>
+                      <span className="sm:ml-2 font-medium text-orange-600">${getTotalOrden().toFixed(2)}</span>
                     </div>
                   </div>
                 )}
@@ -896,9 +1092,21 @@ const NuevaOrden: React.FC = () => {
                         <span className="text-sm text-gray-500">No hay platillos</span>
                       ) : (
                         orden.platillos.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center text-sm">
-                            <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
-                            <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                          <div key={index} className="space-y-1">
+                            <div className="flex justify-between items-center text-sm">
+                              <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
+                              <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                            </div>
+                            {item.extras.length > 0 && (
+                              <div className="ml-4 space-y-1">
+                                {item.extras.map((extra, extraIndex) => (
+                                  <div key={extraIndex} className="flex justify-between items-center text-xs text-purple-600">
+                                    <span>+ {extra.cantidad}x {extra.nombreExtra}</span>
+                                    <span className="font-medium">${(extra.costoExtra * extra.cantidad).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -939,9 +1147,21 @@ const NuevaOrden: React.FC = () => {
                       <span className="text-sm text-gray-500">No hay platillos</span>
                     ) : (
                       platillosSeleccionados.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
-                          <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                        <div key={index} className="space-y-1">
+                          <div className="flex justify-between items-center text-sm">
+                            <span>{item.cantidad}x {item.platillo.nombre} ({item.guiso.nombre})</span>
+                            <span className="font-medium">${((item.platillo.costo ?? 0) * item.cantidad).toFixed(2)}</span>
+                          </div>
+                          {item.extras.length > 0 && (
+                            <div className="ml-4 space-y-1">
+                              {item.extras.map((extra, extraIndex) => (
+                                <div key={extraIndex} className="flex justify-between items-center text-xs text-purple-600">
+                                  <span>+ {extra.cantidad}x {extra.nombreExtra}</span>
+                                  <span className="font-medium">${(extra.costoExtra * extra.cantidad).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -995,11 +1215,14 @@ const NuevaOrden: React.FC = () => {
                     setNotas('');
                     setPlatillosSeleccionados([]);
                     setProductosSeleccionados([]);
+                    setExtrasTemporales([]);
                     setSelectedPlatillo(null);
                     setSelectedGuiso(null);
                     setSelectedProducto(null);
+                    setSelectedExtra(null);
                     setCantidad(1);
                     setCantidadProducto(1);
+                    setCantidadExtra(1);
                     setIsOrderComplete(true);
                     setError('');
                     setSuccess('');

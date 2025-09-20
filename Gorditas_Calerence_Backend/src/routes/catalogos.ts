@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { 
   Guiso, TipoProducto, Producto, TipoPlatillo, Platillo,
-  TipoUsuario, Usuario, TipoOrden, Mesa, TipoGasto, Gasto
+  TipoExtra, Extra, TipoUsuario, Usuario, TipoOrden, Mesa, TipoGasto, Gasto
 } from '../models';
 import { authenticate, isAdmin, isEncargado } from '../middleware/auth';
 import { asyncHandler, createResponse } from '../utils/helpers';
@@ -13,14 +13,22 @@ const router = Router();
 const modelMap: { [key: string]: any } = {
   guiso: Guiso,
   tipoproducto: TipoProducto,
+  'tipo-producto': TipoProducto, // Alias con guión
   producto: Producto,
   tipoplatillo: TipoPlatillo,
+  'tipo-platillo': TipoPlatillo, // Alias con guión
   platillo: Platillo,
+  tipoextra: TipoExtra,
+  'tipo-extra': TipoExtra, // Alias con guión
+  extra: Extra,
   tipousuario: TipoUsuario,
+  'tipo-usuario': TipoUsuario, // Alias con guión
   usuario: Usuario,
   tipoorden: TipoOrden,
+  'tipo-orden': TipoOrden, // Alias con guión
   mesa: Mesa,
   tipogasto: TipoGasto,
+  'tipo-gasto': TipoGasto, // Alias con guión
   gasto: Gasto
 };
 
@@ -111,7 +119,7 @@ router.put('/:modelo/:id', authenticate, validateModel,
 router.delete('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
     // Para modelos críticos, solo desactivar
-    const criticalModels = ['usuario', 'producto', 'platillo'];
+    const criticalModels = ['usuario', 'producto', 'platillo', 'extra'];
     
     if (criticalModels.includes(req.params.modelo.toLowerCase())) {
       const item = await req.Model.findByIdAndUpdate(

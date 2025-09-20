@@ -1,7 +1,7 @@
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
-//const API_BASE_URL = `http://localhost:5000/api`;
-const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
+const API_BASE_URL = `http://localhost:5000/api`;
+//const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
 
 class ApiService {
   async getOrden(ordenId: string) {
@@ -99,6 +99,27 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(producto),
     });
+  }
+  async addExtra(platilloId: string, extra: any) {
+    return this.request(`/ordenes/platillo/${platilloId}/extra`, {
+      method: 'POST',
+      body: JSON.stringify(extra),
+    });
+  }
+  async updateExtraStatus(extraDetalleId: string, estatus: string) {
+    return this.request(`/ordenes/extra/${extraDetalleId}/estatus`, {
+      method: 'PUT',
+      body: JSON.stringify({ estatus }),
+    });
+  }
+  async deleteExtra(extraDetalleId: string) {
+    return this.request(`/ordenes/extra/${extraDetalleId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async removeExtra(extraDetalleId: string) {
+    return this.deleteExtra(extraDetalleId);
   }
   async updateOrdenStatus(ordenId: string, estatus: string) {
     return this.request(`/ordenes/${ordenId}/estatus`, {
@@ -226,6 +247,24 @@ class ApiService {
 
   async removeProducto(productoId: string) {
     return this.request(`/ordenes/producto/${productoId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addDetalleExtra(data: { idOrdenDetallePlatillo: string; idExtra: string; nombreExtra: string; costoExtra: number; cantidad?: number }) {
+    return this.request(`/ordenes/platillo/${data.idOrdenDetallePlatillo}/extra`, {
+      method: 'POST',
+      body: JSON.stringify({
+        idExtra: data.idExtra,
+        nombreExtra: data.nombreExtra,
+        costoExtra: data.costoExtra,
+        cantidad: data.cantidad || 1
+      }),
+    });
+  }
+
+  async removeDetalleExtra(detalleExtraId: string) {
+    return this.request(`/ordenes/extra/${detalleExtraId}`, {
       method: 'DELETE',
     });
   }

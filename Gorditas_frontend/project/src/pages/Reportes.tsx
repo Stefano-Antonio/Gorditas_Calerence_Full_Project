@@ -79,6 +79,7 @@ const Reportes: React.FC = () => {
   const [ordenes, setOrdenes] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [platillos, setPlatillos] = useState<any[]>([]);
+  const [extras, setExtras] = useState<any[]>([]);
   const [ordenesDia, setOrdenesDia] = useState<any[]>([]);
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const [ordenExpandida, setOrdenExpandida] = useState<string | null>(null);
@@ -117,12 +118,18 @@ const Reportes: React.FC = () => {
             const ordenes = ventasRes.data.ordenes || [];
             const productos = ventasRes.data.productos || [];
             const platillos = ventasRes.data.platillos || [];
+            const extras = ventasRes.data.extras || [];
 
             setOrdenes(ordenes);
             setProductos(productos);
             setPlatillos(platillos);
+            setExtras(extras);
 
             console.log('Órdenes cargadas:', ordenes.length);
+            console.log('Extras cargados:', extras.length);
+            console.log('Datos completos del backend:', ventasRes.data);
+            console.log('Estructura de datos:', Object.keys(ventasRes.data));
+            console.log('Datos de extras:', extras.slice(0, 3)); // Mostrar solo los primeros 3 para debug
             console.log('VentasPorDia del backend:', ventasPorDia);
             console.log('Datos de órdenes:', ordenes.map((o: any) => ({ 
               folio: o.folio, 
@@ -384,6 +391,13 @@ const Reportes: React.FC = () => {
   const mostrarOrdenesDeDia = (fecha: string) => {
     console.log('Fecha seleccionada:', fecha);
     console.log('Órdenes disponibles:', ordenes.length);
+    console.log('Extras disponibles:', extras.length);
+    
+    if (extras.length > 0) {
+      console.log('Muestra de extras:', extras.slice(0, 3));
+    } else {
+      console.log('No hay extras disponibles en los datos');
+    }
     
     // Si no hay órdenes, mostrar todas las pagadas del período
     if (ordenes.length === 0) {
@@ -629,6 +643,27 @@ const Reportes: React.FC = () => {
                                 const subOrdenPrefix = pl.idSuborden.slice(0, 7);
                                 return ordenPrefix === subOrdenPrefix;
                               });
+
+                              // Crear un mapa de platillos con sus extras
+                              const platillosConExtras = platillosOrden.map(platillo => {
+                                const extrasDelPlatillo = extras.filter(extra => 
+                                  extra.idOrdenDetallePlatillo === platillo._id
+                                );
+                                
+                                // Debug específico para esta orden
+                                if (orden._id === ordenExpandida) {
+                                  console.log(`Platillo ${platillo.nombrePlatillo} (ID: ${platillo._id})`);
+                                  console.log(`Extras encontrados: ${extrasDelPlatillo.length}`);
+                                  if (extrasDelPlatillo.length > 0) {
+                                    console.log('Extras:', extrasDelPlatillo);
+                                  }
+                                }
+                                
+                                return {
+                                  ...platillo,
+                                  extras: extrasDelPlatillo
+                                };
+                              });
                               
                               return (
                                 <React.Fragment key={orden._id}>
@@ -690,7 +725,7 @@ const Reportes: React.FC = () => {
                                             <p className="text-gray-500 text-xs sm:text-sm">No hay productos.</p>
                                           )}
                                           <h4 className="font-semibold mb-2 text-xs sm:text-sm">Platillos</h4>
-                                          {platillosOrden.length > 0 ? (
+                                          {platillosConExtras.length > 0 ? (
                                             <div className="overflow-x-auto">
                                               <table className="min-w-full text-xs sm:text-sm">
                                                 <thead>
@@ -702,22 +737,61 @@ const Reportes: React.FC = () => {
                                                   </tr>
                                                 </thead>
                                                 <tbody>
-                                                  {platillosOrden.map(pl => (
-                                                    <tr key={pl._id}>
-                                                      <td className="text-left px-2 py-2 w-2/5">{pl.nombrePlatillo}</td>
-                                                      <td className="text-left px-2 py-2 w-2/5">{pl.nombreGuiso}</td>
-                                                      <td className="text-center px-2 py-2 w-1/10">{pl.cantidad}</td>
-                                                      <td className="text-right px-2 py-2 w-1/10">${pl.importe.toFixed(2)}</td>
-                                                    </tr>
+                                                  {platillosConExtras.map(pl => (
+                                                    <React.Fragment key={pl._id}>
+                                                      <tr>
+                                                        <td className="text-left px-2 py-2 w-2/5">{pl.nombrePlatillo}</td>
+                                                        <td className="text-left px-2 py-2 w-2/5">{pl.nombreGuiso}</td>
+                                                        <td className="text-center px-2 py-2 w-1/10">{pl.cantidad}</td>
+                                                        <td className="text-right px-2 py-2 w-1/10">${pl.importe.toFixed(2)}</td>
+                                                      </tr>
+                                                      {/* Mostrar extras si existen */}
+                                                      {pl.extras && pl.extras.length > 0 ? pl.extras.map((extra: any) => (
+                                                        <tr key={extra._id} className="bg-purple-50">
+                                                          <td className="text-left px-2 py-1 w-2/5 pl-6 text-purple-700 italic">
+                                                            + {extra.nombreExtra}
+                                                          </td>
+                                                          <td className="text-left px-2 py-1 w-2/5 text-purple-600 italic">
+                                                            Extra
+                                                          </td>
+                                                          <td className="text-center px-2 py-1 w-1/10 text-purple-700">
+                                                            {extra.cantidad}
+                                                          </td>
+                                                          <td className="text-right px-2 py-1 w-1/10 text-purple-700">
+                                                            ${extra.importe?.toFixed(2) || '0.00'}
+                                                          </td>
+                                                        </tr>
+                                                      )) : (
+                                                        <tr key={`${pl._id}-no-extras`} className="bg-gray-50">
+                                                          <td className="text-left px-2 py-1 w-2/5 pl-6 text-gray-500 italic text-xs">
+                                                            Sin extras
+                                                          </td>
+                                                          <td className="text-left px-2 py-1 w-2/5 text-gray-500 italic text-xs">
+                                                            -
+                                                          </td>
+                                                          <td className="text-center px-2 py-1 w-1/10 text-gray-500 text-xs">
+                                                            -
+                                                          </td>
+                                                          <td className="text-right px-2 py-1 w-1/10 text-gray-500 text-xs">
+                                                            $0.00
+                                                          </td>
+                                                        </tr>
+                                                      )}
+                                                    </React.Fragment>
                                                   ))}
-                                                  {platillosOrden.length > 0 && (
+                                                  {platillosConExtras.length > 0 && (
                                                     <tr className="border-t border-gray-300 font-semibold bg-gray-50">
                                                       <td className="text-left px-2 py-2 w-2/5" colSpan={2}>Total Platillos</td>
                                                       <td className="text-center px-2 py-2 w-1/10">
-                                                        {platillosOrden.reduce((sum, pl) => sum + pl.cantidad, 0)}
+                                                        {platillosConExtras.reduce((sum, pl) => sum + pl.cantidad, 0)}
                                                       </td>
                                                       <td className="text-right px-2 py-2 w-1/10">
-                                                        ${platillosOrden.reduce((sum, pl) => sum + pl.importe, 0).toFixed(2)}
+                                                        ${platillosConExtras.reduce((sum, pl) => {
+                                                          const platilloTotal = pl.importe || 0;
+                                                          const extrasTotal = pl.extras?.reduce((extraSum: number, extra: any) => 
+                                                            extraSum + (extra.importe || 0), 0) || 0;
+                                                          return sum + platilloTotal + extrasTotal;
+                                                        }, 0).toFixed(2)}
                                                       </td>
                                                     </tr>
                                                   )}
@@ -727,6 +801,56 @@ const Reportes: React.FC = () => {
                                           ) : (
                                             <p className="text-gray-500 text-xs sm:text-sm">No hay platillos.</p>
                                           )}
+                                          
+                                          {/* Mostrar extras independientes si los hay */}
+                                          {(() => {
+                                            const extrasIndependientes = extras.filter(extra => {
+                                              // Verificar si el extra pertenece a esta orden pero no está vinculado a un platillo específico
+                                              const pertenece = platillosConExtras.some(pl => 
+                                                pl.extras?.some((e: any) => e._id === extra._id)
+                                              );
+                                              return !pertenece && (
+                                                extra.idOrden === orden._id ||
+                                                (orden._id && extra.idOrdenDetallePlatillo && 
+                                                 extra.idOrdenDetallePlatillo.slice(0, 7) === orden._id.slice(0, 7))
+                                              );
+                                            });
+                                            
+                                            if (extrasIndependientes.length > 0) {
+                                              return (
+                                                <>
+                                                  <h4 className="font-semibold mb-2 text-xs sm:text-sm mt-4">Extras Adicionales</h4>
+                                                  <div className="overflow-x-auto">
+                                                    <table className="min-w-full text-xs sm:text-sm">
+                                                      <thead>
+                                                        <tr>
+                                                          <th className="text-left px-2 py-2 w-1/2 font-medium text-gray-900">Extra</th>
+                                                          <th className="text-center px-2 py-2 w-1/4 font-medium text-gray-900">Cantidad</th>
+                                                          <th className="text-right px-2 py-2 w-1/4 font-medium text-gray-900">Importe</th>
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody>
+                                                        {extrasIndependientes.map(extra => (
+                                                          <tr key={extra._id} className="bg-purple-50">
+                                                            <td className="text-left px-2 py-2 w-1/2 text-purple-700">
+                                                              {extra.nombreExtra}
+                                                            </td>
+                                                            <td className="text-center px-2 py-2 w-1/4 text-purple-700">
+                                                              {extra.cantidad}
+                                                            </td>
+                                                            <td className="text-right px-2 py-2 w-1/4 text-purple-700">
+                                                              ${extra.importe?.toFixed(2) || '0.00'}
+                                                            </td>
+                                                          </tr>
+                                                        ))}
+                                                      </tbody>
+                                                    </table>
+                                                  </div>
+                                                </>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                         </div>
                                       </td>
                                     </tr>

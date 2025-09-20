@@ -3,6 +3,7 @@ import {
   Orden, 
   OrdenDetalleProducto, 
   OrdenDetallePlatillo,
+  OrdenDetalleExtra,
   Producto,
   Gasto 
 } from '../models';
@@ -52,6 +53,10 @@ router.get('/ventas', authenticate, isEncargado,
     // Ahora obtenemos los platillos usando los subordenIds
     const platillos = await OrdenDetallePlatillo.find({ idSuborden: { $in: subordenIds } });
 
+    // Obtener los extras vinculados a los platillos
+    const platilloIds = platillos.map(p => p._id);
+    const extras = await OrdenDetalleExtra.find({ idOrdenDetallePlatillo: { $in: platilloIds } });
+
     // El resto de los cálculos
     const [total, resumen, ventasPorDia, ventasPorTipo] = await Promise.all([
       Orden.countDocuments(filter),
@@ -98,6 +103,7 @@ router.get('/ventas', authenticate, isEncargado,
       ordenes,
       productos,
       platillos,
+      extras,
       pagination: {
         total
       },

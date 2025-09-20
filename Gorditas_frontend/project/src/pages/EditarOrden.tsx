@@ -15,7 +15,7 @@ import {
   Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada } from '../types';
+import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada, Extra, TipoExtra } from '../types';
 
 const EditarOrden: React.FC = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
@@ -44,6 +44,13 @@ const EditarOrden: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [hasNewOrders, setHasNewOrders] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+
+  // Estados para extras
+  const [extras, setExtras] = useState<Extra[]>([]);
+  const [tiposExtras, setTiposExtras] = useState<TipoExtra[]>([]);
+  const [showExtrasModal, setShowExtrasModal] = useState(false);
+  const [selectedPlatilloForExtras, setSelectedPlatilloForExtras] = useState<string | null>(null);
+  const [tempExtras, setTempExtras] = useState<{platilloId: string, extraId: string, cantidad: number}[]>([]);
 
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
@@ -104,11 +111,13 @@ const EditarOrden: React.FC = () => {
 
   const loadData = async () => {
   try {
-    const [ordenesRes, platillosRes, guisosRes, productosRes] = await Promise.all([
+    const [ordenesRes, platillosRes, guisosRes, productosRes, extrasRes, tiposExtrasRes] = await Promise.all([
       apiService.getOrdenes(),
       apiService.getCatalog<Platillo>('platillo'),
       apiService.getCatalog<Guiso>('guiso'),
-      apiService.getCatalog<Producto>('producto')
+      apiService.getCatalog<Producto>('producto'),
+      apiService.getCatalog<Extra>('extra'),
+      apiService.getCatalog<TipoExtra>('tipoextra')
     ]);
 
     // Filtrar órdenes editables
@@ -159,12 +168,100 @@ const EditarOrden: React.FC = () => {
       const productosData = productosRes.data?.items || productosRes.data || [];
       setProductos(productosData.filter((p: Producto) => p.activo));
     }
+
+    if (extrasRes.success) {
+      const extrasData = extrasRes.data?.items || extrasRes.data || [];
+      const extrasActivos = extrasData.filter((e: Extra) => e.activo);
+      console.log('Extras cargados:', extrasActivos);
+      setExtras(extrasActivos);
+    }
+
+    if (tiposExtrasRes.success) {
+      const tiposExtrasData = tiposExtrasRes.data?.items || tiposExtrasRes.data || [];
+      const tiposExtrasActivos = tiposExtrasData.filter((te: TipoExtra) => te.activo);
+      console.log('Tipos de extras cargados:', tiposExtrasActivos);
+      setTiposExtras(tiposExtrasActivos);
+    }
   } catch (error) {
     setError('Error cargando datos');
   } finally {
     setLoading(false);
   }
 };
+
+  // Función para gestionar cambios en extras
+  const handleExtraChange = async (idExtra: string, isSelected: boolean) => {
+    if (!selectedPlatilloForExtras) return;
+
+    console.log('Gestionando extra:', { idExtra, isSelected, selectedPlatilloForExtras });
+
+    try {
+      if (isSelected) {
+        // Buscar la información del extra en el catálogo
+        const extra = extras.find(e => e._id === idExtra);
+        if (!extra) {
+          setError('Extra no encontrado en el catálogo');
+          return;
+        }
+
+        // Agregar extra
+        console.log('Agregando extra...', extra);
+        const response = await apiService.addDetalleExtra({
+          idOrdenDetallePlatillo: selectedPlatilloForExtras,
+          idExtra,
+          nombreExtra: extra.nombre,
+          costoExtra: extra.costo,
+          cantidad: 1
+        });
+        
+        console.log('Respuesta agregar extra:', response);
+        
+        if (response.success) {
+          setSuccess('Extra agregado exitosamente');
+          // Recargar los detalles de la orden
+          if (selectedOrden) {
+            await loadOrdenDetails(selectedOrden);
+          }
+          setTimeout(() => setSuccess(''), 3000);
+        } else {
+          setError('Error agregando extra: ' + (response.error || 'Error desconocido'));
+        }
+      } else {
+        // Remover extra
+        console.log('Removiendo extra...');
+        const platilloDetalle = platillosDetalle
+          .find((d: any) => d._id === selectedPlatilloForExtras);
+        
+        console.log('Platillo detalle encontrado:', platilloDetalle);
+        
+        const extraToRemove = platilloDetalle?.extras?.find((e: any) => e.idExtra === idExtra);
+        
+        console.log('Extra a remover:', extraToRemove);
+        
+        if (extraToRemove && extraToRemove._id) {
+          const response = await apiService.removeDetalleExtra(extraToRemove._id);
+          
+          console.log('Respuesta remover extra:', response);
+          
+          if (response.success) {
+            setSuccess('Extra removido exitosamente');
+            // Recargar los detalles de la orden
+            if (selectedOrden) {
+              await loadOrdenDetails(selectedOrden);
+            }
+            setTimeout(() => setSuccess(''), 3000);
+          } else {
+            setError('Error removiendo extra: ' + (response.error || 'Error desconocido'));
+          }
+        } else {
+          setError('No se encontró el extra para remover');
+        }
+      }
+    } catch (error) {
+      console.error('Error al gestionar extra:', error);
+      setError('Error de conexión al gestionar extra');
+    }
+  };
 
 
   const loadOrdenDetails = async (orden: Orden) => {
@@ -610,6 +707,26 @@ const EditarOrden: React.FC = () => {
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
+                            
+                            {/* Mostrar extras del platillo */}
+                            {detalle.extras && detalle.extras.length > 0 && (
+                              <div className="mt-2 p-2 bg-purple-50 rounded-md border border-purple-200">
+                                <p className="text-xs font-medium text-purple-800 mb-1">Extras:</p>
+                                <div className="space-y-1">
+                                  {detalle.extras.map((extra, extraIndex) => (
+                                    <div key={extraIndex} className="flex justify-between items-center text-xs">
+                                      <span className="text-purple-700">
+                                        {extra.nombreExtra} (x{extra.cantidad})
+                                      </span>
+                                      <span className="font-medium text-purple-600">
+                                        ${(extra.costoExtra * extra.cantidad).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
                             {/* Status indicators for dispatched items */}
                             <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
                               {detalle.listo && (
@@ -624,7 +741,17 @@ const EditarOrden: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center justify-end flex-shrink-0">
+                          <div className="flex items-center justify-end flex-shrink-0 space-x-2">
+                            <button
+                              onClick={() => {
+                                setSelectedPlatilloForExtras(detalle._id!);
+                                setShowExtrasModal(true);
+                              }}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Gestionar extras"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -847,6 +974,86 @@ const EditarOrden: React.FC = () => {
                 className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
               >
                 {saving ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Extras */}
+      {showExtrasModal && selectedPlatilloForExtras && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-96 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-purple-700">
+                Gestionar Extras - {platillosDetalle.find(p => p._id === selectedPlatilloForExtras)?.nombrePlatillo}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowExtrasModal(false);
+                  setSelectedPlatilloForExtras(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {tiposExtras.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">No hay tipos de extras disponibles</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Tipos de extras: {tiposExtras.length}, Extras: {extras.length}
+                  </p>
+                </div>
+              ) : (
+                tiposExtras.map(tipo => {
+                  const extrasDelTipo = extras.filter(e => e.idTipoExtra === tipo._id);
+                  if (extrasDelTipo.length === 0) return null;
+
+                  return (
+                    <div key={tipo._id} className="border-b pb-3">
+                      <h4 className="font-semibold text-purple-600 mb-2">{tipo.nombre}</h4>
+                      <div className="grid gap-2">
+                        {extrasDelTipo.map(extra => {
+                          const platilloDetalle = platillosDetalle
+                            .find((d: any) => d._id === selectedPlatilloForExtras);
+                          const isSelected = platilloDetalle?.extras?.some((e: any) => e.idExtra === extra._id) || false;
+
+                          return (
+                            <div key={extra._id} className="flex items-center justify-between">
+                              <label className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => handleExtraChange(extra._id!, e.target.checked)}
+                                  className="rounded text-purple-600"
+                                />
+                                <span className="text-sm">{extra.nombre}</span>
+                              </label>
+                              <span className="text-sm font-semibold text-purple-600">
+                                +${extra.costo}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowExtrasModal(false);
+                  setSelectedPlatilloForExtras(null);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+              >
+                Cerrar
               </button>
             </div>
           </div>

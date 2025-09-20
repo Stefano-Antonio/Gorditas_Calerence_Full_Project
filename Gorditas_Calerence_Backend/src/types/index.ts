@@ -118,6 +118,7 @@ export interface IOrdenDetallePlatillo {
   importe: number;
   listo?: boolean;
   entregado?: boolean;
+  extras?: IOrdenDetalleExtra[]; // Extras vinculados a este platillo
 }
 
 export interface IGasto {
@@ -128,6 +129,34 @@ export interface IGasto {
   gastoTotal: number;
   descripcion?: string;
   fecha: Date;
+}
+
+export interface ITipoExtra {
+  _id?: number;
+  nombre: string;
+  descripcion?: string;
+  activo: boolean;
+}
+
+export interface IExtra {
+  _id?: number;
+  nombre: string;
+  descripcion?: string;
+  costo: number;
+  idTipoExtra: number;
+  activo: boolean;
+}
+
+export interface IOrdenDetalleExtra {
+  _id?: string;
+  idOrdenDetallePlatillo: string;
+  idExtra: number;
+  nombreExtra: string;
+  costoExtra: number;
+  cantidad: number;
+  importe: number;
+  listo?: boolean;
+  entregado?: boolean;
 }
 
 export enum UserRole {

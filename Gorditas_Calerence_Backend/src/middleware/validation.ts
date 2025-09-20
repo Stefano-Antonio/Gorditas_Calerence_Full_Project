@@ -57,6 +57,14 @@ export const addPlatilloToSubordenSchema = Joi.object({
   cantidad: Joi.number().min(1).required()
 });
 
+export const addExtraToOrdenSchema = Joi.object({
+  idOrden: Joi.string().optional(),
+  idExtra: Joi.number().required(),
+  nombreExtra: Joi.string().required(),
+  costoExtra: Joi.number().min(0).required(),
+  cantidad: Joi.number().min(1).required()
+});
+
 export const createGastoSchema = Joi.object({
   nombre: Joi.string().required(),
   idTipoGasto: Joi.number().required(),

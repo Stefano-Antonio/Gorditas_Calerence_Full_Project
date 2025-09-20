@@ -4,6 +4,7 @@ import {
   Suborden, 
   OrdenDetalleProducto, 
   OrdenDetallePlatillo,
+  OrdenDetalleExtra,
   Producto 
 } from '../models';
 import { authenticate, isMesero, isDespachador, isCocinero } from '../middleware/auth';
@@ -11,7 +12,8 @@ import {
   validate, 
   createOrdenSchema, 
   addProductToOrdenSchema,
-  addPlatilloToSubordenSchema 
+  addPlatilloToSubordenSchema,
+  addExtraToOrdenSchema 
 } from '../middleware/validation';
 import { asyncHandler, createResponse, calculateImporte } from '../utils/helpers';
 import { generateFolio } from '../utils/counters';
@@ -73,11 +75,29 @@ router.get('/:id', authenticate, asyncHandler(async (req: any, res: any) => {
     idSuborden: { $in: subordenIds } 
   });
 
+  // Obtener extras vinculados a cada platillo
+  const platilloIds = platillos.map(p => p._id);
+  const extras = await OrdenDetalleExtra.find({ 
+    idOrdenDetallePlatillo: { $in: platilloIds } 
+  });
+
+  // Agrupar extras por platillo
+  const platillosConExtras = platillos.map(platillo => {
+    const extrasDelPlatillo = extras.filter(extra => 
+      extra.idOrdenDetallePlatillo === platillo._id!.toString()
+    );
+    return {
+      ...platillo.toObject(),
+      extras: extrasDelPlatillo
+    };
+  });
+
   const ordenConDetalles = {
     ...orden.toObject(),
     subordenes,
     productos,
-    platillos
+    platillos: platillosConExtras,
+    extras // Mantener extras por compatibilidad
   };
 
   res.json(createResponse(true, ordenConDetalles));
@@ -208,6 +228,36 @@ router.post('/:id/suborden', authenticate,
   })
 );
 
+// POST /api/ordenes/platillo/:id/extra - Agregar extra a un platillo específico
+router.post('/platillo/:id/extra', authenticate, 
+  validate(addExtraToOrdenSchema),
+  asyncHandler(async (req: any, res: any) => {
+    const platilloDetalle = await OrdenDetallePlatillo.findById(req.params.id);
+    if (!platilloDetalle) {
+      return res.status(404).json(createResponse(false, null, 'Detalle de platillo no encontrado'));
+    }
+
+    const { costoExtra, cantidad } = req.body;
+    const importe = calculateImporte(costoExtra, cantidad);
+
+    const detalleExtra = new OrdenDetalleExtra({
+      idOrdenDetallePlatillo: req.params.id,
+      ...req.body,
+      importe
+    });
+
+    await detalleExtra.save();
+
+    // Buscar la orden para actualizar el total
+    const suborden = await Suborden.findById(platilloDetalle.idSuborden);
+    if (suborden) {
+      await updateOrdenTotal(suborden.idOrden);
+    }
+
+    res.status(201).json(createResponse(true, detalleExtra, 'Extra agregado exitosamente'));
+  })
+);
+
 // PUT /api/ordenes/:id/estatus - Cambiar estatus
 router.put('/:id/estatus', authenticate,
   asyncHandler(async (req: any, res: any) => {
@@ -323,7 +373,13 @@ async function updateOrdenTotal(ordenId: string) {
   const subordenes = await Suborden.find({ idOrden: ordenId }).select('_id');
   const subordenIds = subordenes.map(s => String(s._id));
 
-  const [productosTotal, platillosTotal] = await Promise.all([
+  // Obtener platillos para luego calcular sus extras
+  const platillos = await OrdenDetallePlatillo.find({ 
+    idSuborden: { $in: subordenIds } 
+  }).select('_id');
+  const platilloIds = platillos.map(p => String(p._id));
+
+  const [productosTotal, platillosTotal, extrasTotal] = await Promise.all([
     OrdenDetalleProducto.aggregate([
       { $match: { idOrden: ordenId } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
@@ -331,10 +387,14 @@ async function updateOrdenTotal(ordenId: string) {
     OrdenDetallePlatillo.aggregate([
       { $match: { idSuborden: { $in: subordenIds } } },
       { $group: { _id: null, total: { $sum: '$importe' } } }
+    ]),
+    OrdenDetalleExtra.aggregate([
+      { $match: { idOrdenDetallePlatillo: { $in: platilloIds } } },
+      { $group: { _id: null, total: { $sum: '$importe' } } }
     ])
   ]);
 
-  const total = (productosTotal[0]?.total || 0) + (platillosTotal[0]?.total || 0);
+  const total = (productosTotal[0]?.total || 0) + (platillosTotal[0]?.total || 0) + (extrasTotal[0]?.total || 0);
   await Orden.findByIdAndUpdate(ordenId, { total });
 }
 
@@ -396,6 +456,34 @@ router.put('/platillo/:id/entregado', authenticate,
   })
 );
 
+// PUT /api/ordenes/extra/:id/listo - Marcar extra como listo
+router.put('/extra/:id/listo', authenticate, 
+  asyncHandler(async (req: any, res: any) => {
+    const extra = await OrdenDetalleExtra.findById(req.params.id);
+    if (!extra) {
+      return res.status(404).json(createResponse(false, null, 'Extra no encontrado'));
+    }
+
+    await OrdenDetalleExtra.findByIdAndUpdate(req.params.id, { listo: true });
+    
+    res.json(createResponse(true, null, 'Extra marcado como listo'));
+  })
+);
+
+// PUT /api/ordenes/extra/:id/entregado - Marcar extra como entregado
+router.put('/extra/:id/entregado', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const extra = await OrdenDetalleExtra.findById(req.params.id);
+    if (!extra) {
+      return res.status(404).json(createResponse(false, null, 'Extra no encontrado'));
+    }
+
+    await OrdenDetalleExtra.findByIdAndUpdate(req.params.id, { entregado: true });
+    
+    res.json(createResponse(true, null, 'Extra marcado como entregado'));
+  })
+);
+
 // DELETE /api/ordenes/platillo/:id - Eliminar platillo de una suborden
 router.delete('/platillo/:id', authenticate, asyncHandler(async (req: any, res: any) => {
   const platillo = await OrdenDetallePlatillo.findById(req.params.id);
@@ -421,6 +509,26 @@ router.delete('/producto/:id', authenticate, asyncHandler(async (req: any, res: 
   // Actualizar total de la orden
   await updateOrdenTotal(producto.idOrden);
   res.json(createResponse(true, null, 'Producto eliminado exitosamente'));
+}));
+
+// DELETE /api/ordenes/extra/:id - Eliminar extra de una orden
+router.delete('/extra/:id', authenticate, asyncHandler(async (req: any, res: any) => {
+  const extra = await OrdenDetalleExtra.findById(req.params.id);
+  if (!extra) {
+    return res.status(404).json(createResponse(false, null, 'Extra no encontrado'));
+  }
+
+  // Obtener la orden a través del platillo
+  const platillo = await OrdenDetallePlatillo.findById(extra.idOrdenDetallePlatillo);
+  if (platillo) {
+    const suborden = await Suborden.findById(platillo.idSuborden);
+    if (suborden) {
+      await OrdenDetalleExtra.findByIdAndDelete(req.params.id);
+      await updateOrdenTotal(suborden.idOrden);
+    }
+  }
+  
+  res.json(createResponse(true, null, 'Extra eliminado exitosamente'));
 }));
 
 export default router;

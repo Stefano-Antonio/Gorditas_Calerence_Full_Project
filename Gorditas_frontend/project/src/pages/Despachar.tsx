@@ -15,6 +15,7 @@ import { Orden, Mesa, OrdenDetalleProducto, OrdenDetallePlatillo } from '../type
 interface OrdenConDetalles extends Orden {
   productos?: OrdenDetalleProducto[];
   platillos?: OrdenDetallePlatillo[];
+  extras?: any[]; // Add extras property
 }
 
 interface MesaAgrupada {
@@ -167,12 +168,13 @@ const Despachar: React.FC = () => {
       
       if (response.success) {
         const data = response.data;
-          // Mapear platillos al formato esperado
+          // Mapear platillos al formato esperado y incluir extras
           const platillos = (data.platillos || []).map((p: any) => ({
             ...p,
             platillo: p.nombrePlatillo,
             guiso: p.nombreGuiso,
             subtotal: p.importe,
+            extras: p.extras || [] // Include extras from platillo
           }));
 
           // Mapear productos al formato esperado
@@ -186,6 +188,7 @@ const Despachar: React.FC = () => {
             ...data,
             platillos,
             productos,
+            extras: data.extras || [] // Include general extras list
           });
       } else {
         setError('Error cargando detalles de la orden');
@@ -204,6 +207,7 @@ const Despachar: React.FC = () => {
         const data = response.data;
         const platillos = data.platillos || [];
         const productos = data.productos || [];
+        const extras = data.extras || [];
         
         // Marcar todos los productos como entregados
         for (const producto of productos) {
@@ -212,11 +216,27 @@ const Despachar: React.FC = () => {
           }
         }
         
-        // Solo marcar platillos como entregados si la orden está surtida
+        // Solo marcar platillos y extras como entregados si la orden está surtida
         if (orden.estatus === 'Surtida') {
           for (const platillo of platillos) {
             if (!platillo.entregado) {
               await apiService.markPlatilloEntregado(platillo._id);
+            }
+            
+            // Mark all extras within this platillo as delivered
+            if (platillo.extras) {
+              for (const extra of platillo.extras) {
+                if (!extra.entregado) {
+                  await apiService.updateExtraStatus(extra._id, 'entregado');
+                }
+              }
+            }
+          }
+          
+          // Mark all general extras as delivered
+          for (const extra of extras) {
+            if (!extra.entregado) {
+              await apiService.updateExtraStatus(extra._id, 'entregado');
             }
           }
         }
@@ -227,8 +247,15 @@ const Despachar: React.FC = () => {
             ...selectedOrden,
             productos: selectedOrden.productos?.map(p => ({ ...p, entregado: true })),
             platillos: orden.estatus === 'Surtida' 
-              ? selectedOrden.platillos?.map(p => ({ ...p, entregado: true }))
-              : selectedOrden.platillos
+              ? selectedOrden.platillos?.map(p => ({ 
+                  ...p, 
+                  entregado: true,
+                  extras: p.extras?.map((e: any) => ({ ...e, entregado: true }))
+                }))
+              : selectedOrden.platillos,
+            extras: orden.estatus === 'Surtida'
+              ? selectedOrden.extras?.map((e: any) => ({ ...e, entregado: true }))
+              : selectedOrden.extras
           };
           
           // Si la orden será marcada como 'Entregada', actualizar el estatus local también
@@ -247,8 +274,15 @@ const Despachar: React.FC = () => {
                 ...ord,
                 productos: ord.productos?.map(p => ({ ...p, entregado: true })),
                 platillos: orden.estatus === 'Surtida' 
-                  ? ord.platillos?.map(p => ({ ...p, entregado: true }))
-                  : ord.platillos
+                  ? ord.platillos?.map(p => ({ 
+                      ...p, 
+                      entregado: true,
+                      extras: p.extras?.map((e: any) => ({ ...e, entregado: true }))
+                    }))
+                  : ord.platillos,
+                extras: orden.estatus === 'Surtida'
+                  ? ord.extras?.map((e: any) => ({ ...e, entregado: true }))
+                  : ord.extras
               };
               
               // Si la orden será marcada como 'Entregada', actualizar el estatus local también
@@ -318,6 +352,7 @@ const Despachar: React.FC = () => {
           const data = response.data;
           const platillos = data.platillos || [];
           const productos = data.productos || [];
+          const extras = data.extras || [];
           
           // Marcar todos los productos como entregados
           for (const producto of productos) {
@@ -326,11 +361,27 @@ const Despachar: React.FC = () => {
             }
           }
           
-          // Solo marcar platillos como entregados si la orden está surtida
+          // Solo marcar platillos y extras como entregados si la orden está surtida
           if (orden.estatus === 'Surtida') {
             for (const platillo of platillos) {
               if (!platillo.entregado) {
                 await apiService.markPlatilloEntregado(platillo._id);
+              }
+              
+              // Mark all extras within this platillo as delivered
+              if (platillo.extras) {
+                for (const extra of platillo.extras) {
+                  if (!extra.entregado) {
+                    await apiService.updateExtraStatus(extra._id, 'entregado');
+                  }
+                }
+              }
+            }
+            
+            // Mark all general extras as delivered
+            for (const extra of extras) {
+              if (!extra.entregado) {
+                await apiService.updateExtraStatus(extra._id, 'entregado');
               }
             }
             
@@ -360,12 +411,12 @@ const Despachar: React.FC = () => {
     }
   };
 
-  const handleMarkAsDelivered = async (itemId: string, type: 'producto' | 'platillo') => {
+  const handleMarkAsDelivered = async (itemId: string, type: 'producto' | 'platillo' | 'extra') => {
     if (!selectedOrden) return;
 
     // Si la orden está en Recepcion, solo permitir marcar productos como entregados
-    if (selectedOrden.estatus === 'Recepcion' && type === 'platillo') {
-      setError('Los platillos no se pueden marcar como entregados hasta que la orden esté surtida');
+    if (selectedOrden.estatus === 'Recepcion' && (type === 'platillo' || type === 'extra')) {
+      setError(`Los ${type === 'platillo' ? 'platillos' : 'extras'} no se pueden marcar como entregados hasta que la orden esté surtida`);
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -374,11 +425,14 @@ const Despachar: React.FC = () => {
       let response;
       if (type === 'producto') {
         response = await apiService.markProductoEntregado(itemId);
-      } else {
+      } else if (type === 'platillo') {
         response = await apiService.markPlatilloEntregado(itemId);
+      } else if (type === 'extra') {
+        // Use updateExtraStatus to mark extra as delivered
+        response = await apiService.updateExtraStatus(itemId, 'entregado');
       }
 
-      if (response.success) {
+      if (response && response.success) {
         // Update local state
         if (type === 'producto') {
           setSelectedOrden(prev => ({
@@ -387,12 +441,26 @@ const Despachar: React.FC = () => {
               p._id === itemId ? { ...p, entregado: true } : p
             )
           }));
-        } else {
+        } else if (type === 'platillo') {
           setSelectedOrden(prev => ({
             ...prev!,
             platillos: prev!.platillos?.map(p => 
               p._id === itemId ? { ...p, entregado: true } : p
             )
+          }));
+        } else if (type === 'extra') {
+          // Update both the general extras list and the nested extras in platillos
+          setSelectedOrden(prev => ({
+            ...prev!,
+            extras: prev!.extras?.map((e: any) => 
+              e._id === itemId ? { ...e, entregado: true } : e
+            ),
+            platillos: prev!.platillos?.map(p => ({
+              ...p,
+              extras: p.extras?.map((e: any) => 
+                e._id === itemId ? { ...e, entregado: true } : e
+              )
+            }))
           }));
         }
 
@@ -437,6 +505,13 @@ const Despachar: React.FC = () => {
     const hasDeliverableDishes = orden.platillos && orden.platillos.length > 0 && 
                                 orden.platillos.some(p => p.entregado !== true);
     
+    // Check for deliverable extras (both general and nested in platillos)
+    const hasDeliverableGeneralExtras = orden.extras && orden.extras.length > 0 &&
+                                       orden.extras.some((e: any) => e.entregado !== true);
+    const hasDeliverablePlatilloExtras = orden.platillos && orden.platillos.length > 0 &&
+                                        orden.platillos.some(p => p.extras && p.extras.length > 0 && 
+                                                                 p.extras.some((e: any) => e.entregado !== true));
+    
     const isMobile = window.innerWidth < 640;
     if (orden.estatus === 'Recepcion') {
       // Para órdenes en recepción solo consideramos productos
@@ -452,8 +527,8 @@ const Despachar: React.FC = () => {
       return { text, disabled: true, className: 'bg-gray-400 cursor-not-allowed' };
       }
     } else {
-      // Para órdenes surtidas consideramos productos y platillos
-      if (hasDeliverableProducts || hasDeliverableDishes) {
+      // Para órdenes surtidas consideramos productos, platillos y extras
+      if (hasDeliverableProducts || hasDeliverableDishes || hasDeliverableGeneralExtras || hasDeliverablePlatilloExtras) {
       const text = isMobile
         ? 'Entregar Todo'.split(' ').map(w => w.slice(0, 3)).join(' ')
         : 'Entregar Todo';
@@ -474,10 +549,17 @@ const Despachar: React.FC = () => {
       const hasDeliverableDishes = orden.platillos && orden.platillos.length > 0 && 
                                   orden.platillos.some(p => p.entregado !== true);
       
+      // Check for deliverable extras
+      const hasDeliverableGeneralExtras = orden.extras && orden.extras.length > 0 &&
+                                         orden.extras.some((e: any) => e.entregado !== true);
+      const hasDeliverablePlatilloExtras = orden.platillos && orden.platillos.length > 0 &&
+                                          orden.platillos.some(p => p.extras && p.extras.length > 0 && 
+                                                                   p.extras.some((e: any) => e.entregado !== true));
+      
       if (orden.estatus === 'Recepcion') {
         return hasDeliverableProducts;
       } else {
-        return hasDeliverableProducts || hasDeliverableDishes;
+        return hasDeliverableProducts || hasDeliverableDishes || hasDeliverableGeneralExtras || hasDeliverablePlatilloExtras;
       }
     });
   };
@@ -485,7 +567,14 @@ const Despachar: React.FC = () => {
   const isOrderReadyForDispatch = (orden: OrdenConDetalles) => {
     const allProductsDelivered = orden.productos?.every(p => p.entregado) ?? true;
     const allDishesDelivered = orden.platillos?.every(p => p.entregado) ?? true;
-    return allProductsDelivered && allDishesDelivered;
+    
+    // Check if all extras are delivered (both general extras and extras within platillos)
+    const allGeneralExtrasDelivered = orden.extras?.every((e: any) => e.entregado) ?? true;
+    const allPlatilloExtrasDelivered = orden.platillos?.every(p => 
+      p.extras?.every((e: any) => e.entregado) ?? true
+    ) ?? true;
+    
+    return allProductsDelivered && allDishesDelivered && allGeneralExtrasDelivered && allPlatilloExtrasDelivered;
   };
 
   if (loading) {
@@ -813,43 +902,94 @@ const Despachar: React.FC = () => {
                   <h3 className="font-medium text-gray-900 mb-3">Platillos</h3>
                   <div className="space-y-2">
                     {selectedOrden.platillos.map((platillo, index) => (
-                      <div
-                        key={index}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
-                          selectedOrden.estatus === 'Recepcion' 
-                            ? 'bg-yellow-50 border border-yellow-200' 
-                            : platillo.entregado 
-                              ? 'bg-green-50 border border-green-200' 
-                              : 'bg-gray-50'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 truncate">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
-                          <p className="text-sm text-gray-600 truncate">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
-                          <p className="text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
-                          {selectedOrden.estatus === 'Recepcion' && (
-                            <p className="text-xs text-yellow-700 font-medium">Preparando...</p>
-                          )}
+                      <div key={index} className="space-y-2">
+                        <div
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg ${
+                            selectedOrden.estatus === 'Recepcion' 
+                              ? 'bg-yellow-50 border border-yellow-200' 
+                              : platillo.entregado 
+                                ? 'bg-green-50 border border-green-200' 
+                                : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-900 truncate">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
+                            <p className="text-sm text-gray-600 truncate">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
+                            <p className="text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
+                            {selectedOrden.estatus === 'Recepcion' && (
+                              <p className="text-xs text-yellow-700 font-medium">Preparando...</p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-2">
+                            <span className="text-sm font-medium text-gray-900 flex-shrink-0">
+                              ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
+                            </span>
+                            {selectedOrden.estatus === 'Recepcion' ? (
+                              <div className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
+                                Preparando
+                              </div>
+                            ) : platillo.entregado ? (
+                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <button
+                                onClick={() => handleMarkAsDelivered(platillo._id!, 'platillo')}
+                                className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
+                              >
+                                Entregar
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-2">
-                          <span className="text-sm font-medium text-gray-900 flex-shrink-0">
-                            ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
-                          </span>
-                          {selectedOrden.estatus === 'Recepcion' ? (
-                            <div className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
-                              Preparando
-                            </div>
-                          ) : platillo.entregado ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                          ) : (
-                            <button
-                              onClick={() => handleMarkAsDelivered(platillo._id!, 'platillo')}
-                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex-shrink-0"
-                            >
-                              Entregar
-                            </button>
-                          )}
-                        </div>
+                        
+                        {/* Extras for this platillo */}
+                        {platillo.extras && platillo.extras.length > 0 && (
+                          <div className="ml-4 space-y-1">
+                            {platillo.extras.map((extra: any) => (
+                              <div
+                                key={extra._id}
+                                className={`flex items-center justify-between gap-2 p-1.5 rounded text-xs border-l-2 ${
+                                  selectedOrden.estatus === 'Recepcion'
+                                    ? 'bg-yellow-50 border-l-yellow-400'
+                                    : extra.entregado 
+                                      ? 'bg-green-50 border-l-green-400' 
+                                      : 'bg-purple-50 border-l-purple-400'
+                                }`}
+                              >
+                                <div className="flex items-center space-x-1 min-w-0 flex-1">
+                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                    selectedOrden.estatus === 'Recepcion'
+                                      ? 'bg-yellow-500'
+                                      : extra.entregado 
+                                        ? 'bg-green-500' 
+                                        : 'bg-purple-400'
+                                  }`}></div>
+                                  <span className="text-purple-900 font-medium truncate">
+                                    {extra.nombreExtra} (x{extra.cantidad})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <span className="text-purple-900 font-medium">
+                                    ${(extra.importe ?? 0).toFixed(2)}
+                                  </span>
+                                  {selectedOrden.estatus === 'Recepcion' ? (
+                                    <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
+                                      Prep.
+                                    </span>
+                                  ) : extra.entregado ? (
+                                    <CheckCircle className="w-3 h-3 text-green-600" />
+                                  ) : (
+                                    <button
+                                      onClick={() => handleMarkAsDelivered(extra._id, 'extra')}
+                                      className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+                                    >
+                                      Entregar
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -873,10 +1013,10 @@ const Despachar: React.FC = () => {
                 </div>
                 <p className="text-sm text-blue-700">
                   {selectedOrden.estatus === 'Recepcion' 
-                    ? 'Esta orden está en recepción. Puedes entregar productos, pero los platillos están en preparación.'
+                    ? 'Esta orden está en recepción. Puedes entregar productos, pero los platillos y sus extras están en preparación.'
                     : isOrderReadyForDispatch(selectedOrden)
-                      ? 'Todos los items han sido entregados. La orden está lista para completar el despacho.'
-                      : 'Marca todos los items como entregados para completar el despacho.'
+                      ? 'Todos los items (productos, platillos y extras) han sido entregados. La orden está lista para completar el despacho.'
+                      : 'Marca todos los items (productos, platillos y extras) como entregados para completar el despacho.'
                   }
                 </p>
               </div>

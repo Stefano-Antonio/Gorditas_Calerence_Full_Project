@@ -26,8 +26,8 @@ router.get('/ventas', authenticate, isEncargado,
       const fechaInicioDate = new Date(fechaInicio + 'T00:00:00.000Z');
       const fechaFinDate = new Date(fechaFin + 'T23:59:59.999Z');
       
-      // Para ventas, usar fechaPago en lugar de fechaHora
-      filter.fechaPago = {
+      // Para ventas, usar fechaHora para determinar el día de la orden
+      filter.fechaHora = {
         $gte: fechaInicioDate,
         $lte: fechaFinDate
       };
@@ -78,8 +78,8 @@ router.get('/ventas', authenticate, isEncargado,
             _id: { 
               $dateToString: { 
                 format: '%Y-%m-%d', 
-                date: '$fechaPago',
-                timezone: 'America/Mexico_City'
+                date: '$fechaHora'
+                // Usar UTC sin conversión de timezone para evitar confusiones
               } 
             },
             ventas: { $sum: '$total' },
@@ -197,8 +197,8 @@ router.get('/gastos', authenticate, isEncargado,
           _id: { 
             $dateToString: { 
               format: '%Y-%m-%d', 
-              date: '$fecha',
-              timezone: 'America/Mexico_City'
+              date: '$fecha'
+              // Usar UTC sin conversión de timezone para consistencia
             } 
           },
           gastos: { $sum: '$gastoTotal' },

@@ -34,6 +34,7 @@ interface ReporteVentas {
   gastosTotales: number;
   utilidad: number;
   ordenes: number;
+  montoCaja?: number; // Nuevo campo para el monto de caja
 }
 
 interface ProductoInventario {
@@ -96,8 +97,99 @@ const Reportes: React.FC = () => {
   const [savingGasto, setSavingGasto] = useState(false);
   const [deletingGasto, setDeletingGasto] = useState<string | null>(null);
   
+  // Estados para la funcionalidad de caja
+  const [montoCajaPorFecha, setMontoCajaPorFecha] = useState<{[fecha: string]: number}>({});
+  const [editandoCaja, setEditandoCaja] = useState<string | null>(null);
+  const [montoTemporal, setMontoTemporal] = useState<number>(0);
+  const [guardandoCaja, setGuardandoCaja] = useState<string | null>(null);
+  
+  // Estados para editar caja del día actual en el recuadro superior
+  const [editandoCajaDiaActual, setEditandoCajaDiaActual] = useState<boolean>(false);
+  const [montoAgregarCaja, setMontoAgregarCaja] = useState<number>(0);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Cargar datos de caja desde localStorage
+  const cargarMontoCaja = () => {
+    const cajaDatos = localStorage.getItem('montoCajaPorFecha');
+    if (cajaDatos) {
+      setMontoCajaPorFecha(JSON.parse(cajaDatos));
+    }
+  };
+
+  // Guardar monto de caja en localStorage
+  const guardarMontoCaja = (fecha: string, monto: number) => {
+    const nuevosMontos = { ...montoCajaPorFecha, [fecha]: monto };
+    setMontoCajaPorFecha(nuevosMontos);
+    localStorage.setItem('montoCajaPorFecha', JSON.stringify(nuevosMontos));
+  };
+
+  // Función para calcular utilidad con caja
+  const calcularUtilidadConCaja = (ventasTotales: number, gastosTotales: number, fecha: string): number => {
+    const montoCaja = montoCajaPorFecha[fecha] || 0;
+    return (ventasTotales + montoCaja) - gastosTotales;
+  };
+
+  // Funciones para manejar la edición de caja
+  const iniciarEdicionCaja = (fecha: string) => {
+    setEditandoCaja(fecha);
+    setMontoTemporal(montoCajaPorFecha[fecha] || 0);
+  };
+
+  const cancelarEdicionCaja = () => {
+    setEditandoCaja(null);
+    setMontoTemporal(0);
+  };
+
+  const confirmarEdicionCaja = async () => {
+    if (editandoCaja) {
+      setGuardandoCaja(editandoCaja);
+      try {
+        guardarMontoCaja(editandoCaja, montoTemporal);
+        setEditandoCaja(null);
+        setMontoTemporal(0);
+      } catch (error) {
+        console.error('Error al guardar el monto de caja:', error);
+      } finally {
+        setGuardandoCaja(null);
+      }
+    }
+  };
+
+  // Funciones para manejar la caja del día actual (recuadro superior)
+  const obtenerFechaActualUTC = (): string => {
+    const hoy = new Date();
+    return hoy.toISOString().split('T')[0]; // YYYY-MM-DD en UTC
+  };
+
+  const iniciarEdicionCajaDiaActual = () => {
+    const fechaActual = obtenerFechaActualUTC();
+    setEditandoCajaDiaActual(true);
+    setMontoAgregarCaja(0);
+  };
+
+  const cancelarEdicionCajaDiaActual = () => {
+    setEditandoCajaDiaActual(false);
+    setMontoAgregarCaja(0);
+  };
+
+  const confirmarAgregarCajaDiaActual = async () => {
+    const fechaActual = obtenerFechaActualUTC();
+    const montoActual = montoCajaPorFecha[fechaActual] || 0;
+    const nuevoMonto = montoActual + montoAgregarCaja;
+    
+    console.log(`Agregando $${montoAgregarCaja} a caja del ${fechaActual}`);
+    console.log(`Monto anterior: $${montoActual}, Nuevo monto: $${nuevoMonto}`);
+    
+    guardarMontoCaja(fechaActual, nuevoMonto);
+    setEditandoCajaDiaActual(false);
+    setMontoAgregarCaja(0);
+  };
+
+  useEffect(() => {
+    cargarMontoCaja();
+  }, []);
 
   useEffect(() => {
     loadReports();
@@ -127,11 +219,16 @@ const Reportes: React.FC = () => {
 
             console.log('Órdenes cargadas:', ordenes.length);
             console.log('Extras cargados:', extras.length);
-            console.log('Datos completos del backend:', ventasRes.data);
-            console.log('Estructura de datos:', Object.keys(ventasRes.data));
-            console.log('Datos de extras:', extras.slice(0, 3)); // Mostrar solo los primeros 3 para debug
-            console.log('VentasPorDia del backend:', ventasPorDia);
-            console.log('Datos de órdenes:', ordenes.map((o: any) => ({ 
+            console.log('=== DATOS DEL BACKEND PARA DEPURACIÓN (UTC) ===');
+            console.log('VentasPorDia (fechas procesadas en UTC):', ventasPorDia);
+            console.log('Fechas específicas del resumen (UTC):', ventasPorDia.map((v: any) => v._id));
+            console.log('Estructura completa de ventasPorDia:', ventasPorDia.map((v: any) => ({
+              fecha: v._id,
+              ventas: v.ventas,
+              ordenes: v.ordenes
+            })));
+            console.log('=== MUESTRA DE ÓRDENES INDIVIDUALES ===');
+            console.log('Primeras 3 órdenes con fechas:', ordenes.slice(0, 3).map((o: any) => ({ 
               folio: o.folio, 
               fechaHora: o.fechaHora, 
               fechaPago: o.fechaPago,
@@ -303,11 +400,32 @@ const Reportes: React.FC = () => {
   const handleExportReport = async () => {
     let data: Array<Record<string, any>> = [];
     if (activeTab === 'ventas' && diaSeleccionado && ordenesDia.length > 0) {
+      // Exportar órdenes del día seleccionado
       data = ordenesDia.map(orden => ({
         Folio: orden.folio,
         Mesa: orden.idMesa || 'N/A',
         Tipo: orden.nombreTipoOrden,
         Total: orden.total,
+        Hora: new Date(orden.fechaHora).toLocaleTimeString(),
+        Fecha: new Date(orden.fechaHora).toLocaleDateString(),
+      }));
+    } else if (activeTab === 'ventas' && !diaSeleccionado && ordenes.length > 0) {
+      // Exportar todas las órdenes del filtro de fechas cuando no hay día seleccionado
+      const ordenesFiltradas = ordenes.filter((orden: any) => {
+        if (orden.estatus !== 'Pagada') return false;
+        if (!orden.fechaHora) return false;
+        
+        const fechaOrdenUTC = obtenerFechaDelDia(orden.fechaHora);
+        return fechaOrdenUTC >= fechaInicio && fechaOrdenUTC <= fechaFin;
+      });
+      
+      data = ordenesFiltradas.map(orden => ({
+        Folio: orden.folio,
+        Cliente: orden.nombreCliente || 'Sin nombre',
+        Mesa: orden.idMesa || 'N/A',
+        Tipo: orden.nombreTipoOrden,
+        Total: orden.total,
+        Fecha: new Date(orden.fechaHora).toLocaleDateString(),
         Hora: new Date(orden.fechaHora).toLocaleTimeString(),
       }));
     } else if (activeTab === 'inventario') {
@@ -372,6 +490,21 @@ const Reportes: React.FC = () => {
     );
   };
 
+  const getTotalCaja = () => {
+    return reporteVentas.reduce((total, reporte) => 
+      total + (montoCajaPorFecha[reporte.fecha] || 0), 0
+    );
+  };
+
+  const getCajaDiaActual = () => {
+    const fechaActual = obtenerFechaActualUTC();
+    return montoCajaPorFecha[fechaActual] || 0;
+  };
+
+  const getTotalIngresosConCaja = () => {
+    return getTotalVentas() + getTotalCaja();
+  };
+
   const getTotalGastos = () => {
     return reporteVentas.reduce((total, reporte) => 
       total + (reporte.gastosTotales || 0), 0
@@ -379,27 +512,44 @@ const Reportes: React.FC = () => {
   };
 
   const getTotalUtilidad = () => {
-    const totalVentas = getTotalVentas();
+    const totalIngresos = getTotalIngresosConCaja();
     const totalGastos = getTotalGastos();
-    return totalVentas - totalGastos;
+    return totalIngresos - totalGastos;
   };
 
   const getTotalInventario = () => {
     return reporteInventario.reduce((total, item) => total + item.valorTotal, 0);
   };
 
-  const mostrarOrdenesDeDia = (fecha: string) => {
-    console.log('Fecha seleccionada:', fecha);
-    console.log('Órdenes disponibles:', ordenes.length);
-    console.log('Extras disponibles:', extras.length);
+  // Función auxiliar para obtener fecha en formato YYYY-MM-DD usando UTC
+  // Esta función debe replicar EXACTAMENTE la lógica del backend MongoDB:
+  // $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } (sin timezone = UTC)
+  const obtenerFechaDelDia = (fecha: string | Date): string => {
+    const fechaObj = new Date(fecha);
     
-    if (extras.length > 0) {
-      console.log('Muestra de extras:', extras.slice(0, 3));
-    } else {
-      console.log('No hay extras disponibles en los datos');
+    // Verificar que la fecha sea válida
+    if (isNaN(fechaObj.getTime())) {
+      console.warn(`Fecha inválida recibida: ${fecha}`);
+      return '';
     }
     
-    // Si no hay órdenes, mostrar todas las pagadas del período
+    // Obtener la fecha en UTC (sin conversión de timezone)
+    // Esto debe coincidir exactamente con el backend que usa UTC
+    const fechaUTCStr = fechaObj.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    console.log(`Conversión de fecha UTC: ${fecha} -> ${fechaUTCStr} (UTC, igual que backend)`);
+    
+    return fechaUTCStr; // Ya viene en formato YYYY-MM-DD
+  };
+
+  const mostrarOrdenesDeDia = (fecha: string) => {
+    console.log('=== USANDO FECHA DIRECTA DEL RESUMEN DEL BACKEND (UTC) ===');
+    console.log('Fecha seleccionada del resumen:', fecha);
+    console.log('Esta fecha YA fue procesada por el backend usando UTC (sin timezone)');
+    console.log('Filtro de fechas activo:', { fechaInicio, fechaFin });
+    console.log('Órdenes disponibles:', ordenes.length);
+    
+    // Si no hay órdenes, mostrar array vacío
     if (ordenes.length === 0) {
       setOrdenesDia([]);
       setDiaSeleccionado(fecha);
@@ -407,14 +557,51 @@ const Reportes: React.FC = () => {
       return;
     }
     
-    // Para el caso específico donde el backend dice "2025-09-18" pero las órdenes son "2025-09-19"
-    // Mostrar todas las órdenes pagadas disponibles para esa fila
-    const ordenesPagadas = ordenes.filter((o: any) => o.estatus === 'Pagada');
+    // Verificar que la fecha seleccionada esté dentro del rango del filtro
+    if (fecha < fechaInicio || fecha > fechaFin) {
+      console.log(`❌ La fecha ${fecha} está fuera del rango permitido (${fechaInicio} - ${fechaFin})`);
+      setOrdenesDia([]);
+      setDiaSeleccionado(fecha);
+      setOrdenExpandida(null);
+      return;
+    }
     
-    console.log('Órdenes pagadas encontradas:', ordenesPagadas.length);
-    console.log('Mostrando todas las órdenes pagadas para la fecha:', fecha);
+    console.log('=== FILTRADO CON LÓGICA IDÉNTICA AL BACKEND (UTC) ===');
+    console.log(`Buscando órdenes que en UTC corresponden a: ${fecha}`);
+    console.log('Aplicando misma lógica que el backend: $dateToString sin timezone (UTC)');
     
-    setOrdenesDia(ordenesPagadas);
+    // Filtrar órdenes usando EXACTAMENTE la misma lógica que el backend
+    const ordenesFiltradas = ordenes.filter((orden: any) => {
+      // Solo órdenes pagadas (mismo filtro que el backend)
+      if (orden.estatus !== 'Pagada') {
+        return false;
+      }
+      
+      // Usar fechaHora y aplicar EXACTAMENTE la misma conversión que el backend
+      if (!orden.fechaHora) {
+        return false;
+      }
+      
+      // Replicar exactamente: $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } (UTC)
+      const fechaOrdenUTC = obtenerFechaDelDia(orden.fechaHora);
+      
+      // La fecha debe coincidir exactamente con la fecha del resumen
+      const coincideFecha = fechaOrdenUTC === fecha;
+      
+      if (coincideFecha) {
+        console.log(`✅ Orden ${orden.folio}: fechaHora=${orden.fechaHora} -> UTC=${fechaOrdenUTC} -> COINCIDE`);
+      }
+      
+      return coincideFecha;
+    });
+    
+    console.log(`🎯 Total órdenes encontradas para ${fecha}: ${ordenesFiltradas.length}`);
+    console.log('Resumen de órdenes filtradas:');
+    ordenesFiltradas.forEach((orden: any, index: number) => {
+      console.log(`  ${index + 1}. Folio: ${orden.folio}, Total: $${orden.total}, FechaHora: ${orden.fechaHora}`);
+    });
+    
+    setOrdenesDia(ordenesFiltradas);
     setDiaSeleccionado(fecha);
     setOrdenExpandida(null);
   };
@@ -529,7 +716,7 @@ const Reportes: React.FC = () => {
               {activeTab === 'ventas' && (
                 <div className="space-y-6">
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                     <div className="bg-green-50 p-4 sm:p-6 rounded-lg border border-green-200">
                       <div className="flex items-center justify-between">
                         <div>
@@ -539,6 +726,57 @@ const Reportes: React.FC = () => {
                           </p>
                         </div>
                         <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs sm:text-sm text-blue-600">Total Caja</p>
+                          <p className="text-xl sm:text-2xl font-bold text-blue-900">
+                            ${getTotalCaja().toFixed(2)}
+                          </p>
+                          <p className="text-xs text-blue-500 mt-1">
+                            Hoy: ${getCajaDiaActual().toFixed(2)}
+                          </p>
+                          {editandoCajaDiaActual ? (
+                            <div className="flex items-center space-x-2 mt-2">
+                              <input
+                                type="number"
+                                value={montoAgregarCaja}
+                                onChange={(e) => setMontoAgregarCaja(parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-1 border border-gray-300 rounded text-xs"
+                                placeholder="Agregar..."
+                                step="0.01"
+                                min="0"
+                                autoFocus
+                              />
+                              <button
+                                onClick={confirmarAgregarCajaDiaActual}
+                                className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                                title="Agregar a caja de hoy"
+                              >
+                                ✓ Agregar
+                              </button>
+                              <button
+                                onClick={cancelarEdicionCajaDiaActual}
+                                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                                title="Cancelar"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={iniciarEdicionCajaDiaActual}
+                              className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 mt-2"
+                              title="Agregar dinero a caja de hoy"
+                            >
+                              💰 Agregar a Caja
+                            </button>
+                          )}
+                        </div>
+                        <Package className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                       </div>
                     </div>
                     
@@ -554,15 +792,18 @@ const Reportes: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="bg-blue-50 p-4 sm:p-6 rounded-lg border border-blue-200 col-span-1 sm:col-span-2 md:col-span-1">
+                    <div className="bg-purple-50 p-4 sm:p-6 rounded-lg border border-purple-200">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs sm:text-sm text-blue-600">Utilidad</p>
-                          <p className="text-xl sm:text-2xl font-bold text-blue-900">
+                          <p className="text-xs sm:text-sm text-purple-600">Utilidad Final</p>
+                          <p className="text-xl sm:text-2xl font-bold text-purple-900">
                             ${getTotalUtilidad().toFixed(2)}
                           </p>
+                          <p className="text-xs text-purple-500 mt-1">
+                            (Ventas + Caja) - Gastos
+                          </p>
                         </div>
-                        <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+                        <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
                       </div>
                     </div>
                   </div>
@@ -576,6 +817,7 @@ const Reportes: React.FC = () => {
                           <tr className="text-xs sm:text-sm">
                             <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Fecha</th>
                             <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Ventas</th>
+                            <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Caja</th>
                             <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Órdenes</th>
                             <th className="text-left py-2 sm:py-3 px-3 sm:px-4 font-medium text-gray-900">Acciones</th>
                           </tr>
@@ -583,9 +825,60 @@ const Reportes: React.FC = () => {
                         <tbody className="divide-y divide-gray-100">
                           {reporteVentas.map((reporte, index) => (
                             <tr key={index} className="text-xs sm:text-sm">
-                              <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">{reporte.fecha}</td>
+                              <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">
+                                {(() => {
+                                  // Usar directamente la fecha del backend (ya procesada en UTC)
+                                  // Esta fecha viene de ventasPorDia._id que usa $dateToString sin timezone (UTC)
+                                  const [año, mes, dia] = reporte.fecha.split('-');
+                                  const fechaFormateada = `${dia}/${mes}/${año}`;
+                                  
+                                  console.log(`📅 Fecha del backend (UTC): ${reporte.fecha} -> mostrada como: ${fechaFormateada}`);
+                                  
+                                  return fechaFormateada;
+                                })()}
+                              </td>
                               <td className="py-2 sm:py-3 px-3 sm:px-4 text-green-600 font-medium whitespace-nowrap">
                                 ${reporte.ventasTotales.toFixed(2)}
+                              </td>
+                              <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">
+                                {editandoCaja === reporte.fecha ? (
+                                  <div className="flex items-center space-x-2">
+                                    <input
+                                      type="number"
+                                      value={montoTemporal}
+                                      onChange={(e) => setMontoTemporal(parseFloat(e.target.value) || 0)}
+                                      className="w-20 px-2 py-1 border border-gray-300 rounded text-xs"
+                                      placeholder="0.00"
+                                      step="0.01"
+                                      min="0"
+                                    />
+                                    <button
+                                      onClick={confirmarEdicionCaja}
+                                      disabled={guardandoCaja === reporte.fecha}
+                                      className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 disabled:opacity-50"
+                                    >
+                                      {guardandoCaja === reporte.fecha ? '...' : '✓'}
+                                    </button>
+                                    <button
+                                      onClick={cancelarEdicionCaja}
+                                      className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-blue-600 font-medium">
+                                      ${(montoCajaPorFecha[reporte.fecha] || 0).toFixed(2)}
+                                    </span>
+                                    <button
+                                      onClick={() => iniciarEdicionCaja(reporte.fecha)}
+                                      className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600"
+                                    >
+                                      ✏️
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap">{reporte.ordenes}</td>
                               <td className="py-2 sm:py-3 px-3 sm:px-4">

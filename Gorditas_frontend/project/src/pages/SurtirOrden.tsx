@@ -6,7 +6,6 @@ import {
   Users,
   Timer,
   Package,
-  Eye,
   RefreshCw,
   StickyNote,
   ChevronDown,
@@ -101,9 +100,30 @@ const SurtirOrden: React.FC = () => {
           ['Recepcion', 'Pendiente'].includes(orden.estatus)
         );
         
+        // Cargar detalles de cada orden automáticamente
+        const ordenesConDetalles = await Promise.all(
+          ordenesParaSurtir.map(async (orden) => {
+            try {
+              const response = await apiService.getOrdenDetails(orden._id!);
+              if (response.success) {
+                const data = response.data;
+                return {
+                  ...orden,
+                  platillos: data.platillos || [],
+                  productos: data.productos || [],
+                  extras: data.extras || []
+                };
+              }
+              return orden;
+            } catch (error) {
+              return orden;
+            }
+          })
+        );
+        
         // Detectar nuevas órdenes comparando con el estado actual
         const currentOrderIds = ordenes.map(o => o._id);
-        const newOrderIds = ordenesParaSurtir.map(o => o._id);
+        const newOrderIds = ordenesConDetalles.map(o => o._id);
         const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
         
         if (hasNewData && ordenes.length > 0) {
@@ -115,11 +135,11 @@ const SurtirOrden: React.FC = () => {
           }, 5000);
         }
         
-        setOrdenes(ordenesParaSurtir);
+        setOrdenes(ordenesConDetalles);
         setLastUpdateTime(new Date());
         
         // Group orders by table
-        const grouped = groupOrdersByTable(ordenesParaSurtir);
+        const grouped = groupOrdersByTable(ordenesConDetalles);
         setMesasAgrupadas(grouped);
       }
     } catch (error) {
@@ -128,43 +148,6 @@ const SurtirOrden: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const loadOrdenDetails = async (orden: OrdenConDetalles) => {
-  try {
-    const response = await apiService.getOrdenDetails(orden._id!);
-
-    if (response.success) {
-      const data = response.data;
-
-      // Map platillos to expected format and include extras
-      const platillos = (data.platillos || []).map((p: any) => ({
-        ...p,
-        platillo: p.nombrePlatillo,
-        guiso: p.nombreGuiso,
-        subtotal: p.importe,
-        extras: p.extras || [] // Include extras from platillo
-      }));
-
-      // Map productos to expected format
-      const productos = (data.productos || []).map((prod: any) => ({
-        ...prod,
-        producto: prod.nombreProducto,
-        subtotal: prod.importe,
-      }));
-
-      setSelectedOrden({
-        ...data,
-        platillos,
-        productos,
-        extras: data.extras || [] // Include general extras list
-      });
-    } else {
-      setError('Error cargando detalles de la orden');
-    }
-  } catch (error) {
-    setError('Error cargando detalles de la orden');
-  }
-};
 
   const handleMarkItemAsReady = async (itemId: string, type: 'producto' | 'platillo' | 'extra') => {
     if (!selectedOrden) return;
@@ -523,15 +506,73 @@ const SurtirOrden: React.FC = () => {
                                   </div>
                                 </div>
 
+                                {/* Resumen de la orden */}
+                                <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
+                                  <h6 className="text-sm font-medium text-gray-900 mb-2">Resumen de la orden:</h6>
+                                  
+                                  {/* Platillos */}
+                                  {orden.platillos && orden.platillos.length > 0 && (
+                                    <div className="space-y-1">
+                                      {orden.platillos.map((platillo: any, index: number) => (
+                                        <div key={index} className="flex justify-between items-start text-xs">
+                                          <div className="flex-1 min-w-0">
+                                            <span className="font-medium text-gray-800">
+                                              {platillo.cantidad}x {platillo.nombrePlatillo || platillo.platillo}
+                                            </span>
+                                            <span className="text-gray-600 ml-1">
+                                              ({platillo.nombreGuiso || platillo.guiso})
+                                            </span>
+                                            {platillo.notas && (
+                                              <div className="text-blue-600 italic mt-1">
+                                                Notas: {platillo.notas}
+                                              </div>
+                                            )}
+                                            {/* Extras del platillo */}
+                                            {platillo.extras && platillo.extras.length > 0 && (
+                                              <div className="ml-2 mt-1">
+                                                {platillo.extras.map((extra: any, extraIndex: number) => (
+                                                  <div key={extraIndex} className="text-purple-600 text-xs">
+                                                    + {extra.cantidad}x {extra.nombreExtra} (+${extra.costoExtra})
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <span className="text-gray-700 font-medium ml-2 flex-shrink-0">
+                                            ${(platillo.importe || platillo.subtotal || 0).toFixed(2)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Productos */}
+                                  {orden.productos && orden.productos.length > 0 && (
+                                    <div className="space-y-1 pt-2 border-t border-gray-200">
+                                      {orden.productos.map((producto: any, index: number) => (
+                                        <div key={index} className="flex justify-between items-center text-xs">
+                                          <span className="font-medium text-gray-800">
+                                            {producto.cantidad}x {producto.nombreProducto || producto.producto}
+                                          </span>
+                                          <span className="text-gray-700 font-medium">
+                                            ${(producto.importe || producto.subtotal || 0).toFixed(2)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Mensaje si no hay items */}
+                                  {(!orden.platillos || orden.platillos.length === 0) && 
+                                   (!orden.productos || orden.productos.length === 0) && (
+                                    <div className="text-xs text-gray-500 italic">
+                                      No hay items en esta orden
+                                    </div>
+                                  )}
+                                </div>
+
                                 {orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente' ? (
                                   <div className="space-y-2">
-                                    <button
-                                      onClick={() => loadOrdenDetails(orden)}
-                                      className="w-full bg-gray-100 text-gray-700 py-2 px-3 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
-                                    >
-                                      <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
-                                      <span>Ver Detalles</span>
-                                    </button>
                                     <button
                                       onClick={() => handleIniciarPreparacion(orden._id!)}
                                       disabled={updating === orden._id || orden.estatus === 'Pendiente'}
@@ -554,30 +595,9 @@ const SurtirOrden: React.FC = () => {
                                   </div>
                                 ) : (
                                   <div className="space-y-2">
-                                    <button
-                                      onClick={() => loadOrdenDetails(orden)}
-                                      className="w-full bg-gray-100 text-gray-700 py-2 px-3 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
-                                    >
-                                      <Eye className="w-4 h-4 mr-2 flex-shrink-0" />
-                                      <span>Ver Items</span>
-                                    </button>
-                                    <button
-                                      onClick={() => handleCompletarOrden(orden._id!)}
-                                      disabled={updating === orden._id || !isOrderReadyToComplete(orden)}
-                                      className="w-full bg-green-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                                    >
-                                      {updating === orden._id ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2 flex-shrink-0"></div>
-                                          <span>Completando...</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                                          <span>Marcar Surtida</span>
-                                        </>
-                                      )}
-                                    </button>
+                                    <span className="text-sm text-orange-600 font-medium">
+                                      ⏳ En preparación...
+                                    </span>
                                   </div>
                                 )}
                               </div>

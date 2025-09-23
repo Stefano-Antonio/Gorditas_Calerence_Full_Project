@@ -316,7 +316,7 @@ const SurtirOrden: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6 px-2 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="space-y-3 sm:space-y-6 px-1 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6">
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Órdenes Recientes</h1>
@@ -386,7 +386,7 @@ const SurtirOrden: React.FC = () => {
               <div key={mesa.idMesa} className={`bg-white rounded-xl shadow-sm border-2 ${mesaPriorityColor}`}>
                 {/* Mesa Header - Clickable to expand/collapse */}
                 <div 
-                  className="p-3 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-2 sm:p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMesaExpansion(mesa.idMesa)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -425,10 +425,10 @@ const SurtirOrden: React.FC = () => {
                   </div>
                 </div>              {/* Orders grouped by client - Expanded view */}
               {expandedMesas.has(mesa.idMesa) && (
-                <div className="p-3 sm:p-6">
+                <div className="p-2 sm:p-6">
                   <div className="space-y-4 sm:space-y-6">
                     {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
-                      <div key={cliente} className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                      <div key={cliente} className="bg-gray-50 rounded-lg p-2 sm:p-6">
                         <h4 className="font-medium text-gray-900 mb-3 break-words">
                           Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
                         </h4>
@@ -441,7 +441,7 @@ const SurtirOrden: React.FC = () => {
                             return (
                               <div
                                 key={orden._id}
-                                className={`bg-white rounded-lg border p-4 sm:p-5 ${priorityColor}`}
+                                className={`bg-white rounded-lg border p-2 sm:p-5 ${priorityColor}`}
                               >
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                                   <div className="min-w-0 flex-1">
@@ -487,36 +487,17 @@ const SurtirOrden: React.FC = () => {
                                   </div>
                                 </div>
 
-                                <div className="space-y-2 mb-4">
-                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                    <span className="text-sm text-gray-600">Total:</span>
-                                    <span className="font-semibold text-green-600">
-                                      ${orden.total.toFixed(2)}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                    <span className="text-sm text-gray-600">Hora:</span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {new Date(orden.fechaHora ?? orden.fecha ?? new Date()).toLocaleTimeString('es-ES', {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })}
-                                    </span>
-                                  </div>
-                                </div>
-
                                 {/* Resumen de la orden */}
-                                <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-2">
-                                  <h6 className="text-sm font-medium text-gray-900 mb-2">Resumen de la orden:</h6>
+                                <div className="bg-gray-50 rounded-lg p-2 sm:p-3 mb-4 space-y-2">
+                                  <h6 className="text-base font-semibold text-gray-900 mb-2">Resumen de la orden:</h6>
                                   
                                   {/* Platillos */}
                                   {orden.platillos && orden.platillos.length > 0 && (
                                     <div className="space-y-1">
                                       {orden.platillos.map((platillo: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-start text-xs">
+                                        <div key={index} className="flex justify-between items-start text-sm">
                                           <div className="flex-1 min-w-0">
-                                            <span className="font-medium text-gray-800">
+                                            <span className="font-semibold text-gray-800">
                                               {platillo.cantidad}x {platillo.nombrePlatillo || platillo.platillo}
                                             </span>
                                             <span className="text-gray-600 ml-1">
@@ -531,14 +512,14 @@ const SurtirOrden: React.FC = () => {
                                             {platillo.extras && platillo.extras.length > 0 && (
                                               <div className="ml-2 mt-1">
                                                 {platillo.extras.map((extra: any, extraIndex: number) => (
-                                                  <div key={extraIndex} className="text-purple-600 text-xs">
+                                                  <div key={extraIndex} className="text-purple-600 text-sm">
                                                     + {extra.cantidad}x {extra.nombreExtra} (+${extra.costoExtra})
                                                   </div>
                                                 ))}
                                               </div>
                                             )}
                                           </div>
-                                          <span className="text-gray-700 font-medium ml-2 flex-shrink-0">
+                                          <span className="text-gray-700 font-semibold ml-2 flex-shrink-0">
                                             ${(platillo.importe || platillo.subtotal || 0).toFixed(2)}
                                           </span>
                                         </div>
@@ -550,11 +531,11 @@ const SurtirOrden: React.FC = () => {
                                   {orden.productos && orden.productos.length > 0 && (
                                     <div className="space-y-1 pt-2 border-t border-gray-200">
                                       {orden.productos.map((producto: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-center text-xs">
-                                          <span className="font-medium text-gray-800">
+                                        <div key={index} className="flex justify-between items-center text-sm">
+                                          <span className="font-semibold text-gray-800">
                                             {producto.cantidad}x {producto.nombreProducto || producto.producto}
                                           </span>
-                                          <span className="text-gray-700 font-medium">
+                                          <span className="text-gray-700 font-semibold">
                                             ${(producto.importe || producto.subtotal || 0).toFixed(2)}
                                           </span>
                                         </div>
@@ -565,7 +546,7 @@ const SurtirOrden: React.FC = () => {
                                   {/* Mensaje si no hay items */}
                                   {(!orden.platillos || orden.platillos.length === 0) && 
                                    (!orden.productos || orden.productos.length === 0) && (
-                                    <div className="text-xs text-gray-500 italic">
+                                    <div className="text-sm text-gray-500 italic">
                                       No hay items en esta orden
                                     </div>
                                   )}

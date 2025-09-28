@@ -121,10 +121,31 @@ const SurtirOrden: React.FC = () => {
           })
         );
         
+        // Filtrar órdenes que realmente necesitan preparación en cocina
+        const ordenesQueNecesitanPreparacion = ordenesConDetalles.filter((orden: any) => {
+          const platillos = orden.platillos || [];
+          const productos = orden.productos || [];
+          
+          // Si no tiene platillos y solo tiene productos, no necesita preparación
+          if (platillos.length === 0 && productos.length > 0) {
+            return false;
+          }
+          
+          // Si todos los platillos están entregados y solo quedan productos, no necesita preparación
+          const todosLosPlatillosEntregados = platillos.length > 0 && platillos.every((p: any) => p.entregado);
+          const tieneProductosPendientes = productos.some((p: any) => !p.entregado);
+          
+          if (todosLosPlatillosEntregados && tieneProductosPendientes && platillos.length > 0) {
+            return false;
+          }
+          
+          return true;
+        });
+        
         // Detectar nuevas órdenes comparando con el estado actual
         const currentOrderIds = ordenes.map(o => o._id);
-        const newOrderIds = ordenesConDetalles.map(o => o._id);
-        const hasNewData = newOrderIds.some(id => !currentOrderIds.includes(id));
+        const newOrderIds = ordenesQueNecesitanPreparacion.map((o: any) => o._id);
+        const hasNewData = newOrderIds.some((id: any) => !currentOrderIds.includes(id));
         
         if (hasNewData && ordenes.length > 0) {
           setHasNewOrders(true);
@@ -135,11 +156,11 @@ const SurtirOrden: React.FC = () => {
           }, 5000);
         }
         
-        setOrdenes(ordenesConDetalles);
+        setOrdenes(ordenesQueNecesitanPreparacion);
         setLastUpdateTime(new Date());
         
         // Group orders by table
-        const grouped = groupOrdersByTable(ordenesConDetalles);
+        const grouped = groupOrdersByTable(ordenesQueNecesitanPreparacion);
         setMesasAgrupadas(grouped);
       }
     } catch (error) {
@@ -223,6 +244,37 @@ const SurtirOrden: React.FC = () => {
       }
     } catch (error) {
       setError('Error al marcar como Surtida');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleSurtirTodasLasOrdenes = async (mesa: MesaAgrupada) => {
+    setUpdating(`mesa-${mesa.idMesa}`);
+    setError('');
+    try {
+      // Obtener todas las órdenes de la mesa que no estén ya surtidas
+      const ordenesAPreparar = mesa.ordenes.filter(orden => 
+        orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente'
+      );
+      
+      // Marcar todas las órdenes como Surtida
+      const promises = ordenesAPreparar.map(orden => 
+        apiService.updateOrdenStatus(orden._id!, 'Surtida')
+      );
+      
+      const responses = await Promise.all(promises);
+      const todosExitosos = responses.every(response => response.success);
+      
+      if (todosExitosos) {
+        setSuccess(`Todas las órdenes de ${mesa.nombreMesa} han sido surtidas`);
+        await loadData();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error al surtir algunas órdenes');
+      }
+    } catch (error) {
+      setError('Error al surtir las órdenes de la mesa');
     } finally {
       setUpdating(null);
     }
@@ -414,12 +466,37 @@ const SurtirOrden: React.FC = () => {
                         </p>
                         <p className="text-xs sm:text-sm text-gray-600">Total mesa</p>
                       </div>
-                      <div className="flex items-center justify-between sm:justify-end">
-                        {expandedMesas.has(mesa.idMesa) ? (
-                          <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <div className="flex items-center gap-2">
+                        {/* Botón para surtir todas las órdenes */}
+                        {mesa.ordenes.some(orden => orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSurtirTodasLasOrdenes(mesa);
+                            }}
+                            disabled={updating === `mesa-${mesa.idMesa}`}
+                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                          >
+                            {updating === `mesa-${mesa.idMesa}` ? (
+                              <>
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                                <span>Surtiendo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ChefHat className="w-3 h-3 mr-1" />
+                                <span>Surtir Todas</span>
+                              </>
+                            )}
+                          </button>
                         )}
+                        <div className="flex items-center justify-between sm:justify-end">
+                          {expandedMesas.has(mesa.idMesa) ? (
+                            <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -489,13 +566,13 @@ const SurtirOrden: React.FC = () => {
 
                                 {/* Resumen de la orden */}
                                 <div className="bg-gray-50 rounded-lg p-2 sm:p-3 mb-4 space-y-2">
-                                  <h6 className="text-base font-semibold text-gray-900 mb-2">Resumen de la orden:</h6>
+                                  <h6 className="text-lg font-semibold text-gray-900 mb-2">Resumen de la orden:</h6>
                                   
                                   {/* Platillos */}
-                                  {orden.platillos && orden.platillos.length > 0 && (
+                                  {orden.platillos && orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).length > 0 && (
                                     <div className="space-y-1">
-                                      {orden.platillos.map((platillo: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-start text-sm">
+                                      {orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).map((platillo: any, index: number) => (
+                                        <div key={index} className="flex justify-between items-start text-lg">
                                           <div className="flex-1 min-w-0">
                                             <span className="font-semibold text-gray-800">
                                               {platillo.cantidad}x {platillo.nombrePlatillo || platillo.platillo}
@@ -508,11 +585,11 @@ const SurtirOrden: React.FC = () => {
                                                 Notas: {platillo.notas}
                                               </div>
                                             )}
-                                            {/* Extras del platillo */}
-                                            {platillo.extras && platillo.extras.length > 0 && (
+                                            {/* Extras del platillo - solo mostrar los no listos ni entregados */}
+                                            {platillo.extras && platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).length > 0 && (
                                               <div className="ml-2 mt-1">
-                                                {platillo.extras.map((extra: any, extraIndex: number) => (
-                                                  <div key={extraIndex} className="text-purple-600 text-sm">
+                                                {platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).map((extra: any, extraIndex: number) => (
+                                                  <div key={extraIndex} className="text-purple-600 text-lg">
                                                     + {extra.cantidad}x {extra.nombreExtra} (+${extra.costoExtra})
                                                   </div>
                                                 ))}
@@ -528,10 +605,10 @@ const SurtirOrden: React.FC = () => {
                                   )}
 
                                   {/* Productos */}
-                                  {orden.productos && orden.productos.length > 0 && (
+                                  {orden.productos && orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).length > 0 && (
                                     <div className="space-y-1 pt-2 border-t border-gray-200">
-                                      {orden.productos.map((producto: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-center text-sm">
+                                      {orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).map((producto: any, index: number) => (
+                                        <div key={index} className="flex justify-between items-center text-lg">
                                           <span className="font-semibold text-gray-800">
                                             {producto.cantidad}x {producto.nombreProducto || producto.producto}
                                           </span>
@@ -543,11 +620,11 @@ const SurtirOrden: React.FC = () => {
                                     </div>
                                   )}
 
-                                  {/* Mensaje si no hay items */}
-                                  {(!orden.platillos || orden.platillos.length === 0) && 
-                                   (!orden.productos || orden.productos.length === 0) && (
-                                    <div className="text-sm text-gray-500 italic">
-                                      No hay items en esta orden
+                                  {/* Mensaje si no hay items pendientes */}
+                                  {(!orden.platillos || orden.platillos.filter((p: any) => !p.entregado).length === 0) && 
+                                   (!orden.productos || orden.productos.filter((p: any) => !p.entregado).length === 0) && (
+                                    <div className="text-lg text-gray-500 italic">
+                                      Todos los items han sido entregados
                                     </div>
                                   )}
                                 </div>
@@ -621,14 +698,14 @@ const SurtirOrden: React.FC = () => {
 
             <div className="p-3 sm:p-6 space-y-6">
               {/* Products Section */}
-              {selectedOrden.productos && selectedOrden.productos.length > 0 && (
+              {selectedOrden.productos && selectedOrden.productos.filter((producto) => !producto.listo).length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                     <Package className="w-5 h-5 mr-2 text-orange-600 flex-shrink-0" />
                     Productos
                   </h3>
                   <div className="space-y-2">
-                    {selectedOrden.productos.map((producto) => (
+                    {selectedOrden.productos.filter((producto) => !producto.listo).map((producto) => (
                       <div
                         key={producto._id}
                         className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border ${
@@ -659,14 +736,14 @@ const SurtirOrden: React.FC = () => {
               )}
 
               {/* Dishes Section */}
-              {selectedOrden.platillos && selectedOrden.platillos.length > 0 && (
+              {selectedOrden.platillos && selectedOrden.platillos.filter((platillo) => !platillo.listo).length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                     <ChefHat className="w-5 h-5 mr-2 text-orange-600 flex-shrink-0" />
                     Platillos
                   </h3>
                   <div className="space-y-2">
-                    {selectedOrden.platillos.map((platillo) => (
+                    {selectedOrden.platillos.filter((platillo) => !platillo.listo).map((platillo) => (
                       <div key={platillo._id} className="space-y-2">
                         <div
                           className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border ${
@@ -698,11 +775,10 @@ const SurtirOrden: React.FC = () => {
                             ) : null}
                           </div>
                         </div>
-                        
                         {/* Extras for this platillo */}
-                        {platillo.extras && platillo.extras.length > 0 && (
+                        {platillo.extras && platillo.extras.filter((extra: any) => !extra.listo).length > 0 && (
                           <div className="ml-6 space-y-1">
-                            {platillo.extras.map((extra: any) => (
+                            {platillo.extras.filter((extra: any) => !extra.listo).map((extra: any) => (
                               <div
                                 key={extra._id}
                                 className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 rounded border-l-4 ${

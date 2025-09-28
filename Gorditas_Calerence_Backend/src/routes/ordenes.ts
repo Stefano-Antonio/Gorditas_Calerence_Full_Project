@@ -287,6 +287,23 @@ router.put('/:id/estatus', authenticate,
     if (estatus === 'Pagada') {
       orden.fechaPago = new Date();
     }
+
+    // Si la orden se marca como Surtida, marcar todos los productos, platillos y extras como listo
+    if (estatus === 'Surtida') {
+      // Marcar productos como listo
+      await OrdenDetalleProducto.updateMany({ idOrden: orden._id }, { $set: { listo: true } });
+
+      // Obtener subordenes y platillos
+      const subordenes = await Suborden.find({ idOrden: orden._id }).select('_id');
+      const subordenIds = subordenes.map(s => String(s._id));
+      await OrdenDetallePlatillo.updateMany({ idSuborden: { $in: subordenIds } }, { $set: { listo: true } });
+
+      // Obtener platillos para luego marcar sus extras
+      const platillos = await OrdenDetallePlatillo.find({ idSuborden: { $in: subordenIds } }).select('_id');
+      const platilloIds = platillos.map(p => String(p._id));
+      await OrdenDetalleExtra.updateMany({ idOrdenDetallePlatillo: { $in: platilloIds } }, { $set: { listo: true } });
+    }
+
     await orden.save();
 
     res.json(createResponse(true, orden, 'Estatus actualizado exitosamente'));
@@ -331,26 +348,40 @@ function validateStatusTransition(currentStatus: string, newStatus: string, user
   const validTransitions: { [key: string]: { [key: string]: string[] } } = {
     'Mesero': {
       'Pendiente': ['Recepcion'],
-      'Recepcion': ['Preparacion', 'Surtida'], // Puede enviar a cocina o marcar como surtida
-      'Preparacion': ['Surtida', 'Recepcion'], // Puede marcar como surtida o volver a recepción
-      'Surtida': ['Entregada', 'Pagada', 'Recepcion'], // Puede despachar, cobrar o volver a recepción
-      'Entregada': ['Pagada', 'Recepcion'], // Puede cobrar o volver a recepción
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
+      'Preparacion': ['Surtida', 'Recepcion'],
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'],
+      'Entregada': ['Pagada', 'Recepcion'],
     },
     'Despachador': {
-      'Recepcion': ['Preparacion', 'Surtida'], // Ahora puede ir directo a Surtida
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
       'Preparacion': ['Surtida'],
       'Surtida': ['Entregada']
     },
     'Encargado': {
       'Pendiente': ['Recepcion'],
-      'Recepcion': ['Preparacion', 'Surtida'], // Puede surtir órdenes
-      'Preparacion': ['Surtida', 'Recepcion'], // Puede marcar como surtida o volver a recepción
-      'Surtida': ['Entregada', 'Pagada', 'Recepcion'], // Puede despachar, cobrar o volver a recepción
-      'Entregada': ['Pagada', 'Recepcion'] // Puede cobrar o volver a recepción
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
+      'Preparacion': ['Surtida', 'Recepcion'],
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'],
+      'Entregada': ['Pagada', 'Recepcion']
+    },
+    'Empleado': {
+      'Pendiente': ['Recepcion'],
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
+      'Preparacion': ['Surtida', 'Recepcion'],
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'],
+      'Entregada': ['Pagada', 'Recepcion']
     },
     'Cocinero': {
-      'Recepcion': ['Preparacion', 'Surtida'], // Ahora puede ir directo a Surtida
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
       'Preparacion': ['Surtida']
+    },
+    'Admin': {
+      'Pendiente': ['Recepcion'],
+      'Recepcion': ['Preparacion', 'Surtida', 'Entregada'],
+      'Preparacion': ['Surtida', 'Recepcion'],
+      'Surtida': ['Entregada', 'Pagada', 'Recepcion'],
+      'Entregada': ['Pagada', 'Recepcion']
     }
   };
 

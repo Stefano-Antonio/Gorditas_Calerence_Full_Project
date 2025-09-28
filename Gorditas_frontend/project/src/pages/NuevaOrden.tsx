@@ -271,7 +271,17 @@ const NuevaOrden: React.FC = () => {
     try {
       // Procesar cada orden por separado
       for (const ordenData of todasLasOrdenes) {
-        const estatus = isOrderComplete ? 'Recepcion' : 'Pendiente';
+        // Determinar el estado basado en si la orden está completa y su contenido
+        let estatus: string;
+        if (!isOrderComplete) {
+          estatus = 'Pendiente';
+        } else if (ordenData.platillos.length === 0 && ordenData.productos.length > 0) {
+          // Si solo tiene productos, pasa directamente a Surtida
+          estatus = 'Surtida';
+        } else {
+          // Si tiene platillos, va a Recepcion para preparación
+          estatus = 'Recepcion';
+        }
         
         const nuevaOrdenData = {
           idMesa: selectedMesa._id,
@@ -993,7 +1003,10 @@ const NuevaOrden: React.FC = () => {
                   <div className={`p-2 sm:p-3 rounded-md ${isOrderComplete ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
                     <p className="text-xs sm:text-sm break-words">
                       {isOrderComplete 
-                        ? '✓ La orden será enviada directamente a preparación (Estado: Recepción)'
+                        ? (platillosSeleccionados.length === 0 && productosSeleccionados.length > 0
+                            ? '✓ La orden solo contiene productos y será enviada directamente a despacho (Estado: Surtida)'
+                            : '✓ La orden será enviada directamente a preparación (Estado: Recepción)'
+                          )
                         : '⚠ La orden será marcada como pendiente para revisión (Estado: Pendiente)'
                       }
                     </p>
@@ -1075,8 +1088,19 @@ const NuevaOrden: React.FC = () => {
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
                       <span className="text-gray-600 flex-shrink-0">Estado:</span>
-                      <span className={`sm:ml-2 font-medium ${isOrderComplete ? 'text-green-600' : 'text-orange-600'}`}>
-                        {isOrderComplete ? 'Recepción' : 'Pendiente'}
+                      <span className={`sm:ml-2 font-medium ${
+                        !isOrderComplete 
+                          ? 'text-orange-600' 
+                          : (platillosSeleccionados.length === 0 && productosSeleccionados.length > 0)
+                            ? 'text-green-600'
+                            : 'text-blue-600'
+                      }`}>
+                        {!isOrderComplete 
+                          ? 'Pendiente' 
+                          : (platillosSeleccionados.length === 0 && productosSeleccionados.length > 0)
+                            ? 'Surtida'
+                            : 'Recepción'
+                        }
                       </span>
                     </div>
                   </div>
@@ -1236,7 +1260,11 @@ const NuevaOrden: React.FC = () => {
                   <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 )}
                 <span className="truncate">
-                  {loading ? 'Creando Orden...' : 'Confirmar y Crear Orden'}
+                  {loading
+                    ? 'Creando Orden...'
+                    : ordenesEnProceso.length > 0
+                      ? 'Confirmar y Crear Ordenes'
+                      : 'Confirmar y Crear Orden'}
                 </span>
               </button>
 

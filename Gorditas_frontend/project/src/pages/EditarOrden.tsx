@@ -202,6 +202,13 @@ const EditarOrden: React.FC = () => {
   const handleExtraChange = async (idExtra: string, isSelected: boolean) => {
     if (!selectedPlatilloForExtras) return;
 
+    // Verificar si el platillo está entregado
+    const platilloDetalle = platillosDetalle.find(p => p._id === selectedPlatilloForExtras);
+    if (platilloDetalle?.entregado) {
+      setError('No se pueden agregar extras a platillos entregados');
+      return;
+    }
+
     console.log('Gestionando extra:', { idExtra, isSelected, selectedPlatilloForExtras });
 
     try {
@@ -857,8 +864,13 @@ const EditarOrden: React.FC = () => {
                                 setSelectedPlatilloForExtras(detalle._id!);
                                 setShowExtrasModal(true);
                               }}
-                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="Gestionar extras"
+                              disabled={detalle.entregado}
+                              className={`p-2 rounded-lg transition-colors ${
+                                detalle.entregado 
+                                  ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
+                                  : 'text-purple-600 hover:bg-purple-50'
+                              }`}
+                              title={detalle.entregado ? "No se pueden agregar extras a platillos entregados" : "Gestionar extras"}
                             >
                               <Plus className="w-4 h-4" />
                             </button>

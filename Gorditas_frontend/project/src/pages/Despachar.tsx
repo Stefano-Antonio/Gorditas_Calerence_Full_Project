@@ -157,6 +157,18 @@ const Despachar: React.FC = () => {
         // Group orders by table
         const grouped = groupOrdersByTable(ordenesConDetalles, mesasArray);
         setMesasAgrupadas(grouped);
+        
+        // Si hay una orden seleccionada, actualizarla con los nuevos datos
+        if (selectedOrden) {
+          const updatedSelectedOrden = ordenesConDetalles.find(orden => orden._id === selectedOrden._id);
+          if (updatedSelectedOrden) {
+            // Recargar los detalles completos de la orden seleccionada sin hacer scroll
+            loadOrdenDetails(updatedSelectedOrden, false);
+          } else {
+            // Si la orden seleccionada ya no existe (fue entregada o eliminada), deseleccionarla
+            setSelectedOrden(null);
+          }
+        }
       }
     } catch (error) {
       setError('Error cargando órdenes');
@@ -165,7 +177,7 @@ const Despachar: React.FC = () => {
     }
   };
 
-  const loadOrdenDetails = async (orden: OrdenConDetalles) => {
+  const loadOrdenDetails = async (orden: OrdenConDetalles, shouldScroll: boolean = true) => {
     try {
       const response = await apiService.getOrdenDetails(orden._id!);
       
@@ -194,15 +206,17 @@ const Despachar: React.FC = () => {
             extras: data.extras || [] // Include general extras list
           });
 
-          // Scroll to order details on mobile
-          setTimeout(() => {
-            if (orderDetailsRef.current && window.innerWidth < 1024) { // lg breakpoint
-              orderDetailsRef.current.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-              });
-            }
-          }, 100);
+          // Scroll to order details on mobile only if explicitly requested
+          if (shouldScroll) {
+            setTimeout(() => {
+              if (orderDetailsRef.current && window.innerWidth < 1024) { // lg breakpoint
+                orderDetailsRef.current.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start'
+                });
+              }
+            }, 100);
+          }
       } else {
         setError('Error cargando detalles de la orden');
       }
@@ -215,28 +229,37 @@ const Despachar: React.FC = () => {
     try {
       // Cargar detalles de la orden primero
       const response = await apiService.getOrdenDetails(orden._id!);
-      
       if (response.success) {
         const data = response.data;
         const platillos = data.platillos || [];
         const productos = data.productos || [];
         const extras = data.extras || [];
-        
+
+        // Si hay platillos en preparación (estatus Recepcion), no permitir entregar la orden
+        if (orden.estatus === 'Recepcion') {
+          const platillosPendientes = platillos.filter((p: any) => p.listo !== true && p.entregado !== true);
+          if (platillosPendientes.length > 0) {
+            setError(`No puedes entregar la orden del cliente "${orden.nombreCliente || 'Sin nombre'}" porque aún hay platillos en preparación.`);
+            setTimeout(() => setError(''), 3000);
+            return;
+          }
+        }
+
+        let debeActualizarEstatus = false;
+
         // Marcar todos los productos como entregados
         for (const producto of productos) {
           if (!producto.entregado) {
             await apiService.markProductoEntregado(producto._id);
           }
         }
-        
+
         // Solo marcar platillos y extras como entregados si la orden está surtida
         if (orden.estatus === 'Surtida') {
           for (const platillo of platillos) {
             if (!platillo.entregado) {
               await apiService.markPlatilloEntregado(platillo._id);
             }
-            
-            // Mark all extras within this platillo as delivered
             if (platillo.extras) {
               for (const extra of platillo.extras) {
                 if (!extra.entregado) {
@@ -245,15 +268,14 @@ const Despachar: React.FC = () => {
               }
             }
           }
-          
-          // Mark all general extras as delivered
           for (const extra of extras) {
             if (!extra.entregado) {
               await apiService.updateExtraStatus(extra._id, 'entregado');
             }
           }
         }
-        
+        // ...existing code...
+
         // Actualizar el estado local de selectedOrden si es la orden seleccionada
         if (selectedOrden && selectedOrden._id === orden._id) {
           const updatedOrden = {
@@ -268,17 +290,12 @@ const Despachar: React.FC = () => {
               : selectedOrden.platillos,
             extras: orden.estatus === 'Surtida'
               ? selectedOrden.extras?.map((e: any) => ({ ...e, entregado: true }))
-              : selectedOrden.extras
+              : selectedOrden.extras,
+            estatus: debeActualizarEstatus ? 'Entregada' : selectedOrden.estatus
           };
-          
-          // Si la orden será marcada como 'Entregada', actualizar el estatus local también
-          if (orden.estatus === 'Surtida') {
-            updatedOrden.estatus = 'Entregada';
-          }
-          
           setSelectedOrden(updatedOrden);
         }
-        
+
         // Actualizar también la lista local de órdenes
         setOrdenes(prevOrdenes => {
           const updatedOrdenes = prevOrdenes.map(ord => {
@@ -295,23 +312,17 @@ const Despachar: React.FC = () => {
                   : ord.platillos,
                 extras: orden.estatus === 'Surtida'
                   ? ord.extras?.map((e: any) => ({ ...e, entregado: true }))
-                  : ord.extras
+                  : ord.extras,
+                estatus: debeActualizarEstatus ? 'Entregada' : ord.estatus
               };
-              
-              // Si la orden será marcada como 'Entregada', actualizar el estatus local también
-              if (orden.estatus === 'Surtida') {
-                updatedOrder.estatus = 'Entregada';
-              }
-              
               return updatedOrder;
             }
             return ord;
           });
-          
           // Filtrar órdenes entregadas para que no aparezcan en la lista de despacho
           return updatedOrdenes.filter(ord => ord.estatus !== 'Entregada');
         });
-        
+
         // Actualizar también las mesas agrupadas
         setMesasAgrupadas(prevMesas => {
           const updatedMesas = prevMesas.map(mesa => ({
@@ -320,29 +331,13 @@ const Despachar: React.FC = () => {
           })).filter(mesa => mesa.ordenes.length > 0); // Remover mesas sin órdenes
           return updatedMesas;
         });
-        
+
         // Si la orden seleccionada fue entregada completamente, deseleccionarla
-        if (selectedOrden && selectedOrden._id === orden._id && orden.estatus === 'Surtida') {
+        if (selectedOrden && selectedOrden._id === orden._id && (orden.estatus === 'Surtida' || debeActualizarEstatus)) {
           setSelectedOrden(null);
         }
-        
-        // Solo actualizar el estado de la orden a 'Entregada' si está surtida y todo está entregado
-        if (orden.estatus === 'Surtida') {
-          const updateResponse = await apiService.updateOrdenStatus(orden._id!, 'Entregada');
-          
-          if (updateResponse.success) {
-            setSuccess(`Orden ${orden.folio || orden._id?.slice(-6)} marcada como entregada completamente`);
-          } else {
-            setError('Error al completar la entrega de la orden');
-          }
-        } else {
-          setSuccess(`Productos de la orden ${orden.folio || orden._id?.slice(-6)} marcados como entregados`);
-        }
-        
-        
+
         await loadData(); // Refresh the list
-        
-        // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError('Error cargando detalles de la orden');
@@ -355,33 +350,36 @@ const Despachar: React.FC = () => {
   const handleMarkAllMesaAsDelivered = async (mesa: MesaAgrupada) => {
     try {
       setLoading(true);
-      
       // Procesar todas las órdenes de la mesa de forma secuencial
       for (const orden of mesa.ordenes) {
         // Cargar detalles de la orden
         const response = await apiService.getOrdenDetails(orden._id!);
-        
         if (response.success) {
           const data = response.data;
           const platillos = data.platillos || [];
           const productos = data.productos || [];
           const extras = data.extras || [];
-          
+          // Si la orden está en Recepcion y hay platillos NO entregados ni listos, no permitir entregar
+          if (orden.estatus === 'Recepcion') {
+            const platillosPendientes = platillos.filter((p: any) => p.listo !== true && p.entregado !== true);
+            if (platillosPendientes.length > 0) {
+              setError(`No puedes entregar la orden del cliente "${orden.nombreCliente || 'Sin nombre'}" porque aún hay platillos en preparación.`);
+              setTimeout(() => setError(''), 3000);
+              continue;
+            }
+          }
           // Marcar todos los productos como entregados
           for (const producto of productos) {
             if (!producto.entregado) {
               await apiService.markProductoEntregado(producto._id);
             }
           }
-          
           // Solo marcar platillos y extras como entregados si la orden está surtida
           if (orden.estatus === 'Surtida') {
             for (const platillo of platillos) {
               if (!platillo.entregado) {
                 await apiService.markPlatilloEntregado(platillo._id);
               }
-              
-              // Mark all extras within this platillo as delivered
               if (platillo.extras) {
                 for (const extra of platillo.extras) {
                   if (!extra.entregado) {
@@ -390,31 +388,25 @@ const Despachar: React.FC = () => {
                 }
               }
             }
-            
-            // Mark all general extras as delivered
             for (const extra of extras) {
               if (!extra.entregado) {
                 await apiService.updateExtraStatus(extra._id, 'entregado');
               }
             }
-            
             // Actualizar estado de la orden a 'Entregada'
+            await apiService.updateOrdenStatus(orden._id!, 'Entregada');
+          } else if (orden.estatus === 'Recepcion') {
+            // Si la orden está en Recepcion, marcar como Entregada sin importar productos
             await apiService.updateOrdenStatus(orden._id!, 'Entregada');
           }
         }
       }
-      
       // Si alguna orden seleccionada era de esta mesa, deseleccionarla
       if (selectedOrden && mesa.ordenes.some(o => o._id === selectedOrden._id)) {
         setSelectedOrden(null);
       }
-      
-      setSuccess(`Todas las órdenes de ${mesa.nombreMesa} han sido entregadas`);
-      
-      // Recargar datos una sola vez al final
+      setSuccess(`Todas las órdenes de ${mesa.nombreMesa} que ya estan preparadas han sido entregadas`);
       await loadData();
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       setError('Error al entregar todas las órdenes de la mesa');
@@ -928,10 +920,10 @@ const Despachar: React.FC = () => {
                       <div key={index} className="space-y-2">
                         <div
                           className={`flex flex-col gap-2 p-2 sm:p-3 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
-                            selectedOrden.estatus === 'Recepcion' 
-                              ? 'bg-yellow-50 border border-yellow-200' 
-                              : platillo.entregado 
-                                ? 'bg-green-50 border border-green-200' 
+                            platillo.entregado 
+                              ? 'bg-green-50 border border-green-200' 
+                              : selectedOrden.estatus === 'Recepcion' 
+                                ? 'bg-yellow-50 border border-yellow-200' 
                                 : 'bg-gray-50'
                           }`}
                         >
@@ -944,7 +936,7 @@ const Despachar: React.FC = () => {
                             )}
                             <p className="text-xs sm:text-sm text-gray-600 break-words">Guiso: {platillo.guiso || platillo.nombreGuiso}</p>
                             <p className="text-xs sm:text-sm text-gray-600">Cantidad: {platillo.cantidad}</p>
-                            {selectedOrden.estatus === 'Recepcion' && (
+                            {selectedOrden.estatus === 'Recepcion' && !platillo.entregado && (
                               <p className="text-xs text-yellow-700 font-medium">Preparando...</p>
                             )}
                           </div>
@@ -952,15 +944,15 @@ const Despachar: React.FC = () => {
                             <span className="text-sm font-medium text-gray-900 flex-shrink-0">
                               ${platillo.subtotal !== undefined ? platillo.subtotal.toFixed(2) : '0.00'}
                             </span>
-                            {selectedOrden.estatus === 'Recepcion' ? (
-                              <div className="px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
-                                <span className="hidden sm:inline">Preparando</span>
-                                <span className="sm:hidden">Prep.</span>
-                              </div>
-                            ) : platillo.entregado ? (
+                            {platillo.entregado ? (
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                                 <span className="text-xs text-green-600 font-medium sm:hidden">Entregado</span>
+                              </div>
+                            ) : selectedOrden.estatus === 'Recepcion' ? (
+                              <div className="px-2 sm:px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded font-medium flex-shrink-0">
+                                <span className="hidden sm:inline">Preparando</span>
+                                <span className="sm:hidden">Prep.</span>
                               </div>
                             ) : (
                               <button
@@ -980,19 +972,19 @@ const Despachar: React.FC = () => {
                               <div
                                 key={extra._id}
                                 className={`flex flex-col gap-1 p-1.5 rounded text-xs border-l-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 ${
-                                  selectedOrden.estatus === 'Recepcion'
-                                    ? 'bg-yellow-50 border-l-yellow-400'
-                                    : extra.entregado 
-                                      ? 'bg-green-50 border-l-green-400' 
+                                  extra.entregado 
+                                    ? 'bg-green-50 border-l-green-400' 
+                                    : selectedOrden.estatus === 'Recepcion' && !platillo.entregado
+                                      ? 'bg-yellow-50 border-l-yellow-400'
                                       : 'bg-purple-50 border-l-purple-400'
                                 }`}
                               >
                                 <div className="flex items-center space-x-1 min-w-0 flex-1">
                                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                    selectedOrden.estatus === 'Recepcion'
-                                      ? 'bg-yellow-500'
-                                      : extra.entregado 
-                                        ? 'bg-green-500' 
+                                    extra.entregado
+                                      ? 'bg-green-500'
+                                      : selectedOrden.estatus === 'Recepcion' && !platillo.entregado
+                                        ? 'bg-yellow-500'
                                         : 'bg-purple-400'
                                   }`}></div>
                                   <span className="text-purple-900 font-medium break-words">
@@ -1003,12 +995,12 @@ const Despachar: React.FC = () => {
                                   <span className="text-purple-900 font-medium text-xs">
                                     ${(extra.importe ?? 0).toFixed(2)}
                                   </span>
-                                  {selectedOrden.estatus === 'Recepcion' ? (
+                                  {extra.entregado ? (
+                                    <CheckCircle className="w-3 h-3 text-green-600" />
+                                  ) : selectedOrden.estatus === 'Recepcion' && !platillo.entregado ? (
                                     <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
                                       Prep.
                                     </span>
-                                  ) : extra.entregado ? (
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
                                   ) : (
                                     <button
                                       onClick={() => handleMarkAsDelivered(extra._id, 'extra')}

@@ -10,6 +10,7 @@ import {
   Filter
 } from 'lucide-react';
 import { apiService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { BaseEntity } from '../types';
 
 interface CatalogItem extends BaseEntity {
@@ -33,6 +34,9 @@ const catalogModels = [
 ];
 
 const Catalogos: React.FC = () => {
+  // Contexto de usuario logueado
+  const { user } = useAuth();
+
   // Tipos dinámicos para selects
   const [tiposPlatillo, setTiposPlatillo] = useState<any[]>([]);
   const [tiposProducto, setTiposProducto] = useState<any[]>([]);
@@ -221,7 +225,7 @@ const Catalogos: React.FC = () => {
 
 
       // Validación de usuario: correo y contraseña
-      let dataToSend = formData;
+      let dataToSend = { ...formData };
       if (selectedModel.id === 'usuario') {
         // Validar formato de correo
         const emailRegex = /^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/;
@@ -238,10 +242,11 @@ const Catalogos: React.FC = () => {
           return;
         }
         // Si se está editando y el campo password está vacío, no enviar password
-        if (editingItem && (!formData.password || formData.password.length === 0)) {
-          // Eliminar password del formData para no modificarla
-          const { password, ...rest } = formData;
-          dataToSend = { ...rest };
+        if (editingItem) {
+          if (!formData.password || formData.password.length === 0) {
+            // Eliminar password para no enviarlo
+            delete dataToSend.password;
+          }
         }
       }
 
@@ -277,11 +282,18 @@ const Catalogos: React.FC = () => {
   };
 
   const handleDelete = async (item: CatalogItem) => {
+    // Restringir eliminación de admin/encargado por mesero/despachador
+    if (
+      selectedModel.id === 'usuario' &&
+      (item.nombreTipoUsuario === 'Admin' || item.nombreTipoUsuario === 'Encargado') &&
+      user && (user.nombreTipoUsuario === 'Mesero' || user.nombreTipoUsuario === 'Despachador')
+    ) {
+      setError('No tienes permiso para eliminar usuarios tipo Administrador o Encargado.');
+      return;
+    }
     if (!confirm('¿Estás seguro de que quieres eliminar este item?')) return;
-    
     try {
       const response = await apiService.deleteCatalogItem(selectedModel.id, item._id!);
-      
       if (response.success) {
         setSuccess('Item eliminado exitosamente');
         await loadItems();
@@ -314,18 +326,36 @@ const Catalogos: React.FC = () => {
   const renderField = (field: string, value: any) => {
   switch (field) {
       case 'nombreTipoUsuario': {
-        // Solo los 4 tipos fijos para usuarios
+        // Restringir selección de tipo Admin/Encargado para Mesero/Despachador
+        const esMeseroODespachador = user && (user.nombreTipoUsuario === 'Mesero' || user.nombreTipoUsuario === 'Despachador');
+        // Si es edición y el usuario editado es Admin/Encargado, bloquear el select
+        const esAdminOEncargadoEdit = editingItem && (editingItem.nombreTipoUsuario === 'Admin' || editingItem.nombreTipoUsuario === 'Encargado');
+        // Opciones permitidas
+        const opciones = esMeseroODespachador
+          ? tiposUsuario.filter(tipo => tipo.value !== 'Admin' && tipo.value !== 'Encargado')
+          : tiposUsuario;
         return (
-          <select
-            value={value || ''}
-            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-          >
-            <option value="">Selecciona tipo de usuario</option>
-            {tiposUsuario.map(tipo => (
-              <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-            ))}
-          </select>
+          <div>
+            <select
+              value={value || ''}
+              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              disabled={!!esAdminOEncargadoEdit && !!esMeseroODespachador}
+            >
+              <option value="">Selecciona tipo de usuario</option>
+              {opciones.map(tipo => (
+                <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+              ))}
+            </select>
+            {/* Mensaje si no puede editar tipo de usuario */}
+            {esAdminOEncargadoEdit && esMeseroODespachador && (
+              <div className="text-xs text-red-600 mt-1">No puedes cambiar el tipo de usuario de un Administrador o Encargado.</div>
+            )}
+            {/* Mensaje si está creando y no puede crear admin/encargado */}
+            {!editingItem && esMeseroODespachador && (
+              <div className="text-xs text-orange-600 mt-1">No puedes crear usuarios tipo Administrador o Encargado.</div>
+            )}
+          </div>
         );
       }
       case 'idTipoPlatillo': {
@@ -385,9 +415,12 @@ const Catalogos: React.FC = () => {
             <label className="ml-2 text-sm text-gray-700">Activo</label>
           </div>
         );
-      case 'password':
+      case 'password': {
         // Si es edición de usuario, mostrar campo para cambiar contraseña opcional
         if (selectedModel.id === 'usuario' && editingItem) {
+          const esAdminOEncargado = editingItem.nombreTipoUsuario === 'Admin' || editingItem.nombreTipoUsuario === 'Encargado';
+          const esMeseroODespachador = user && (user.nombreTipoUsuario === 'Mesero' || user.nombreTipoUsuario === 'Despachador');
+          const noPuedeEditar = esAdminOEncargado && esMeseroODespachador;
           return (
             <div>
               <input
@@ -396,11 +429,17 @@ const Catalogos: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="Dejar vacío para no cambiar"
+                disabled={!!noPuedeEditar}
               />
-              {value && value.length > 0 && value.length < 6 && (
+              {noPuedeEditar && (
+                <div className="text-xs text-red-600 mt-1">No puedes editar la contraseña de un Administrador o Encargado.</div>
+              )}
+              {value && value.length > 0 && value.length < 6 && !noPuedeEditar && (
                 <div className="text-xs text-red-600 mt-1">La contraseña debe tener al menos 6 caracteres.</div>
               )}
-              <div className="text-xs text-gray-500 mt-1">Dejar vacío para mantener la contraseña actual.</div>
+              {!noPuedeEditar && (
+                <div className="text-xs text-gray-500 mt-1">Dejar vacío para mantener la contraseña actual.</div>
+              )}
             </div>
           );
         }
@@ -419,11 +458,18 @@ const Catalogos: React.FC = () => {
             )}
           </div>
         );
+      }
       case 'email': {
         // Validación visual de formato de correo solo en crear usuario
         const emailRegex = /^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/;
         const isUsuario = selectedModel.id === 'usuario';
         const showEmailFormatError = isUsuario && value && !emailRegex.test(value);
+        let noPuedeEditarCorreo = false;
+        if (isUsuario && editingItem) {
+          const esAdminOEncargado = editingItem.nombreTipoUsuario === 'Admin' || editingItem.nombreTipoUsuario === 'Encargado';
+          const esMeseroODespachador = !!user && (user.nombreTipoUsuario === 'Mesero' || user.nombreTipoUsuario === 'Despachador');
+          noPuedeEditarCorreo = !!(esAdminOEncargado && esMeseroODespachador);
+        }
         return (
           <div>
             <input
@@ -434,8 +480,12 @@ const Catalogos: React.FC = () => {
               placeholder={`Ingresa ${field}`}
               pattern="^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$"
               required={isUsuario}
+              disabled={!!noPuedeEditarCorreo}
             />
-            {showEmailFormatError && (
+            {noPuedeEditarCorreo && (
+              <div className="text-xs text-red-600 mt-1">No puedes editar el correo de un Administrador o Encargado.</div>
+            )}
+            {showEmailFormatError && !noPuedeEditarCorreo && (
               <div className="text-xs text-red-600 mt-1">Formato: ejemplo@gmail.com</div>
             )}
           </div>

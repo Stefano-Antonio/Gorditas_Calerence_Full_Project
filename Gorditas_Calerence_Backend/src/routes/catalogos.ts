@@ -99,11 +99,19 @@ router.post('/:modelo', authenticate, validateModel,
 );
 
 // PUT /api/catalogos/{modelo}/:id - Actualizar
+import bcrypt from 'bcryptjs';
+
 router.put('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
+    let updateData = { ...req.body };
+    if (req.params.modelo.toLowerCase() === 'usuario' && updateData.password) {
+      // Hashear la contraseña antes de actualizar
+      const salt = await bcrypt.genSalt(12);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    }
     const item = await req.Model.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 

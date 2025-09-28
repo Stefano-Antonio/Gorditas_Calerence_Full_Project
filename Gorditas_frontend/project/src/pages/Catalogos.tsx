@@ -219,20 +219,37 @@ const Catalogos: React.FC = () => {
         }
       }
 
-      // Validación de contraseña para usuarios
+
+      // Validación de usuario: correo y contraseña
+      let dataToSend = formData;
       if (selectedModel.id === 'usuario') {
-        if (formData.password && formData.password.length < 6) {
+        // Validar formato de correo
+        const emailRegex = /^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/;
+        if (!formData.email || !emailRegex.test(formData.email)) {
+          setError('El correo electrónico no es válido.');
+          setSaving(false);
+          return;
+        }
+        // Validar contraseña solo si se está creando o si se está editando y se ingresó una nueva
+        if ((!editingItem && (!formData.password || formData.password.length < 6)) ||
+            (editingItem && formData.password && formData.password.length > 0 && formData.password.length < 6)) {
           setError('La contraseña debe tener al menos 6 caracteres.');
           setSaving(false);
           return;
+        }
+        // Si se está editando y el campo password está vacío, no enviar password
+        if (editingItem && (!formData.password || formData.password.length === 0)) {
+          // Eliminar password del formData para no modificarla
+          const { password, ...rest } = formData;
+          dataToSend = { ...rest };
         }
       }
 
       let response;
       if (editingItem) {
-        response = await apiService.updateCatalogItem(selectedModel.id, editingItem._id!, formData);
+        response = await apiService.updateCatalogItem(selectedModel.id, editingItem._id!, dataToSend);
       } else {
-        response = await apiService.createCatalogItem(selectedModel.id, formData);
+        response = await apiService.createCatalogItem(selectedModel.id, dataToSend);
       }
 
       if (response.success) {
@@ -244,6 +261,8 @@ const Catalogos: React.FC = () => {
         // Mostrar advertencia específica si la contraseña es demasiado corta
         if (response.error && response.error.toString().includes('Path `password`') && response.error.toString().includes('minimum allowed length')) {
           setError('La contraseña debe tener al menos 6 caracteres.');
+        } else if (response.error && response.error.toString().toLowerCase().includes('email')) {
+          setError('El correo electrónico no es válido o ya está en uso.');
         } else {
           setError('Error guardando el item');
         }
@@ -367,6 +386,25 @@ const Catalogos: React.FC = () => {
           </div>
         );
       case 'password':
+        // Si es edición de usuario, mostrar campo para cambiar contraseña opcional
+        if (selectedModel.id === 'usuario' && editingItem) {
+          return (
+            <div>
+              <input
+                type="password"
+                value={value || ''}
+                onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Dejar vacío para no cambiar"
+              />
+              {value && value.length > 0 && value.length < 6 && (
+                <div className="text-xs text-red-600 mt-1">La contraseña debe tener al menos 6 caracteres.</div>
+              )}
+              <div className="text-xs text-gray-500 mt-1">Dejar vacío para mantener la contraseña actual.</div>
+            </div>
+          );
+        }
+        // Si es creación de usuario o edición de otro modelo
         return (
           <div>
             <input
@@ -381,16 +419,28 @@ const Catalogos: React.FC = () => {
             )}
           </div>
         );
-      case 'email':
+      case 'email': {
+        // Validación visual de formato de correo solo en crear usuario
+        const emailRegex = /^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/;
+        const isUsuario = selectedModel.id === 'usuario';
+        const showEmailFormatError = isUsuario && value && !emailRegex.test(value);
         return (
-          <input
-            type="email"
-            value={value || ''}
-            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder={`Ingresa ${field}`}
-          />
+          <div>
+            <input
+              type="email"
+              value={value || ''}
+              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder={`Ingresa ${field}`}
+              pattern="^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$"
+              required={isUsuario}
+            />
+            {showEmailFormatError && (
+              <div className="text-xs text-red-600 mt-1">Formato: ejemplo@gmail.com</div>
+            )}
+          </div>
         );
+      }
       case 'numero':
       case 'cantidad':
       case 'capacidad':

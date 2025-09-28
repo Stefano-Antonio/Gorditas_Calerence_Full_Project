@@ -17,7 +17,8 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req: any, res: 
     }
     const payload = { id: user._id, email: user.email, nombre: user.nombre };
     const JWT_SECRET = process.env.JWT_SECRET || 'StAn121120360ne';
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+    // Token sin expiración (solo se invalida al cerrar sesión manualmente)
+    const token = jwt.sign(payload, JWT_SECRET);
 
     res.json(createResponse(true, {
       token,

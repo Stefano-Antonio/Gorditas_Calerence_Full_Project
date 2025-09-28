@@ -458,9 +458,20 @@ const NuevaOrden: React.FC = () => {
     );
   }
 
+  // Overlay de carga mientras se generan las órdenes
+  const loadingOverlay = loading && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="flex flex-col items-center">
+        <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-orange-600 mb-6"></div>
+        <span className="text-white text-lg font-bold">Generando órdenes...</span>
+      </div>
+    </div>
+  );
+
 
   return (
-    <div className="max-w-4xl mx-auto px-2 sm:px-4 lg:px-6">
+    <div className="max-w-4xl mx-auto px-2 sm:px-4 lg:px-6 relative">
+      {loadingOverlay}
       <div className="mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Nueva Orden</h1>
         <p className="text-sm sm:text-base text-gray-600">Crea una nueva orden paso a paso</p>

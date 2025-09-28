@@ -359,16 +359,41 @@ const SurtirOrden: React.FC = () => {
     return 'border-green-500';
   };
 
+
+  // Pantalla de carga global: bloquea scroll cuando updating está activo
+  useEffect(() => {
+    if (updating) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [updating]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-orange-600 mb-6"></div>
+          <span className="text-white text-2xl font-bold">Cargando órdenes...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 sm:space-y-6 px-1 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="space-y-3 sm:space-y-6 px-1 sm:px-6 lg:px-8 max-w-7xl mx-auto relative">
+      {/* Overlay de carga global al procesar órdenes (pantalla de carga) */}
+      {updating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 cursor-wait select-none" style={{ pointerEvents: 'all' }}>
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-orange-500 mb-8"></div>
+            <span className="text-white text-2xl font-bold drop-shadow-lg">Procesando órdenes, por favor espera...</span>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6">
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Órdenes Recientes</h1>
@@ -461,10 +486,7 @@ const SurtirOrden: React.FC = () => {
                           <Timer className="w-4 h-4 flex-shrink-0" />
                           <span className="font-medium">{timeElapsed}</span>
                         </div>
-                        <p className="text-base sm:text-lg font-semibold text-green-600">
-                          ${mesa.totalMonto.toFixed(2)}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-600">Total mesa</p>
+                        {/* Total eliminado */}
                       </div>
                       <div className="flex items-center gap-2">
                         {/* Botón para surtir todas las órdenes */}

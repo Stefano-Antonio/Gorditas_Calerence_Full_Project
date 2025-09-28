@@ -98,7 +98,6 @@ async function seedData() {
     await TipoExtra.deleteMany({});
     await Extra.deleteMany({});
 
-    console.log('✅ Cleared existing data');
 
     // Create user types first
     await TipoUsuario.insertMany([
@@ -109,7 +108,6 @@ async function seedData() {
       { _id: 5, nombre: 'Cocinero', descripcion: 'Cocinero del restaurante' }
     ]);
 
-    console.log('✅ Created user types');
 
     // Create test users including required Encargado and Despachador
     const hashedPasswordAdmin = await bcrypt.hash('password123', 12);
@@ -142,7 +140,6 @@ async function seedData() {
       }
     ]);
 
-    console.log('✅ Created test users including Encargado and Despachador');
 
     // Create mesas
     await Mesa.insertMany([
@@ -153,7 +150,6 @@ async function seedData() {
       { _id: 5, nombre: 'Mesa 5' }
     ]);
 
-    console.log('✅ Created mesas');
 
     // Create tipo platillos
     await TipoPlatillo.insertMany([
@@ -161,7 +157,6 @@ async function seedData() {
       { _id: 2, nombre: 'Quesadillas', descripcion: 'Quesadillas de maíz', activo: true }
     ]);
 
-    console.log('✅ Created tipo platillos');
 
     // Create 5 guisos for testing
     await Guiso.insertMany([
@@ -172,7 +167,6 @@ async function seedData() {
       { _id: 5, nombre: 'Frijoles Refritos', descripcion: 'Frijoles refritos con especias', activo: true }
     ]);
 
-    console.log('✅ Created 5 guisos');
 
     // Create 5 platillos of each type for testing
     await Platillo.insertMany([
@@ -280,7 +274,6 @@ async function seedData() {
       }
     ]);
 
-    console.log('✅ Created 10 platillos (5 of each type)');
 
     // Create product types
     await TipoProducto.insertMany([
@@ -289,7 +282,6 @@ async function seedData() {
       { _id: 3, nombre: 'Antojitos', descripcion: 'Antojitos mexicanos', activo: true }
     ]);
 
-    console.log('✅ Created product types');
 
     // Create 5 productos of each type for testing
     await Producto.insertMany([
@@ -433,7 +425,6 @@ async function seedData() {
       }
     ]);
 
-    console.log('✅ Created 15 productos (5 of each type)');
 
     // Create extra types
     await TipoExtra.insertMany([
@@ -443,7 +434,6 @@ async function seedData() {
       { _id: 4, nombre: 'Carnes', descripcion: 'Carnes extras', activo: true }
     ]);
 
-    console.log('✅ Created extra types');
 
     // Create extras
     await Extra.insertMany([
@@ -468,11 +458,9 @@ async function seedData() {
       { _id: 12, nombre: 'Carnitas', descripcion: 'Carnitas de cerdo', costo: 25, idTipoExtra: 4, activo: true }
     ]);
 
-    console.log('✅ Created 12 extras (3 of each type)');
-    console.log('🎉 Seed data creation completed successfully!');
     
   } catch (error) {
-    console.error('❌ Error seeding data:', error);
+    console.error(' Error seeding data:', error);
   } finally {
     mongoose.connection.close();
   }

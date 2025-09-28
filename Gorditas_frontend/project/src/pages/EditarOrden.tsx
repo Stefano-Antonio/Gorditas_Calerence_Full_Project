@@ -181,14 +181,12 @@ const EditarOrden: React.FC = () => {
     if (extrasRes.success) {
       const extrasData = extrasRes.data?.items || extrasRes.data || [];
       const extrasActivos = extrasData.filter((e: Extra) => e.activo);
-      console.log('Extras cargados:', extrasActivos);
       setExtras(extrasActivos);
     }
 
     if (tiposExtrasRes.success) {
       const tiposExtrasData = tiposExtrasRes.data?.items || tiposExtrasRes.data || [];
       const tiposExtrasActivos = tiposExtrasData.filter((te: TipoExtra) => te.activo);
-      console.log('Tipos de extras cargados:', tiposExtrasActivos);
       setTiposExtras(tiposExtrasActivos);
     }
   } catch (error) {
@@ -209,7 +207,6 @@ const EditarOrden: React.FC = () => {
       return;
     }
 
-    console.log('Gestionando extra:', { idExtra, isSelected, selectedPlatilloForExtras });
 
     try {
       if (isSelected) {
@@ -220,8 +217,6 @@ const EditarOrden: React.FC = () => {
           return;
         }
 
-        // Agregar extra
-        console.log('Agregando extra...', extra);
         const response = await apiService.addDetalleExtra({
           idOrdenDetallePlatillo: selectedPlatilloForExtras,
           idExtra,
@@ -230,7 +225,6 @@ const EditarOrden: React.FC = () => {
           cantidad: 1
         });
         
-        console.log('Respuesta agregar extra:', response);
         
         if (response.success) {
           setSuccess('Extra agregado exitosamente');
@@ -244,20 +238,15 @@ const EditarOrden: React.FC = () => {
         }
       } else {
         // Remover extra
-        console.log('Removiendo extra...');
         const platilloDetalle = platillosDetalle
           .find((d: any) => d._id === selectedPlatilloForExtras);
         
-        console.log('Platillo detalle encontrado:', platilloDetalle);
-        
         const extraToRemove = platilloDetalle?.extras?.find((e: any) => e.idExtra === idExtra);
         
-        console.log('Extra a remover:', extraToRemove);
         
         if (extraToRemove && extraToRemove._id) {
           const response = await apiService.removeDetalleExtra(extraToRemove._id);
           
-          console.log('Respuesta remover extra:', response);
           
           if (response.success) {
             setSuccess('Extra removido exitosamente');
@@ -870,9 +859,13 @@ const EditarOrden: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
                                   : 'text-purple-600 hover:bg-purple-50'
                               }`}
-                              title={detalle.entregado ? "No se pueden agregar extras a platillos entregados" : "Gestionar extras"}
+                              title={detalle.entregado ? "No se pueden agregar extras a platillos entregados" : (detalle.extras && detalle.extras.length > 0 ? "Editar extras" : "Agregar extras")}
                             >
-                              <Plus className="w-4 h-4" />
+                              {detalle.extras && detalle.extras.length > 0 ? (
+                                <Edit3 className="w-4 h-4" />
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
                             </button>
                             <button
                               onClick={() => handleRemovePlatillo(detalle._id!)}
@@ -1139,25 +1132,21 @@ const EditarOrden: React.FC = () => {
                       <h4 className="font-semibold text-purple-600 mb-2">{tipo.nombre}</h4>
                       <div className="grid gap-2">
                         {extrasDelTipo.map(extra => {
-                          const platilloDetalle = platillosDetalle
-                            .find((d: any) => d._id === selectedPlatilloForExtras);
-                          const isSelected = platilloDetalle?.extras?.some((e: any) => e.idExtra === extra._id) || false;
-
+                          const platilloDetalle = platillosDetalle.find((d: any) => d._id === selectedPlatilloForExtras);
                           return (
-                            <div key={extra._id} className="flex items-center justify-between">
-                              <label className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(e) => handleExtraChange(extra._id!, e.target.checked)}
-                                  className="rounded text-purple-600"
-                                />
-                                <span className="text-sm">{extra.nombre}</span>
-                              </label>
-                              <span className="text-sm font-semibold text-purple-600">
-                                +${extra.costo}
-                              </span>
-                            </div>
+                            <ExtraCantidadControl
+                              key={extra._id}
+                              extra={extra}
+                              platilloDetalle={platilloDetalle}
+                              selectedPlatilloForExtras={selectedPlatilloForExtras}
+                              setError={setError}
+                              setSuccess={setSuccess}
+                              selectedOrden={selectedOrden}
+                              loadOrdenDetails={loadOrdenDetails}
+                              apiService={apiService}
+                              setShowExtrasModal={setShowExtrasModal}
+                              setSelectedPlatilloForExtras={setSelectedPlatilloForExtras}
+                            />
                           );
                         })}
                       </div>
@@ -1184,5 +1173,137 @@ const EditarOrden: React.FC = () => {
     </div>
   );
 };
+
+// Componente para controlar la cantidad de un extra (fuera del componente principal)
+type ExtraCantidadControlProps = {
+  extra: Extra;
+  platilloDetalle: any;
+  selectedPlatilloForExtras: string;
+  setError: (msg: string) => void;
+  setSuccess: (msg: string) => void;
+  selectedOrden: Orden | null;
+  loadOrdenDetails: (orden: Orden) => Promise<void>;
+  apiService: typeof apiService;
+  setShowExtrasModal: (show: boolean) => void;
+  setSelectedPlatilloForExtras: (id: string | null) => void;
+};
+
+function ExtraCantidadControl(props: ExtraCantidadControlProps) {
+  const {
+    extra,
+    platilloDetalle,
+    selectedPlatilloForExtras,
+    setError,
+    setSuccess,
+    selectedOrden,
+    loadOrdenDetails,
+    apiService,
+    setShowExtrasModal,
+    setSelectedPlatilloForExtras
+  } = props;
+  const extraDetalle = platilloDetalle?.extras?.find(function(e: any) { return e.idExtra === extra._id; });
+  const cantidadExtra = extraDetalle?.cantidad || 0;
+  const [inputCantidad, setInputCantidad] = React.useState(cantidadExtra);
+  const [guardado, setGuardado] = React.useState(true); // true: desactiva guardar
+
+  React.useEffect(function() {
+    setInputCantidad(cantidadExtra);
+    setGuardado(true);
+  }, [cantidadExtra]);
+
+  function handleCantidadChange(val: number) {
+    if (platilloDetalle?.entregado) {
+      setError('No se pueden modificar extras de platillos entregados');
+      return;
+    }
+    if (val < 0) return;
+    setInputCantidad(val);
+    setGuardado(false); // Se habilita guardar si cambia
+  }
+
+  async function guardarCantidad() {
+    if (platilloDetalle?.entregado) {
+      setError('No se pueden modificar extras de platillos entregados');
+      return;
+    }
+    var nuevaCantidad = Number(inputCantidad);
+    if (isNaN(nuevaCantidad) || nuevaCantidad < 0) return;
+    if (nuevaCantidad === cantidadExtra) return;
+    if (nuevaCantidad === 0 && extraDetalle && extraDetalle._id) {
+      // Eliminar extra
+      var response = await apiService.removeDetalleExtra(extraDetalle._id);
+      if (response.success) {
+        setSuccess('Extra removido exitosamente');
+        if (selectedOrden) await loadOrdenDetails(selectedOrden);
+        setTimeout(function() { setSuccess(''); }, 3000);
+        setGuardado(true); // Desactiva guardar
+      } else {
+        setError('Error removiendo extra: ' + (response.error || 'Error desconocido'));
+      }
+    } else if (nuevaCantidad > 0) {
+      // Si ya existe, elimina y agrega con la nueva cantidad
+      if (extraDetalle && extraDetalle._id) {
+        await apiService.removeDetalleExtra(extraDetalle._id);
+      }
+      var response2 = await apiService.addDetalleExtra({
+        idOrdenDetallePlatillo: selectedPlatilloForExtras,
+        idExtra: String(extra._id),
+        nombreExtra: extra.nombre,
+        costoExtra: extra.costo,
+        cantidad: nuevaCantidad
+      });
+      if (response2.success) {
+        setSuccess('Cantidad actualizada');
+        if (selectedOrden) await loadOrdenDetails(selectedOrden);
+        setTimeout(function() { setSuccess(''); }, 3000);
+        setGuardado(true); // Desactiva guardar
+      } else {
+        setError('Error actualizando cantidad: ' + (response2.error || 'Error desconocido'));
+      }
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center space-x-2">
+        <span className="text-sm">{extra.nombre}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-sm font-semibold text-purple-600">
+          +${extra.costo}
+        </span>
+        <button
+          className="p-1 bg-gray-200 rounded"
+          onClick={function() { handleCantidadChange(Number(inputCantidad) - 1); }}
+          disabled={platilloDetalle?.entregado || Number(inputCantidad) <= 0}
+        >
+          <Minus className="w-3 h-3" />
+        </button>
+        <input
+          type="number"
+          min={0}
+          value={inputCantidad}
+          onChange={function(e) { handleCantidadChange(Number(e.target.value)); }}
+          className="w-12 text-center border border-purple-300 rounded px-1 py-0.5 text-xs"
+          disabled={platilloDetalle?.entregado}
+        />
+        <button
+          className="p-1 bg-gray-200 rounded"
+          onClick={function() { handleCantidadChange(Number(inputCantidad) + 1); }}
+          disabled={platilloDetalle?.entregado}
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+        <button
+          className="ml-2 px-2 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-700"
+          onClick={guardarCantidad}
+          disabled={platilloDetalle?.entregado || guardado || Number(inputCantidad) === cantidadExtra}
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default EditarOrden;

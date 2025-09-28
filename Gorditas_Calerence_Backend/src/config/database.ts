@@ -6,17 +6,17 @@ export const connectDB = async (): Promise<void> => {
     
     await mongoose.connect(mongoUri);
     
-    console.log('✅ MongoDB connected successfully');
+    console.log(' MongoDB connected successfully');
     
     // Graceful shutdown
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
-      console.log('❌ MongoDB connection closed.');
+      console.log(' MongoDB connection closed.');
       process.exit(0);
     });
     
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error(' MongoDB connection error:', error);
     process.exit(1);
   }
 };

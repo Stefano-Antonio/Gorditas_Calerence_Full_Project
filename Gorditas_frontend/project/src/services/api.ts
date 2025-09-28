@@ -132,7 +132,6 @@ class ApiService {
     }
     // Intentar con el rol del usuario primero
     const payload = { estatus, role };
-    console.log('[updateOrdenStatus] Intentando cambiar estatus', { ordenId, payload });
     let response = await this.request(`/ordenes/${ordenId}/estatus`, {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -143,7 +142,6 @@ class ApiService {
     // Si falla por restricción de rol, reintentar con admin
     if (!response.success && response.error && response.error.toLowerCase().includes('rol')) {
       const adminPayload = { estatus, role: 'admin' };
-      console.log('[updateOrdenStatus] Reintentando con rol admin', { ordenId, adminPayload });
       response = await this.request(`/ordenes/${ordenId}/estatus`, {
         method: 'PUT',
         body: JSON.stringify(adminPayload),

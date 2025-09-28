@@ -378,7 +378,16 @@ const Cobrar: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 px-1 sm:px-2 lg:px-3 max-w-full mx-auto">
+    <div className="space-y-3 sm:space-y-4 px-1 sm:px-2 lg:px-3 max-w-full mx-auto relative">
+      {/* Overlay de carga al procesar cobro */}
+      {processing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-orange-600 mb-6"></div>
+            <span className="text-white text-lg font-bold">Procesando cobro...</span>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 break-words">Cobrar</h1>
@@ -395,7 +404,7 @@ const Cobrar: React.FC = () => {
               </div>
             </div>
           )}
-          <div className="text-xs text-gray-500 text-center sm:text-left truncate">
+          <div className="text-xs text-gray-500 text-right sm:text-left truncate">
             Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
           </div>
         </div>

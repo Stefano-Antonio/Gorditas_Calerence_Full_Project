@@ -57,6 +57,8 @@ const Dashboard: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [hasNewData, setHasNewData] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+  // Estado para la orden seleccionada (detalle)
+  const [selectedOrden, setSelectedOrden] = useState<OrdenWorkflow | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -153,6 +155,17 @@ const Dashboard: React.FC = () => {
         }
         
         setLastUpdateTime(new Date());
+
+        // Si hay una orden seleccionada, actualizar su información si cambia en el workflow
+        if (selectedOrden) {
+          const actualizada = workflow.find(o => o._id === selectedOrden._id);
+          if (actualizada) {
+            setSelectedOrden(actualizada);
+          } else {
+            // Si la orden ya no existe, cerrar el detalle
+            setSelectedOrden(null);
+          }
+        }
       }
 
       // Load inventory
@@ -413,6 +426,7 @@ const Dashboard: React.FC = () => {
   };
 
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -445,7 +459,7 @@ const Dashboard: React.FC = () => {
               </div>
             )}
             <div className="text-xs text-gray-500">
-              Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+              {lastUpdateTime.toLocaleTimeString('es-ES')}
             </div>
           </div>
         </div>
@@ -527,7 +541,31 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
+      {/* Modal de detalles de orden activa */}
+      {selectedOrden && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative">
+            <button
+              onClick={() => setSelectedOrden(null)}
+              className="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+              title="Cerrar"
+            >
+              ×
+            </button>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Detalle de Orden</h2>
+            <div className="mb-2">
+              <span className="font-medium">Folio:</span> {selectedOrden.folio}<br />
+              <span className="font-medium">Mesa:</span> {selectedOrden.mesa}<br />
+              <span className="font-medium">Cliente:</span> {selectedOrden.cliente}<br />
+              <span className="font-medium">Estatus:</span> {selectedOrden.estatus}<br />
+              <span className="font-medium">Total:</span> ${selectedOrden.total.toFixed(2)}<br />
+              <span className="font-medium">Tiempo:</span> {selectedOrden.tiempoTranscurrido}
+            </div>
+            {/* Aquí puedes agregar más detalles si lo deseas */}
+          </div>
+        </div>
+      )}
         {/* Order Workflow Management */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
@@ -566,7 +604,8 @@ const Dashboard: React.FC = () => {
                 {ordenesWorkflow.map((orden) => (
                   <div
                     key={orden._id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors gap-3 sm:gap-4"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors gap-3 sm:gap-4 cursor-pointer"
+                    onClick={() => setSelectedOrden(orden)}
                   >
                     <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto min-w-0 flex-1">
                       <div className="flex items-center space-x-2 min-w-0 flex-1">
@@ -609,6 +648,7 @@ const Dashboard: React.FC = () => {
                       <Link
                         to="/editar-orden"
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                        onClick={e => e.stopPropagation()}
                       >
                         <Edit className="w-4 h-4" />
                       </Link>

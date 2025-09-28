@@ -1,3 +1,6 @@
+// PUT /api/ordenes/extra/:id/estatus - Actualizar estatus (entregado) de un extra
+import { Request, Response } from 'express';
+
 import { Router } from 'express';
 import { 
   Orden, 
@@ -20,7 +23,20 @@ import { generateFolio } from '../utils/counters';
 import { OrdenStatus } from '../types';
 
 const router = Router();
-
+router.put('/extra/:id/estatus', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const { estatus } = req.body;
+  // Considera 'entregado' si estatus es 'entregado', de lo contrario false
+  const entregado = estatus === 'entregado';
+  const extra = await OrdenDetalleExtra.findByIdAndUpdate(
+    req.params.id,
+    { entregado },
+    { new: true }
+  );
+  if (!extra) {
+    return res.status(404).json(createResponse(false, null, 'Extra no encontrado'));
+  }
+  res.json(createResponse(true, extra));
+}));
 // GET /api/ordenes - Listar órdenes
 router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
   const { estatus, mesa, fecha, page = 1, limit = 10 } = req.query;

@@ -179,8 +179,6 @@ const Reportes: React.FC = () => {
     const montoActual = montoCajaPorFecha[fechaActual] || 0;
     const nuevoMonto = montoActual + montoAgregarCaja;
     
-    console.log(`Agregando $${montoAgregarCaja} a caja del ${fechaActual}`);
-    console.log(`Monto anterior: $${montoActual}, Nuevo monto: $${nuevoMonto}`);
     
     guardarMontoCaja(fechaActual, nuevoMonto);
     setEditandoCajaDiaActual(false);
@@ -223,24 +221,6 @@ const Reportes: React.FC = () => {
             setProductos(productos);
             setPlatillos(platillos);
             setExtras(extras);
-
-            console.log('Órdenes cargadas:', ordenes.length);
-            console.log('Extras cargados:', extras.length);
-            console.log('=== DATOS DEL BACKEND PARA DEPURACIÓN (UTC) ===');
-            console.log('VentasPorDia (fechas procesadas en UTC):', ventasPorDia);
-            console.log('Fechas específicas del resumen (UTC):', ventasPorDia.map((v: any) => v._id));
-            console.log('Estructura completa de ventasPorDia:', ventasPorDia.map((v: any) => ({
-              fecha: v._id,
-              ventas: v.ventas,
-              ordenes: v.ordenes
-            })));
-            console.log('=== MUESTRA DE ÓRDENES INDIVIDUALES ===');
-            console.log('Primeras 3 órdenes con fechas:', ordenes.slice(0, 3).map((o: any) => ({ 
-              folio: o.folio, 
-              fechaHora: o.fechaHora, 
-              fechaPago: o.fechaPago,
-              estatus: o.estatus 
-            })));
 
             if (ventasPorDia.length > 0) {
               // Obtener los gastos del mismo período
@@ -550,11 +530,6 @@ const Reportes: React.FC = () => {
   };
 
   const mostrarOrdenesDeDia = (fecha: string) => {
-    console.log('=== USANDO FECHA DIRECTA DEL RESUMEN DEL BACKEND (UTC) ===');
-    console.log('Fecha seleccionada del resumen:', fecha);
-    console.log('Esta fecha YA fue procesada por el backend usando UTC (sin timezone)');
-    console.log('Filtro de fechas activo:', { fechaInicio, fechaFin });
-    console.log('Órdenes disponibles:', ordenes.length);
     
     // Si no hay órdenes, mostrar array vacío
     if (ordenes.length === 0) {
@@ -566,16 +541,12 @@ const Reportes: React.FC = () => {
     
     // Verificar que la fecha seleccionada esté dentro del rango del filtro
     if (fecha < fechaInicio || fecha > fechaFin) {
-      console.log(`❌ La fecha ${fecha} está fuera del rango permitido (${fechaInicio} - ${fechaFin})`);
+      console.log(` La fecha ${fecha} está fuera del rango permitido (${fechaInicio} - ${fechaFin})`);
       setOrdenesDia([]);
       setDiaSeleccionado(fecha);
       setOrdenExpandida(null);
       return;
     }
-    
-    console.log('=== FILTRADO CON LÓGICA IDÉNTICA AL BACKEND (UTC) ===');
-    console.log(`Buscando órdenes que en UTC corresponden a: ${fecha}`);
-    console.log('Aplicando misma lógica que el backend: $dateToString sin timezone (UTC)');
     
     // Filtrar órdenes usando EXACTAMENTE la misma lógica que el backend
     const ordenesFiltradas = ordenes.filter((orden: any) => {
@@ -596,14 +567,12 @@ const Reportes: React.FC = () => {
       const coincideFecha = fechaOrdenUTC === fecha;
       
       if (coincideFecha) {
-        console.log(`✅ Orden ${orden.folio}: fechaHora=${orden.fechaHora} -> UTC=${fechaOrdenUTC} -> COINCIDE`);
+        console.log(` Orden ${orden.folio}: fechaHora=${orden.fechaHora} -> UTC=${fechaOrdenUTC} -> COINCIDE`);
       }
       
       return coincideFecha;
     });
-    
-    console.log(`🎯 Total órdenes encontradas para ${fecha}: ${ordenesFiltradas.length}`);
-    console.log('Resumen de órdenes filtradas:');
+   
     ordenesFiltradas.forEach((orden: any, index: number) => {
       console.log(`  ${index + 1}. Folio: ${orden.folio}, Total: $${orden.total}, FechaHora: ${orden.fechaHora}`);
     });
@@ -838,9 +807,6 @@ const Reportes: React.FC = () => {
                                   // Esta fecha viene de ventasPorDia._id que usa $dateToString sin timezone (UTC)
                                   const [año, mes, dia] = reporte.fecha.split('-');
                                   const fechaFormateada = `${dia}/${mes}/${año}`;
-                                  
-                                  console.log(`📅 Fecha del backend (UTC): ${reporte.fecha} -> mostrada como: ${fechaFormateada}`);
-                                  
                                   return fechaFormateada;
                                 })()}
                               </td>
@@ -892,8 +858,6 @@ const Reportes: React.FC = () => {
                                 <button
                                   className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
                                   onClick={() => {
-                                    console.log('Haciendo clic en fecha:', reporte.fecha);
-                                    console.log('Órdenes totales disponibles:', ordenes.length);
                                     mostrarOrdenesDeDia(reporte.fecha);
                                   }}
                                 >
@@ -950,14 +914,6 @@ const Reportes: React.FC = () => {
                                   extra.idOrdenDetallePlatillo === platillo._id
                                 );
                                 
-                                // Debug específico para esta orden
-                                if (orden._id === ordenExpandida) {
-                                  console.log(`Platillo ${platillo.nombrePlatillo} (ID: ${platillo._id})`);
-                                  console.log(`Extras encontrados: ${extrasDelPlatillo.length}`);
-                                  if (extrasDelPlatillo.length > 0) {
-                                    console.log('Extras:', extrasDelPlatillo);
-                                  }
-                                }
                                 
                                 return {
                                   ...platillo,

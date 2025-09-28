@@ -32,9 +32,9 @@ async function ensureAdminUser() {
       activo: true
     });
     await admin.save();
-    console.log('✅ Usuario encargado creado automáticamente');
+    console.log(' Usuario encargado creado automáticamente');
   } else {
-    console.log('ℹ️ Usuario encargado ya existe');
+    console.log('ℹ Usuario encargado ya existe');
   }
 }
 

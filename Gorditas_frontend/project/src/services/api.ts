@@ -1,9 +1,19 @@
+// ...otros métodos...
 import { ApiResponse } from '../types';
 import { mockApiService } from './mockApi';
 //const API_BASE_URL = `http://localhost:5000/api`;
 const API_BASE_URL = `https://calerence-api.neuralmane.com/api`;
 
 class ApiService {
+  /**
+   * Elimina una orden por su ID.
+   * @param ordenId El ID de la orden a eliminar.
+   */
+  async deleteOrden(ordenId: string) {
+    return this.request(`/ordenes/${ordenId}`, {
+      method: 'DELETE',
+    });
+  }
   async getOrden(ordenId: string) {
     return this.request(`/ordenes/${ordenId}`);
   }

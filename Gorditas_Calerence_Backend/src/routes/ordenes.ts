@@ -594,4 +594,32 @@ router.delete('/extra/:id', authenticate, asyncHandler(async (req: any, res: any
   res.json(createResponse(true, null, 'Extra eliminado exitosamente'));
 }));
 
+
+// DELETE /api/ordenes/:id - Eliminar una orden completa y sus dependencias
+router.delete('/:id', authenticate, asyncHandler(async (req: any, res: any) => {
+  const orden = await Orden.findById(req.params.id);
+  if (!orden) {
+    return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
+  }
+  // Elimina subórdenes, productos, platillos y extras relacionados
+  const subordenes = await Suborden.find({ idOrden: orden._id });
+  const subordenIds = subordenes.map((s: any) => s._id);
+
+  // Obtener ids de platillos de las subórdenes
+  const platilloIds = await OrdenDetallePlatillo.find({ idSuborden: { $in: subordenIds } }).distinct('_id');
+
+  // Eliminar extras de los platillos
+  await OrdenDetalleExtra.deleteMany({ idOrdenDetallePlatillo: { $in: platilloIds } });
+  // Eliminar platillos
+  await OrdenDetallePlatillo.deleteMany({ idSuborden: { $in: subordenIds } });
+  // Eliminar productos
+  await OrdenDetalleProducto.deleteMany({ idOrden: orden._id });
+  // Eliminar subórdenes
+  await Suborden.deleteMany({ idOrden: orden._id });
+  // Eliminar la orden principal
+  await Orden.findByIdAndDelete(orden._id);
+
+  res.json(createResponse(true, null, 'Orden eliminada exitosamente'));
+}));
+
 export default router;

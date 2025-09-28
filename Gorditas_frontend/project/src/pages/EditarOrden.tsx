@@ -1,3 +1,5 @@
+  // Estado y función para eliminar orden
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Edit3, 
@@ -66,7 +68,64 @@ const EditarOrden: React.FC = () => {
   const orderDetailsRef = useRef<HTMLDivElement>(null);
 
 // Removed duplicate loadData and useEffect block
-
+  const [deletingOrder, setDeletingOrder] = useState(false);
+  const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false);
+  const handleDeleteOrder = (orden: Orden) => {
+  console.log('Abriendo modal de eliminar orden para:', orden._id);
+  setSelectedOrden(orden);
+  setShowDeleteOrderModal(true);
+  };
+  const confirmDeleteOrder = async () => {
+    if (!selectedOrden) return;
+    console.log('Intentando eliminar orden:', selectedOrden._id);
+    setDeletingOrder(true);
+    setError('');
+    try {
+      const response = await apiService.deleteOrden(selectedOrden._id!);
+      console.log('Respuesta deleteOrden:', response);
+      if (response.success) {
+        setSuccess('Orden eliminada exitosamente');
+        setSelectedOrden(null);
+        await loadData();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error eliminando la orden');
+      }
+    } catch (error) {
+      setError('Error eliminando la orden');
+      console.error('Error en confirmDeleteOrder:', error);
+    } finally {
+      setDeletingOrder(false);
+      setShowDeleteOrderModal(false);
+    }
+  };
+      {/* Otros modales... */}
+    {/* Modal de confirmación para eliminar orden (al final del return) */}
+    {showDeleteOrderModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+            ¿Estás seguro que deseas eliminar esta orden? Esta acción no se puede deshacer.
+          </h3>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <button
+              onClick={() => setShowDeleteOrderModal(false)}
+              disabled={deletingOrder}
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { console.log('Click en botón Eliminar del modal'); confirmDeleteOrder(); }}
+              disabled={deletingOrder}
+              className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
+            >
+              {deletingOrder ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   // Function to group orders by table
   const groupOrdersByTable = (ordenes: Orden[]): MesaAgrupada[] => {
     const grouped: { [idMesa: number]: MesaAgrupada } = {};
@@ -539,7 +598,8 @@ const EditarOrden: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 p-2 sm:p-6">
+    <>
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 p-2 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-6">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Editar Orden</h1>
@@ -683,6 +743,23 @@ const EditarOrden: React.FC = () => {
                                             </>
                                           ) : (
                                             <span className="hidden sm:inline">Confirmar orden</span>
+                                          )}
+                                        </button>
+                                      )}
+                                      {/* Botón eliminar orden, solo para la orden seleccionada */}
+                                      {selectedOrden?._id === orden._id && (
+                                        <button
+                                          onClick={() => handleDeleteOrder(orden)}
+                                          disabled={deletingOrder}
+                                          className="px-2 sm:px-3 py-1 text-xs bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors flex items-center whitespace-nowrap disabled:opacity-50"
+                                          title="Eliminar orden"
+                                        >
+                                          {deletingOrder ? (
+                                            <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></span>Eliminando...</span>
+                                          ) : (
+                                            <>
+                                              <Trash2 className="w-3 h-3 mr-1 inline" /> Eliminar
+                                            </>
                                           )}
                                         </button>
                                       )}
@@ -1095,8 +1172,8 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Extras */}
-      {showExtrasModal && selectedPlatilloForExtras && (
+  {/* Modal de Extras */}
+  {showExtrasModal && selectedPlatilloForExtras && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-lg p-3 sm:p-6 max-w-md w-full max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
@@ -1171,7 +1248,34 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
     </div>
-  );
+    {/* Modal de confirmación para eliminar orden (dentro del fragmento raíz) */}
+    {showDeleteOrderModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+            ¿Estás seguro que deseas eliminar esta orden? Esta acción no se puede deshacer.
+          </h3>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <button
+              onClick={() => setShowDeleteOrderModal(false)}
+              disabled={deletingOrder}
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { console.log('Click en botón Eliminar del modal'); confirmDeleteOrder(); }}
+              disabled={deletingOrder}
+              className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
+            >
+              {deletingOrder ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+);
 };
 
 // Componente para controlar la cantidad de un extra (fuera del componente principal)

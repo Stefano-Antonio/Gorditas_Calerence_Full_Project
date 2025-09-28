@@ -126,24 +126,7 @@ router.put('/:modelo/:id', authenticate, validateModel,
 // DELETE /api/catalogos/{modelo}/:id - Eliminar
 router.delete('/:modelo/:id', authenticate, validateModel,
   asyncHandler(async (req: any, res: any) => {
-    // Para modelos críticos, solo desactivar
-    const criticalModels = ['usuario', 'producto', 'platillo', 'extra'];
-    
-    if (criticalModels.includes(req.params.modelo.toLowerCase())) {
-      const item = await req.Model.findByIdAndUpdate(
-        req.params.id,
-        { activo: false },
-        { new: true }
-      );
-
-      if (!item) {
-        return res.status(404).json(createResponse(false, null, 'Registro no encontrado'));
-      }
-
-      return res.json(createResponse(true, item, 'Registro desactivado exitosamente'));
-    }
-
-    // Para otros modelos, eliminar completamente
+    // Eliminar completamente el registro para todos los modelos
     const item = await req.Model.findByIdAndDelete(req.params.id);
 
     if (!item) {

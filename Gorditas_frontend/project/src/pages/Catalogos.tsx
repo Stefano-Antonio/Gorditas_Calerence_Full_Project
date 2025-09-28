@@ -43,10 +43,26 @@ const Catalogos: React.FC = () => {
   const [tiposExtra, setTiposExtra] = useState<any[]>([]);
   // Tipos fijos para usuarios
   const tiposUsuarioFijos = [
-    { value: 'Despachador', label: 'Despachador', descripcion: 'Atiende y despacha órdenes.' },
-    { value: 'Mesero', label: 'Mesero', descripcion: 'Toma pedidos y atiende mesas.' },
-    { value: 'Encargado', label: 'Encargado', descripcion: 'Gestiona inventario y reportes.' },
-    { value: 'Admin', label: 'Administrador', descripcion: 'Acceso total al sistema.' }
+    {
+      value: 'Despachador',
+      label: 'Despachador',
+      descripcion: 'Atiende y despacha órdenes. Acceso: Surtir Orden, Despachar, Catálogos.'
+    },
+    {
+      value: 'Mesero',
+      label: 'Mesero',
+      descripcion: 'Toma pedidos y atiende mesas. Acceso: Nueva Orden, Editar Orden.'
+    },
+    {
+      value: 'Encargado',
+      label: 'Encargado',
+      descripcion: 'Gestiona inventario y reportes. Acceso: Inventario, Recibir Producto.'
+    },
+    {
+      value: 'Admin',
+      label: 'Administrador',
+      descripcion: 'Acceso total a todos los componentes y configuraciones del sistema.'
+    }
   ];
   const [tiposUsuario, setTiposUsuario] = useState<any[]>(tiposUsuarioFijos);
 

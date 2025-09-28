@@ -770,8 +770,8 @@ const Despachar: React.FC = () => {
                                         </span>
                                       </div>
                                       {orden.notas && (
-                                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                                          <strong>Notas:</strong> <span className="break-words">{orden.notas}</span>
+                                        <div className="mt-1 p-2 bg-blue-50 rounded text-xs text-blue-700 max-w-full" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-line' }}>
+                                          <strong>Notas:</strong> <span className="break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-line' }}>{orden.notas}</span>
                                         </div>
                                       )}
                                     </div>

@@ -27,7 +27,7 @@ const catalogModels = [
   { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipoextra', name: 'Tipos de Extra', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'extra', name: 'Extras', fields: ['nombre', 'idTipoExtra', 'descripcion', 'costo'], hasActivo: true },
-  { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre', 'descripcion'], hasActivo: true },
+  { id: 'tipogasto', name: 'Tipos de Gasto', fields: ['nombre'], hasActivo: true },
   { id: 'tipousuario', name: 'Tipos de Usuario', fields: ['nombre', 'descripcion'], hasActivo: false },
   { id: 'usuario', name: 'Usuarios', fields: ['nombre', 'email', 'password', 'nombreTipoUsuario'], hasActivo: true },
   { id: 'mesa', name: 'Mesas', fields: ['nombre'], hasActivo: false },

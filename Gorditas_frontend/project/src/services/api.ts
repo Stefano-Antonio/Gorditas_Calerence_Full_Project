@@ -83,9 +83,19 @@ class ApiService {
     localStorage.removeItem('token');
   }
   // Orders methods
+  /**
+   * Trae todas las órdenes (para reportes, historial, etc.)
+   */
   async getOrdenes() {
-    // Solicita todas las órdenes (ajusta el límite según lo necesario)
     return this.request('/ordenes?limit=1000');
+  }
+
+  /**
+   * Trae solo órdenes activas (no pagadas ni canceladas) para gestión diaria
+   */
+  async getOrdenesActivas() {
+    // El backend debe soportar el filtro por estatus con query string
+    return this.request('/ordenes?limit=1000&estatusNo=Pagada,Cancelado');
   }
   async createOrden(orden: any) {
     return this.request('/ordenes/nueva', {

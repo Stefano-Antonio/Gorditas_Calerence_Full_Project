@@ -102,7 +102,7 @@ const NuevaOrden: React.FC = () => {
         apiService.getCatalog<ApiResponse<any>>('producto'),
         apiService.getCatalog<ApiResponse<Extra>>('extra'),
         apiService.getCatalog<ApiResponse<TipoExtra>>('tipoextra'),
-        apiService.getOrdenes(),
+        apiService.getOrdenesActivas(),
       ]);
 
       setMesas(Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : []);

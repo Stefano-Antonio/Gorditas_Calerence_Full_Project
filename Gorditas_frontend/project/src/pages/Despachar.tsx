@@ -111,7 +111,7 @@ const Despachar: React.FC = () => {
   const loadData = async () => {
     try {
       const [ordenesRes, mesasRes] = await Promise.all([
-        apiService.getOrdenes(),
+  apiService.getOrdenesActivas(),
         apiService.getCatalog<Mesa>('mesa')
       ]);
 

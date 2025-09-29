@@ -88,7 +88,7 @@ const Cobrar: React.FC = () => {
 
   const loadOrdenesActivas = async () => {
     try {
-      const response = await apiService.getOrdenes();
+  const response = await apiService.getOrdenesActivas();
       if (response.success) {
         let ordenesArray: Orden[] = [];
         if (Array.isArray(response.data.ordenes)) {

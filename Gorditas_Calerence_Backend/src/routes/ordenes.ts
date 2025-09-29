@@ -39,10 +39,15 @@ router.put('/extra/:id/estatus', authenticate, asyncHandler(async (req: Request,
 }));
 // GET /api/ordenes - Listar órdenes
 router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
-  const { estatus, mesa, fecha, page = 1, limit = 10 } = req.query;
-  
+  const { estatus, estatusNo, mesa, fecha, page = 1, limit = 10 } = req.query;
+
   const filter: any = {};
   if (estatus) filter.estatus = estatus;
+  // Nuevo: excluir estatus si se pasa estatusNo (puede ser lista separada por coma)
+  if (estatusNo) {
+    const excluidos = String(estatusNo).split(',').map((s) => s.trim());
+    filter.estatus = { $nin: excluidos };
+  }
   if (mesa) filter.idMesa = mesa;
   if (fecha) {
     const startDate = new Date(fecha);
@@ -52,7 +57,7 @@ router.get('/', authenticate, asyncHandler(async (req: any, res: any) => {
   }
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
-  
+
   const [ordenes, total] = await Promise.all([
     Orden.find(filter)
       .sort({ fechaHora: -1 })

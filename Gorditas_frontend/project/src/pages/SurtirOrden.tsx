@@ -86,7 +86,7 @@ const SurtirOrden: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const ordenesRes = await apiService.getOrdenes();
+  const ordenesRes = await apiService.getOrdenesActivas();
 
       if (ordenesRes.success) {
         let ordenesArray: Orden[] = [];

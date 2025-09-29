@@ -180,7 +180,7 @@ const EditarOrden: React.FC = () => {
   const loadData = async () => {
   try {
     const [ordenesRes, platillosRes, guisosRes, productosRes, extrasRes, tiposExtrasRes] = await Promise.all([
-      apiService.getOrdenes(),
+  apiService.getOrdenesActivas(),
       apiService.getCatalog<Platillo>('platillo'),
       apiService.getCatalog<Guiso>('guiso'),
       apiService.getCatalog<Producto>('producto'),

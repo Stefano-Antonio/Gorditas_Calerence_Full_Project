@@ -67,10 +67,11 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+
   const loadDashboardData = async () => {
     try {
       // Load orders
-  const ordenesResponse = await apiService.getOrdenes();
+      const ordenesResponse = await apiService.getOrdenes();
       if (ordenesResponse?.data?.ordenes) {
         if (ordenesResponse.data.ordenes.length > 0) {
         }
@@ -78,6 +79,7 @@ const Dashboard: React.FC = () => {
       if (ordenesResponse.success && ordenesResponse.data) {
         const ordenes: Orden[] = Array.isArray(ordenesResponse.data.ordenes) ? ordenesResponse.data.ordenes : [];
 
+        // Definir función para saber si una orden es de hoy
         const hoy = new Date();
         const esHoy = (d?: Date | string) => {
           if (!d) return false;
@@ -87,30 +89,29 @@ const Dashboard: React.FC = () => {
                  fecha.getDate() === hoy.getDate();
         };
 
-        // Órdenes creadas hoy (por fechaHora)
-        const ordenesHoy = ordenes.filter((orden: Orden) => 
-          esHoy(orden.fechaHora ?? orden.fecha)
-        ).length;
+        // Filtrar solo órdenes del día
+        const ordenesHoyArr = ordenes.filter((orden: Orden) => esHoy(orden.fechaHora ?? orden.fecha));
 
         // Ventas de hoy: solo órdenes pagadas hoy (por fechaPago)
-        const ventasHoy = ordenes
+        const ventasHoy = ordenesHoyArr
           .filter((orden: Orden) => 
             orden.estatus === 'Pagada' && esHoy((orden as any).fechaPago)
           )
           .reduce((sum, orden) => sum + orden.total, 0);
 
-        const pendientes = ordenes.filter((orden: Orden) => 
+        // Órdenes pendientes del día
+        const pendientes = ordenesHoyArr.filter((orden: Orden) => 
           orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
         );
 
-        // Count orders by status
-        const ordenesPorEstatus = ordenes.reduce((acc: any, orden: Orden) => {
+        // Count orders by status SOLO del día
+        const ordenesPorEstatus = ordenesHoyArr.reduce((acc: any, orden: Orden) => {
           acc[orden.estatus] = (acc[orden.estatus] || 0) + 1;
           return acc;
         }, {});
 
-        // Create workflow data with time calculations
-        const workflow = ordenes
+        // Create workflow data SOLO del día
+        const workflow = ordenesHoyArr
           .filter((orden: Orden) => 
             orden.estatus !== 'Pagada' && orden.estatus !== 'Cancelado'
           )
@@ -134,7 +135,7 @@ const Dashboard: React.FC = () => {
 
         setStats(prev => ({
           ...prev,
-          ordenesHoy,
+          ordenesHoy: ordenesHoyArr.length,
           ventasHoy,
           ordenesPendientes: pendientes.length,
           ordenesPorEstatus
@@ -142,18 +143,18 @@ const Dashboard: React.FC = () => {
 
         setOrdenesPendientes(pendientes);
         setOrdenesWorkflow(workflow);
-        
+
         // Detectar nuevos datos
         const currentWorkflowIds = ordenesWorkflow.map(o => o._id);
         const newWorkflowIds = workflow.map(o => o._id);
         const hasChanges = newWorkflowIds.some(id => !currentWorkflowIds.includes(id)) || 
                           newWorkflowIds.length !== currentWorkflowIds.length;
-        
+
         if (hasChanges && ordenesWorkflow.length > 0) {
           setHasNewData(true);
           setTimeout(() => setHasNewData(false), 3000);
         }
-        
+
         setLastUpdateTime(new Date());
 
         // Si hay una orden seleccionada, actualizar su información si cambia en el workflow

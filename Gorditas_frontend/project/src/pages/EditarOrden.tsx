@@ -1308,11 +1308,12 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
   const extraDetalle = platilloDetalle?.extras?.find(function(e: any) { return e.idExtra === extra._id; });
   const cantidadExtra = extraDetalle?.cantidad || 0;
   const [inputCantidad, setInputCantidad] = React.useState(cantidadExtra);
-  const [guardado, setGuardado] = React.useState(true); // true: desactiva guardar
+
+  // El botón Guardar solo se habilita si la cantidad cambió respecto al guardado
+  const cantidadCambiada = Number(inputCantidad) !== cantidadExtra;
 
   React.useEffect(function() {
     setInputCantidad(cantidadExtra);
-    setGuardado(true);
   }, [cantidadExtra]);
 
   function handleCantidadChange(val: number) {
@@ -1322,7 +1323,6 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
     }
     if (val < 0) return;
     setInputCantidad(val);
-    setGuardado(false); // Se habilita guardar si cambia
   }
 
   async function guardarCantidad() {
@@ -1340,7 +1340,6 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
         setSuccess('Extra removido exitosamente');
         if (selectedOrden) await loadOrdenDetails(selectedOrden);
         setTimeout(function() { setSuccess(''); }, 3000);
-        setGuardado(true); // Desactiva guardar
       } else {
         setError('Error removiendo extra: ' + (response.error || 'Error desconocido'));
       }
@@ -1360,7 +1359,6 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
         setSuccess('Cantidad actualizada');
         if (selectedOrden) await loadOrdenDetails(selectedOrden);
         setTimeout(function() { setSuccess(''); }, 3000);
-        setGuardado(true); // Desactiva guardar
       } else {
         setError('Error actualizando cantidad: ' + (response2.error || 'Error desconocido'));
       }
@@ -1401,7 +1399,7 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
         <button
           className="ml-2 px-2 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-700"
           onClick={guardarCantidad}
-          disabled={platilloDetalle?.entregado || guardado || Number(inputCantidad) === cantidadExtra}
+          disabled={platilloDetalle?.entregado || !cantidadCambiada}
         >
           Guardar
         </button>

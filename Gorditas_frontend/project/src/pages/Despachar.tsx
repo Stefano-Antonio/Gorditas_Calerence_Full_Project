@@ -263,18 +263,18 @@ const Despachar: React.FC = () => {
         for (const platillo of platillos) {
           if (platillo.listo === true && !platillo.entregado) {
             await apiService.markPlatilloEntregado(platillo._id);
-          }
-          if (platillo.listo !== true && platillo.entregado !== true) {
-            hayPlatillosNoListos = true;
-          }
-          // Marcar extras de platillo con listo=true
-          if (platillo.extras) {
-            for (const extra of platillo.extras) {
-              if ((platillo.listo === true) && !extra.entregado) {
-                await apiService.updateExtraStatus(extra._id, 'entregado');
+            // Marcar extras SOLO si el platillo se entrega en este momento
+            if (platillo.extras) {
+              for (const extra of platillo.extras) {
+                if (!extra.entregado) {
+                  await apiService.updateExtraStatus(extra._id, 'entregado');
+                }
               }
             }
+          } else if (platillo.listo !== true && platillo.entregado !== true) {
+            hayPlatillosNoListos = true;
           }
+          // Si el platillo ya estaba entregado o no está listo, NO marcar sus extras
         }
 
         // Marcar extras generales como entregados (si aplica lógica de negocio)
@@ -385,18 +385,18 @@ const Despachar: React.FC = () => {
           for (const platillo of platillos) {
             if (platillo.listo === true && !platillo.entregado) {
               await apiService.markPlatilloEntregado(platillo._id);
-            }
-            if (platillo.listo !== true && platillo.entregado !== true) {
-              hayPlatillosNoListos = true;
-            }
-            // Marcar extras de platillo con listo=true
-            if (platillo.extras) {
-              for (const extra of platillo.extras) {
-                if ((platillo.listo === true) && !extra.entregado) {
-                  await apiService.updateExtraStatus(extra._id, 'entregado');
+              // Marcar extras SOLO si el platillo se entrega en este momento
+              if (platillo.extras) {
+                for (const extra of platillo.extras) {
+                  if (!extra.entregado) {
+                    await apiService.updateExtraStatus(extra._id, 'entregado');
+                  }
                 }
               }
+            } else if (platillo.listo !== true && platillo.entregado !== true) {
+              hayPlatillosNoListos = true;
             }
+            // Si el platillo ya estaba entregado o no está listo, NO marcar sus extras
           }
 
           // Marcar extras generales como entregados (si aplica lógica de negocio)
@@ -1004,22 +1004,9 @@ const Despachar: React.FC = () => {
                               {platillo.extras.map((extra: any) => (
                                 <div
                                   key={extra._id}
-                                  className={`flex flex-col gap-1 p-1.5 rounded text-xs border-l-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 ${
-                                    extra.entregado 
-                                      ? 'bg-green-50 border-l-green-400' 
-                                      : selectedOrden.estatus === 'Recepcion' && (!platillo.listo || platillo.entregado)
-                                        ? 'bg-yellow-50 border-l-yellow-400'
-                                        : 'bg-purple-50 border-l-purple-400'
-                                  }`}
+                                  className="flex flex-col gap-1 p-1.5 rounded text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 bg-white border-l-0"
                                 >
                                   <div className="flex items-center space-x-1 min-w-0 flex-1">
-                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                      extra.entregado
-                                        ? 'bg-green-500'
-                                        : selectedOrden.estatus === 'Recepcion' && (!platillo.listo || platillo.entregado)
-                                          ? 'bg-yellow-500'
-                                          : 'bg-purple-400'
-                                    }`}></div>
                                     <span className="text-purple-900 font-medium break-words">
                                       {extra.nombreExtra} (x{extra.cantidad})
                                     </span>
@@ -1028,20 +1015,14 @@ const Despachar: React.FC = () => {
                                     <span className="text-purple-900 font-medium text-xs">
                                       ${(extra.importe ?? 0).toFixed(2)}
                                     </span>
-                                    {extra.entregado ? (
-                                      <CheckCircle className="w-3 h-3 text-green-600" />
-                                    ) : puedeEntregar ? (
+                                    {puedeEntregar ? (
                                       <button
                                         onClick={() => handleMarkAsDelivered(extra._id, 'extra')}
                                         className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
                                       >
                                         Entregar
                                       </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
-                                        Prep.
-                                      </span>
-                                    )}
+                                    ) : null}
                                   </div>
                                 </div>
                               ))}

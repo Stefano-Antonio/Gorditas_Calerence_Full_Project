@@ -84,7 +84,8 @@ class ApiService {
   }
   // Orders methods
   async getOrdenes() {
-    return this.request('/ordenes');
+    // Solicita todas las órdenes (ajusta el límite según lo necesario)
+    return this.request('/ordenes?limit=1000');
   }
   async createOrden(orden: any) {
     return this.request('/ordenes/nueva', {

@@ -950,17 +950,18 @@ const Despachar: React.FC = () => {
                       // Permitir entregar si listo=true y entregado=false
                       const puedeEntregar = platillo.listo === true && platillo.entregado !== true;
                       const bloqueadoPorRecepcion = selectedOrden.estatus === 'Recepcion' && (!platillo.listo || platillo.entregado);
+                      // Determinar fondo para platillo y extras
+                      let platilloBg = '';
+                      if (platillo.entregado) {
+                        platilloBg = 'bg-green-50 border border-green-200';
+                      } else if (selectedOrden.estatus === 'Recepcion' && !platillo.listo) {
+                        platilloBg = 'bg-yellow-50 border border-yellow-200';
+                      } else {
+                        platilloBg = 'bg-gray-50';
+                      }
                       return (
                         <div key={index} className="space-y-2">
-                          <div
-                            className={`flex flex-col gap-2 p-2 sm:p-3 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
-                              platillo.entregado 
-                                ? 'bg-green-50 border border-green-200' 
-                                : selectedOrden.estatus === 'Recepcion' && !platillo.listo
-                                  ? 'bg-yellow-50 border border-yellow-200' 
-                                  : 'bg-gray-50'
-                            }`}
-                          >
+                          <div className={`flex flex-col gap-2 p-2 sm:p-3 rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${platilloBg}`}>
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-900 text-sm sm:text-base break-words">{platillo.platillo || platillo.nombrePlatillo || `Platillo ${index + 1}`}</p>
                               {platillo.notas && (
@@ -998,13 +999,13 @@ const Despachar: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          {/* Extras for this platillo */}
+                          {/* Extras for this platillo, con mismo fondo que el platillo */}
                           {platillo.extras && platillo.extras.length > 0 && (
                             <div className="ml-2 sm:ml-4 space-y-1">
                               {platillo.extras.map((extra: any) => (
                                 <div
                                   key={extra._id}
-                                  className="flex flex-col gap-1 p-1.5 rounded text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 bg-white border-l-0"
+                                  className={`flex flex-col gap-1 p-1.5 rounded text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 ${platilloBg}`}
                                 >
                                   <div className="flex items-center space-x-1 min-w-0 flex-1">
                                     <span className="text-purple-900 font-medium break-words">

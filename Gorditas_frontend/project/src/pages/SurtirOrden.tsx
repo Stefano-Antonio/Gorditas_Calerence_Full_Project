@@ -63,15 +63,11 @@ const SurtirOrden: React.FC = () => {
       grouped[idMesa].totalOrdenes += 1;
       grouped[idMesa].totalMonto += orden.total;
       
-      // Group by client
-      const cliente = orden.nombreCliente || 'Sin nombre';
-      if (!grouped[idMesa].clientes[cliente]) {
-        grouped[idMesa].clientes[cliente] = [];
-      }
-      grouped[idMesa].clientes[cliente].push(orden);
+      // Agrupación por cliente eliminada
     });
     
-    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  // Eliminar agrupación por cliente
+  return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
   };
 
   const toggleMesaExpansion = (idMesa: number) => {
@@ -336,8 +332,8 @@ const SurtirOrden: React.FC = () => {
     const orderTime = new Date(fecha);
     const diffInMinutes = Math.floor((now.getTime() - orderTime.getTime()) / (1000 * 60));
     
-    if (diffInMinutes > 45) return 'border-red-500 bg-red-50';
-    if (diffInMinutes > 30) return 'border-yellow-500 bg-yellow-50';
+    if (diffInMinutes > 40) return 'border-red-500 bg-red-50';
+    if (diffInMinutes > 20) return 'border-yellow-500 bg-yellow-50';
     return 'border-green-500 bg-green-50';
   };
 
@@ -354,8 +350,8 @@ const SurtirOrden: React.FC = () => {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - oldestTime.getTime()) / (1000 * 60));
     
-    if (diffInMinutes > 45) return 'border-red-500';
-    if (diffInMinutes > 30) return 'border-yellow-500';
+    if (diffInMinutes > 40) return 'border-red-500';
+    if (diffInMinutes > 20) return 'border-yellow-500';
     return 'border-green-500';
   };
 
@@ -419,7 +415,7 @@ const SurtirOrden: React.FC = () => {
             </div>
           )}
           <div className="text-xs text-gray-500">
-            Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+           {lastUpdateTime.toLocaleTimeString('es-ES')}
           </div>
         </div>
       </div>
@@ -478,6 +474,15 @@ const SurtirOrden: React.FC = () => {
                         <p className="text-sm text-gray-600 break-words">
                           {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                         </p>
+                        {/* Lista de clientes de la mesa */}
+                        {mesa.ordenes.length > 0 && (
+                          <div className="mt-1">
+                            <span className="text-[20px] text-gray-500 font-medium">Clientes en esta mesa: </span>
+                            <span className="text-[20px] text-gray-700">
+                              {Array.from(new Set(mesa.ordenes.map(o => o.nombreCliente || 'Sin nombre'))).join(', ')}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -486,7 +491,7 @@ const SurtirOrden: React.FC = () => {
                           <Timer className="w-4 h-4 flex-shrink-0" />
                           <span className="font-medium">{timeElapsed}</span>
                         </div>
-                        {/* Total eliminado */}
+                        {/* Total eliminado - no mostrar costos */}
                       </div>
                       <div className="flex items-center gap-2">
                         {/* Botón para surtir todas las órdenes */}
@@ -522,170 +527,154 @@ const SurtirOrden: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>              {/* Orders grouped by client - Expanded view */}
+                </div>
               {expandedMesas.has(mesa.idMesa) && (
                 <div className="p-2 sm:p-6">
-                  <div className="space-y-4 sm:space-y-6">
-                    {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
-                      <div key={cliente} className="bg-gray-50 rounded-lg p-2 sm:p-6">
-                        <h4 className="font-medium text-gray-900 mb-3 break-words">
-                          Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
-                        </h4>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {ordenesCliente.map((orden) => {
-                            const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
-                            const timeElapsed = getTimeElapsed(horaOrden);
-                            const priorityColor = getPriorityColor(horaOrden);
-                            
-                            return (
-                              <div
-                                key={orden._id}
-                                className={`bg-white rounded-lg border p-2 sm:p-5 ${priorityColor}`}
-                              >
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
-                                  <div className="min-w-0 flex-1">
-                                    <h5 className="font-medium text-gray-900 break-words">
-                                      Orden #{orden._id?.toString().slice(-6)}
-                                    </h5>
-                                    {orden.notas && (
-                                      <div className="flex items-start space-x-1 mt-1">
-                                        <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                        <p className="text-xs text-gray-700 italic break-words">
-                                          {orden.notas}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="text-left sm:text-right flex-shrink-0">
-                                    <div className="flex items-center space-x-1 text-sm text-gray-600 mb-1">
-                                      <Timer className="w-4 h-4 flex-shrink-0" />
-                                      <span>{timeElapsed}</span>
-                                    </div>
-                                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                                      orden.estatus === 'Recepcion' 
-                                        ? 'bg-blue-100 text-blue-800' 
-                                        : orden.estatus === 'Pendiente'
-                                        ? 'bg-orange-100 text-orange-800'
-                                        : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      <span className="hidden sm:inline">
-                                        {orden.estatus === 'Recepcion' 
-                                          ? 'Lista para preparar' 
-                                          : orden.estatus === 'Pendiente'
-                                          ? 'Pendiente de verificar'
-                                          : 'En preparación'}
-                                      </span>
-                                      <span className="sm:hidden">
-                                        {orden.estatus === 'Recepcion' 
-                                          ? 'Lista' 
-                                          : orden.estatus === 'Pendiente'
-                                          ? 'Pendiente'
-                                          : 'Preparando'}
-                                      </span>
-                                    </span>
-                                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {mesa.ordenes.map((orden) => {
+                      const horaOrden = orden.fechaHora ?? orden.fecha ?? new Date();
+                      const timeElapsed = getTimeElapsed(horaOrden);
+                      const priorityColor = getPriorityColor(horaOrden);
+                      return (
+                        <div
+                          key={orden._id}
+                          className={`bg-white rounded-lg border p-2 sm:p-5 ${priorityColor}`}
+                        >
+                          {/* Nombre del cliente arriba de la orden */}
+                          <div className="mb-1">
+                            <span className="text-[20px] font-semibold text-gray-700">Cliente: </span>
+                            <span className="text-[20px] text-gray-900">{orden.nombreCliente || 'Sin nombre'}</span>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                            <div className="min-w-0 flex-1">
+                              {orden.notas && (
+                                <div className="flex items-start space-x-1 mt-1">
+                                  <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                  <p className="text-xs text-gray-700 italic break-words">
+                                    {orden.notas}
+                                  </p>
                                 </div>
-
-                                {/* Resumen de la orden */}
-                                <div className="bg-gray-50 rounded-lg p-2 sm:p-3 mb-4 space-y-2">
-                                  <h6 className="text-lg font-semibold text-gray-900 mb-2">Resumen de la orden:</h6>
-                                  
-                                  {/* Platillos */}
-                                  {orden.platillos && orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).length > 0 && (
-                                    <div className="space-y-1">
-                                      {orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).map((platillo: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-start text-lg">
-                                          <div className="flex-1 min-w-0">
-                                            <span className="font-semibold text-gray-800">
-                                              {platillo.cantidad}x {platillo.nombrePlatillo || platillo.platillo}
-                                            </span>
-                                            <span className="text-gray-600 ml-1">
-                                              ({platillo.nombreGuiso || platillo.guiso})
-                                            </span>
-                                            {platillo.notas && (
-                                              <div className="text-blue-600 italic mt-1">
-                                                Notas: {platillo.notas}
-                                              </div>
-                                            )}
-                                            {/* Extras del platillo - solo mostrar los no listos ni entregados */}
-                                            {platillo.extras && platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).length > 0 && (
-                                              <div className="ml-2 mt-1">
-                                                {platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).map((extra: any, extraIndex: number) => (
-                                                  <div key={extraIndex} className="text-purple-600 text-lg">
-                                                    + {extra.cantidad}x {extra.nombreExtra} (+${extra.costoExtra})
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                          <span className="text-gray-700 font-semibold ml-2 flex-shrink-0">
-                                            ${(platillo.importe || platillo.subtotal || 0).toFixed(2)}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Productos */}
-                                  {orden.productos && orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).length > 0 && (
-                                    <div className="space-y-1 pt-2 border-t border-gray-200">
-                                      {orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).map((producto: any, index: number) => (
-                                        <div key={index} className="flex justify-between items-center text-lg">
-                                          <span className="font-semibold text-gray-800">
-                                            {producto.cantidad}x {producto.nombreProducto || producto.producto}
-                                          </span>
-                                          <span className="text-gray-700 font-semibold">
-                                            ${(producto.importe || producto.subtotal || 0).toFixed(2)}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Mensaje si no hay items pendientes */}
-                                  {(!orden.platillos || orden.platillos.filter((p: any) => !p.entregado).length === 0) && 
-                                   (!orden.productos || orden.productos.filter((p: any) => !p.entregado).length === 0) && (
-                                    <div className="text-lg text-gray-500 italic">
-                                      Todos los items han sido entregados
-                                    </div>
-                                  )}
-                                </div>
-
-                                {orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente' ? (
-                                  <div className="space-y-2">
-                                    <button
-                                      onClick={() => handleIniciarPreparacion(orden._id!)}
-                                      disabled={updating === orden._id || orden.estatus === 'Pendiente'}
-                                      className="w-full bg-blue-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                                    >
-                                      {updating === orden._id ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2 flex-shrink-0"></div>
-                                          <span>Iniciando...</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ChefHat className="w-4 h-4 mr-2 flex-shrink-0" />
-                                          <span>
-                                            {orden.estatus === 'Pendiente' ? 'Pendiente' : 'Marcar como Preparada'}
-                                          </span>
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    <span className="text-sm text-orange-600 font-medium">
-                                      ⏳ En preparación...
-                                    </span>
-                                  </div>
-                                )}
+                              )}
+                            </div>
+                            <div className="text-left sm:text-right flex-shrink-0">
+                              <div className="flex items-center space-x-1 text-sm text-gray-600 mb-1">
+                                <Timer className="w-4 h-4 flex-shrink-0" />
+                                <span>{timeElapsed}</span>
                               </div>
-                            );
-                          })}
+                              <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                                orden.estatus === 'Recepcion' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : orden.estatus === 'Pendiente'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                <span className="hidden sm:inline">
+                                  {orden.estatus === 'Recepcion' 
+                                    ? 'Lista para preparar' 
+                                    : orden.estatus === 'Pendiente'
+                                    ? 'Pendiente de verificar'
+                                    : 'En preparación'}
+                                </span>
+                                <span className="sm:hidden">
+                                  {orden.estatus === 'Recepcion' 
+                                    ? 'Lista' 
+                                    : orden.estatus === 'Pendiente'
+                                    ? 'Pendiente'
+                                    : 'Preparando'}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Resumen de la orden */}
+                          <div className="bg-gray-50 rounded-lg p-2 sm:p-3 mb-4 space-y-2">
+                            <h6 className="text-lg font-semibold text-gray-900 mb-2">Resumen de la orden:</h6>
+                            {/* Platillos */}
+                            {orden.platillos && orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).length > 0 && (
+                              <div className="space-y-1">
+                                {orden.platillos.filter((platillo: any) => platillo.listo !== true && platillo.entregado !== true).map((platillo: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-start text-lg">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-gray-800">
+                                        {platillo.cantidad}x {platillo.nombrePlatillo || platillo.platillo}
+                                      </span>
+                                      <span className="text-gray-600 ml-1">
+                                        ({platillo.nombreGuiso || platillo.guiso})
+                                      </span>
+                                      {platillo.notas && (
+                                        <div className="text-blue-600 italic mt-1">
+                                          Notas: {platillo.notas}
+                                        </div>
+                                      )}
+                                      {/* Extras del platillo - solo mostrar los no listos ni entregados */}
+                                      {platillo.extras && platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).length > 0 && (
+                                        <div className="ml-2 mt-1">
+                                          {platillo.extras.filter((extra: any) => extra.listo !== true && extra.entregado !== true).map((extra: any, extraIndex: number) => (
+                                            <div key={extraIndex} className="text-purple-600 text-lg">
+                                              + {extra.cantidad}x {extra.nombreExtra}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {/* Costo eliminado */}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Productos */}
+                            {orden.productos && orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).length > 0 && (
+                              <div className="space-y-1 pt-2 border-t border-gray-200">
+                                {orden.productos.filter((producto: any) => producto.listo !== true && producto.entregado !== true).map((producto: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center text-lg">
+                                    <span className="font-semibold text-gray-800">
+                                      {producto.cantidad}x {producto.nombreProducto || producto.producto}
+                                    </span>
+                                    {/* Costo eliminado */}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Mensaje si no hay items pendientes */}
+                            {(!orden.platillos || orden.platillos.filter((p: any) => !p.entregado).length === 0) && 
+                             (!orden.productos || orden.productos.filter((p: any) => !p.entregado).length === 0) && (
+                              <div className="text-lg text-gray-500 italic">
+                                Todos los items han sido entregados
+                              </div>
+                            )}
+                          </div>
+                          {orden.estatus === 'Recepcion' || orden.estatus === 'Pendiente' ? (
+                            <div className="space-y-2">
+                              <button
+                                onClick={() => handleIniciarPreparacion(orden._id!)}
+                                disabled={updating === orden._id || orden.estatus === 'Pendiente'}
+                                className="w-full bg-blue-600 text-white py-2 px-3 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                              >
+                                {updating === orden._id ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2 flex-shrink-0"></div>
+                                    <span>Iniciando...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChefHat className="w-4 h-4 mr-2 flex-shrink-0" />
+                                    <span>
+                                      {orden.estatus === 'Pendiente' ? 'Pendiente' : 'Marcar como Preparada'}
+                                    </span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <span className="text-sm text-orange-600 font-medium">
+                                ⏳ En preparación...
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -706,7 +695,7 @@ const SurtirOrden: React.FC = () => {
                     Detalles de Orden - {selectedOrden.nombreMesa || 'Sin Mesa'}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1 break-words">
-                    Estado: {selectedOrden.estatus} | Total: ${selectedOrden.total.toFixed(2)}
+                    Estado: {selectedOrden.estatus}
                   </p>
                 </div>
                 <button
@@ -744,9 +733,7 @@ const SurtirOrden: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2">
-                          <span className="text-sm font-medium text-gray-900 flex-shrink-0">
-                            ${(producto.subtotal ?? 0).toFixed(2)}
-                          </span>
+                          {/* Costo eliminado */}
                           {producto.entregado ? (
                             <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                           ) : null}
@@ -789,9 +776,7 @@ const SurtirOrden: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex items-center justify-between sm:justify-end gap-2">
-                            <span className="text-sm font-medium text-gray-900 flex-shrink-0">
-                              ${(platillo.subtotal ?? 0).toFixed(2)}
-                            </span>
+                            {/* Costo eliminado */}
                             {platillo.entregado ? (
                               <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                             ) : null}
@@ -821,9 +806,7 @@ const SurtirOrden: React.FC = () => {
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-2">
-                                  <span className="text-sm font-medium text-purple-900 flex-shrink-0">
-                                    ${(extra.importe ?? 0).toFixed(2)}
-                                  </span>
+                                  {/* Costo eliminado */}
                                   <div className="flex items-center gap-1">
                                     {extra.entregado ? (
                                       <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
@@ -905,15 +888,15 @@ const SurtirOrden: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="flex items-center space-x-3">
             <div className="w-4 h-4 bg-green-200 border-2 border-green-500 rounded flex-shrink-0"></div>
-            <span className="text-sm text-gray-700">Normal (menos de 30 min)</span>
+            <span className="text-sm text-gray-700">Normal (hasta 20 min)</span>
           </div>
           <div className="flex items-center space-x-3">
             <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-500 rounded flex-shrink-0"></div>
-            <span className="text-sm text-gray-700">Atención (30-45 min)</span>
+            <span className="text-sm text-gray-700">Atención (20-40 min)</span>
           </div>
           <div className="flex items-center space-x-3">
             <div className="w-4 h-4 bg-red-200 border-2 border-red-500 rounded flex-shrink-0"></div>
-            <span className="text-sm text-gray-700">Urgente (más de 45 min)</span>
+            <span className="text-sm text-gray-700">Urgente (más de 40 min)</span>
           </div>
         </div>
       </div>

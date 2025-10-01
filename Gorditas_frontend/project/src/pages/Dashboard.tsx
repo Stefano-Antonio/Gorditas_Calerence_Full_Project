@@ -519,7 +519,7 @@ const Dashboard: React.FC = () => {
                   {stats.productosLowStock}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {stats.productosLowStock === 0 ? 'Todo en orden' : `cuentas con ${stats.productosLowStock} producto con${stats.productosLowStock !== 1 ? 's' : ''} menos de 10 items`}
+                  {stats.productosLowStock === 0 ? 'Todo en orden' : `cuentas con ${stats.productosLowStock} producto(s) con${stats.productosLowStock !== 1 ? 's' : ''} menos de 10 items`}
                 </p>
               </div>
               <div className={`p-3 rounded-lg ${stats.productosLowStock > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
@@ -614,12 +614,11 @@ const Dashboard: React.FC = () => {
                           {getStatusIcon(orden.estatus)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{orden.folio}</p>
+                          {/* Nombre del cliente grande */}
+                          <p className="font-bold text-lg sm:text-xl text-gray-900 truncate">{orden.cliente}</p>
                           <p className="text-xs sm:text-sm text-gray-600 truncate">{orden.mesa}</p>
-                          <p className="text-[10px] sm:text-xs text-blue-600 font-medium truncate">Cliente: {orden.cliente}</p>
                         </div>
                       </div>
-                      
                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 flex-shrink-0">
                         <span className={`px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full ${getStatusColor(orden.estatus)} whitespace-nowrap`}>
                           {orden.estatus}
@@ -640,12 +639,10 @@ const Dashboard: React.FC = () => {
                       <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
                         ${orden.total.toFixed(2)}
                       </span>
-                      
                       {/* Workflow Action Buttons */}
                       <div className="flex items-center gap-1">
                         {renderWorkflowActions(orden)}
                       </div>
-                      
                       <Link
                         to="/editar-orden"
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
@@ -678,13 +675,10 @@ const Dashboard: React.FC = () => {
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">Mesa {orden.mesa}</p>
-                    <p className="text-sm text-gray-600">
-                      Total: ${orden.total.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-blue-600 font-medium">
-                      Cliente: {orden.nombreCliente || 'Sin nombre'}
-                    </p>
+                    {/* Cliente primero, luego total, luego mesa */}
+                    <p className="font-bold text-gray-900 text-base">{orden.nombreCliente || 'Sin nombre'}</p>
+                    <p className="text-sm text-gray-600">Total: ${orden.total.toFixed(2)}</p>
+                    <p className="text-xs text-blue-600 font-medium">Tipo: {orden.nombreMesa}</p>
                   </div>
                   <span
                     className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(

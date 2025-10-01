@@ -57,6 +57,8 @@ const NuevaOrden: React.FC = () => {
   const [notasPlatillo, setNotasPlatillo] = useState(''); // Campo para notas del platillo individual
   
   const [loading, setLoading] = useState(false);
+  // Doble verificación para evitar doble creación
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isOrderComplete, setIsOrderComplete] = useState(true); // For order validation
@@ -243,14 +245,23 @@ const NuevaOrden: React.FC = () => {
   };
 
   const handleSubmitOrder = async () => {
+    if (orderSubmitting || loading) {
+      // Doble verificación: si ya está en proceso, no continuar
+      return;
+    }
+    setOrderSubmitting(true);
     if (!selectedMesa || !nombreSuborden) {
       setError('Completa todos los campos');
+      setOrderSubmitting(false);
       return;
     }
 
     // Guardar la orden actual antes de procesarlas
     const ordenActualGuardada = guardarOrdenActual();
-    if (!ordenActualGuardada) return;
+    if (!ordenActualGuardada) {
+      setOrderSubmitting(false);
+      return;
+    }
 
     // Combinar la orden actual con las órdenes en proceso
     const todasLasOrdenes = [
@@ -268,21 +279,27 @@ const NuevaOrden: React.FC = () => {
     setError('');
     setSuccess('');
 
+
     try {
-      // Procesar cada orden por separado
-      for (const ordenData of todasLasOrdenes) {
+      // Procesar cada orden principal en paralelo, pero los pasos internos de cada orden siguen siendo secuenciales
+      await Promise.all(todasLasOrdenes.map(async (ordenData) => {
         // Determinar el estado basado en si la orden está completa y su contenido
         let estatus: string;
+        const mesaEsPedido = selectedMesa && typeof selectedMesa.nombre === 'string' && selectedMesa.nombre.trim().toLowerCase().startsWith('pedido');
         if (!isOrderComplete) {
           estatus = 'Pendiente';
         } else if (ordenData.platillos.length === 0 && ordenData.productos.length > 0) {
-          // Si solo tiene productos, pasa directamente a Surtida
-          estatus = 'Surtida';
+          // Si solo tiene productos
+          if (mesaEsPedido) {
+            estatus = 'Entregada'; // Para pedidos solo productos, va directo a cobrar
+          } else {
+            estatus = 'Surtida';
+          }
         } else {
           // Si tiene platillos, va a Recepcion para preparación
           estatus = 'Recepcion';
         }
-        
+
         const nuevaOrdenData = {
           idMesa: selectedMesa._id,
           nombreMesa: selectedMesa.nombre,
@@ -294,11 +311,57 @@ const NuevaOrden: React.FC = () => {
           notas: ordenData.notas || undefined
         };
 
+        // Doble verificación antes de crear la orden
+        function normalizePlatillos(platillos: any[]) {
+          return platillos.map((p) => ({
+            idPlatillo: p.idPlatillo || p.platillo?._id || p.platillo,
+            idGuiso: p.idGuiso || p.guiso?._id || p.guiso,
+            cantidad: p.cantidad,
+            notas: p.notas || '',
+            extras: (p.extras || []).map((e: any) => ({
+              idExtra: e.idExtra || e._id || e.extra,
+              cantidad: e.cantidad,
+              nombreExtra: e.nombreExtra || '',
+              costoExtra: e.costoExtra || 0
+            })).sort((a: any, b: any) => String(a.idExtra).localeCompare(String(b.idExtra)))
+          })).sort((a, b) => String(a.idPlatillo).localeCompare(String(b.idPlatillo)));
+        }
+        function normalizeProductos(productos: any[]) {
+          return productos.map((p) => ({
+            idProducto: p.idProducto || p._id || p.producto,
+            cantidad: p.cantidad,
+            nombreProducto: p.nombreProducto || '',
+            costoProducto: p.costoProducto || 0
+          })).sort((a, b) => String(a.idProducto).localeCompare(String(b.idProducto)));
+        }
+        const ordenDuplicada = ordenesActivas.some((orden: any) => {
+          if (String(orden.idMesa) !== String(selectedMesa._id)) return false;
+          if (orden.nombreCliente !== ordenData.nombreCliente) return false;
+          if (Math.abs(Number(orden.total) - Number(ordenData.total)) >= 0.01) return false;
+          // Normalizar platillos y productos para comparar
+          const platillosA = normalizePlatillos(orden.platillos || []);
+          const platillosB = normalizePlatillos(ordenData.platillos || []);
+          const productosA = normalizeProductos(orden.productos || []);
+          const productosB = normalizeProductos(ordenData.productos || []);
+          // Comparar arrays como JSON
+          const platillosIguales = JSON.stringify(platillosA) === JSON.stringify(platillosB);
+          const productosIguales = JSON.stringify(productosA) === JSON.stringify(productosB);
+          const notasIguales = (orden.notas || '') === (ordenData.notas || '');
+          return platillosIguales && productosIguales && notasIguales && (!orden.estatus || orden.estatus !== 'Pagada');
+        });
+        if (ordenDuplicada) {
+          setError(`Ya existe una orden activa para el cliente \"${ordenData.nombreCliente}\" en esta mesa con los mismos platillos, productos, extras y notas. Verifica antes de continuar.`);
+          setLoading(false);
+          setOrderSubmitting(false);
+          return;
+        }
+
         const ordenResponse = await apiService.createOrden(nuevaOrdenData);
         const ordenDataWithId = ordenResponse.data as { _id: string } | undefined;
         if (!ordenResponse.success || !ordenDataWithId?._id) {
           setError(`Error creando orden para ${ordenData.nombreCliente}`);
           setLoading(false);
+          setOrderSubmitting(false);
           return;
         }
         const ordenId = ordenDataWithId._id;
@@ -309,6 +372,7 @@ const NuevaOrden: React.FC = () => {
         if (!subordenResponse.success || !(subordenResponse.data && (subordenResponse.data as { _id?: string })._id)) {
           setError(`Error creando suborden para ${ordenData.nombreCliente}`);
           setLoading(false);
+          setOrderSubmitting(false);
           return;
         }
 
@@ -330,6 +394,7 @@ const NuevaOrden: React.FC = () => {
           if (!platilloResponse.success) {
             setError(`Error agregando platillo: ${item.platillo.nombre} para ${ordenData.nombreCliente}`);
             setLoading(false);
+            setOrderSubmitting(false);
             return;
           }
 
@@ -348,6 +413,7 @@ const NuevaOrden: React.FC = () => {
               if (!extraResponse.success) {
                 setError(`Error agregando extra: ${extra.nombreExtra} para ${ordenData.nombreCliente}`);
                 setLoading(false);
+                setOrderSubmitting(false);
                 return;
               }
             }
@@ -365,16 +431,17 @@ const NuevaOrden: React.FC = () => {
             setError(`Error agregando producto: ${producto.nombreProducto || producto.nombre} para ${ordenData.nombreCliente}, stock insuficiente`);
             setOrdenesEnProceso(prev => prev.filter(o => o.nombreCliente !== ordenData.nombreCliente));
             setLoading(false);
+            setOrderSubmitting(false);
             return;
           }
         }
 
-        // Ensure the order is not added to resumen if stock is insufficient
+        // Ensure the order is not added to resumen if stock is insuficiente
         if (error.includes('stock insuficiente')) {
           setOrdenesEnProceso(prev => prev.filter(o => o.nombreCliente !== ordenData.nombreCliente));
-          continue;
+          return;
         }
-      }
+      }));
 
       const totalTodasLasOrdenes = todasLasOrdenes.reduce((sum, orden) => sum + orden.total, 0);
       setSuccess(`${todasLasOrdenes.length} orden${todasLasOrdenes.length > 1 ? 'es' : ''} creada${todasLasOrdenes.length > 1 ? 's' : ''} exitosamente. Total: $${totalTodasLasOrdenes.toFixed(2)}`);
@@ -400,12 +467,14 @@ const NuevaOrden: React.FC = () => {
         setIsOrderComplete(true);
         setSuccess('');
         setError('');
+        setOrderSubmitting(false);
         loadInitialData();
       }, 3000);
 
     } catch (error) {
       console.error('Error al crear las órdenes:', error);
       setError('Error creando las órdenes');
+      setOrderSubmitting(false);
     } finally {
       setLoading(false);
     }
@@ -544,6 +613,22 @@ const NuevaOrden: React.FC = () => {
                 const mesaInfo = getMesaInfo(mesa._id);
                 const isSelected = selectedMesa?._id === mesa._id;
                 
+                // Lógica de color para la mesa 'Pedidos'
+                let mesaColor = '';
+                if (mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos') {
+                  if (mesaInfo.totalOrdenes > 11) {
+                    mesaColor = 'bg-red-50 border-red-200 text-red-700';
+                  } else if (mesaInfo.totalOrdenes > 5) {
+                    mesaColor = 'bg-orange-50 border-orange-200 text-orange-700';
+                  } else {
+                    mesaColor = 'bg-green-50 border-green-200 text-green-700';
+                  }
+                } else if (mesaInfo.isOcupada) {
+                  mesaColor = 'bg-orange-50 border-orange-200 text-orange-700';
+                } else {
+                  mesaColor = 'bg-green-50 border-green-200 text-green-700';
+                }
+                
                 return (
                   <button
                     key={mesa._id}
@@ -551,9 +636,7 @@ const NuevaOrden: React.FC = () => {
                     className={`relative p-2 sm:p-3 lg:p-4 rounded-lg border-2 text-center transition-colors min-w-0 ${
                       isSelected
                         ? 'border-orange-500 bg-orange-50 text-orange-700'
-                        : mesaInfo.isOcupada
-                        ? 'border-orange-300 bg-orange-50 hover:border-orange-400 hover:bg-orange-100'
-                        : 'border-gray-200 bg-green-50 hover:border-green-300 hover:bg-green-100'
+                        : mesaColor
                     }`}
                   >
                     {mesaInfo.isOcupada && (
@@ -678,92 +761,96 @@ const NuevaOrden: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Extra Form - Simplified */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Extra
-                  </label>
-                  <select
-                    value={selectedExtra ? String(selectedExtra._id) : ''}
-                    onChange={(e) => {
-                      const extra = extras.find(ex => String(ex._id) === e.target.value);
-                      setSelectedExtra(extra || null);
-                      // Automatically set the tipo extra when extra is selected
-                      if (extra) {
-                        const tipoExtra = tiposExtras.find(t => String(t._id) === String(extra.idTipoExtra));
-                        setSelectedTipoExtra(tipoExtra || null);
-                      }
-                    }}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
-                  >
-                    <option value="">Seleccionar extra</option>
-                    {extras.filter(ex => ex.activo).map((extra) => {
-                      // Find the tipo extra name for display
-                      const tipoExtra = tiposExtras.find(t => String(t._id) === String(extra.idTipoExtra));
-                      return (
-                        <option key={extra._id} value={extra._id}>
-                          {extra.nombre} ({tipoExtra?.nombre || 'Sin categoría'}) - ${extra.costo}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                {selectedExtra && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Cantidad Extra
-                      </label>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          type="button"
-                          onClick={() => setCantidadExtra(Math.max(1, cantidadExtra - 1))}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="text-lg font-semibold w-12 text-center">{cantidadExtra}</span>
-                        <button
-                          type="button"
-                          onClick={() => setCantidadExtra(cantidadExtra + 1)}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleAddExtra}
-                      disabled={!selectedExtra}
-                      className="w-full bg-purple-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                    >
-                      <Plus className="w-4 h-4 sm:w-5 sm:h-5 inline mr-2" />
-                      <span className="hidden sm:inline">Agregar Extra</span>
-                      <span className="sm:hidden">Extra</span>
-                    </button>
-                  </>
-                )}
 
-                {/* Lista de extras temporales */}
-                {extrasTemporales.length > 0 && (
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <h4 className="text-sm font-medium text-purple-800 mb-2">
-                      Extras para este platillo ({extrasTemporales.length}):
-                    </h4>
+                {/* Selección de extras agrupados por tipo, con cantidad y selección múltiple */}
+                {tiposExtras.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Extras</label>
                     <div className="space-y-2">
-                      {extrasTemporales.map((extra, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm">
-                          <span className="text-purple-700">
-                            {extra.nombreExtra} (x{extra.cantidad}) - ${(extra.costoExtra * extra.cantidad).toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveExtra(index)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                      {tiposExtras.map(tipo => {
+                        const extrasDelTipo = extras.filter(e => e.idTipoExtra === tipo._id && e.activo);
+                        if (extrasDelTipo.length === 0) return null;
+                        return (
+                          <div key={tipo._id} className="border-b pb-2 last:border-b-0 last:pb-0">
+                            <div className="font-semibold text-purple-700 mb-1 text-xs sm:text-sm">{tipo.nombre}</div>
+                            <div className="flex flex-wrap gap-2">
+                              {extrasDelTipo.map(extra => {
+                                const tempExtra = extrasTemporales.find(te => te.idExtra === extra._id);
+                                return (
+                                  <div key={extra._id} className="flex items-center gap-1 bg-purple-50 px-2 py-1 rounded">
+                                    <input
+                                      type="checkbox"
+                                      value={extra._id}
+                                      checked={!!tempExtra}
+                                      onChange={e => {
+                                        if (e.target.checked) {
+                                          setExtrasTemporales(prev => [...prev, { idExtra: extra._id, nombreExtra: extra.nombre, costoExtra: extra.costo, idTipoExtra: extra.idTipoExtra, cantidad: 1 }]);
+                                        } else {
+                                          setExtrasTemporales(prev => prev.filter(te => te.idExtra !== extra._id));
+                                        }
+                                      }}
+                                      className="accent-purple-600"
+                                    />
+                                    <span>{extra.nombre}</span>
+                                    <span className="text-purple-600 font-semibold">+${extra.costo}</span>
+                                    {/* Selector de cantidad si está seleccionado */}
+                                    {tempExtra && (
+                                      <div className="flex items-center gap-1 ml-2">
+                                        <button
+                                          type="button"
+                                          className="p-1 bg-gray-200 rounded"
+                                          onClick={() => {
+                                            setExtrasTemporales(prev => prev.map(te =>
+                                              te.idExtra === extra._id
+                                                ? { ...te, cantidad: Math.max(1, te.cantidad - 1) }
+                                                : te
+                                            ));
+                                          }}
+                                          disabled={tempExtra.cantidad <= 1}
+                                        >
+                                          <Minus className="w-3 h-3" />
+                                        </button>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={cantidad}
+                                          value={tempExtra.cantidad}
+                                          onChange={e => {
+                                            const val = Math.max(1, Math.min(Number(e.target.value), cantidad));
+                                            setExtrasTemporales(prev => prev.map(te =>
+                                              te.idExtra === extra._id
+                                                ? { ...te, cantidad: val }
+                                                : te
+                                            ));
+                                          }}
+                                          className="w-10 text-center border border-purple-300 rounded px-1 py-0.5 text-xs"
+                                        />
+                                        <button
+                                          type="button"
+                                          className="p-1 bg-gray-200 rounded"
+                                          onClick={() => {
+                                            setExtrasTemporales(prev => prev.map(te =>
+                                              te.idExtra === extra._id
+                                                ? { ...te, cantidad: Math.min(te.cantidad + 1, cantidad) }
+                                                : te
+                                            ));
+                                          }}
+                                          disabled={tempExtra.cantidad >= cantidad}
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                        </button>
+                                        {tempExtra.cantidad >= cantidad && (
+                                          <span className="text-xs text-red-600 ml-1">Máximo: {cantidad}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

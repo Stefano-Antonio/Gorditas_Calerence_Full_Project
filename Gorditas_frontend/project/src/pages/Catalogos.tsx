@@ -208,6 +208,23 @@ const Catalogos: React.FC = () => {
     if (selectedModel.id === 'platillo') {
       initialData.precio = 0; // Set default value for precio
     }
+    // Si es mesa, solo permitir seleccionar el número y autogenerar el nombre
+    if (selectedModel.id === 'mesa') {
+      // Si el usuario quiere crear la mesa especial 'Pedidos', solo si no existe
+      const pedidosExists = items.some(
+        (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
+      );
+      initialData.pedidosExists = pedidosExists;
+      let maxNum = 0;
+      items.forEach((mesa) => {
+        if (mesa.nombre && mesa.nombre.startsWith('Mesa ')) {
+          const num = parseInt(mesa.nombre.replace('Mesa ', ''));
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+      initialData.numero = maxNum + 1;
+      initialData.nombre = `Mesa ${maxNum + 1}`;
+    }
     setFormData(initialData);
     setShowModal(true);
   };
@@ -266,6 +283,33 @@ const Catalogos: React.FC = () => {
         }
       }
 
+      // Validación especial para mesa
+      if (selectedModel.id === 'mesa') {
+        const pedidosExists = items.some(
+          (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
+        );
+        // Si el usuario intenta crear 'Pedidos' y ya existe, bloquear
+        if (
+          formData.nombre &&
+          formData.nombre.trim().toLowerCase() === 'pedidos' &&
+          pedidosExists
+        ) {
+          setError('Ya existe una mesa llamada "Pedidos".');
+          setSaving(false);
+          return;
+        }
+        // Si el nombre no es 'Mesa X' o 'Pedidos', bloquear
+        if (
+          formData.nombre &&
+          !/^Mesa \d+$/.test(formData.nombre.trim()) &&
+          formData.nombre.trim().toLowerCase() !== 'pedidos'
+        ) {
+          setError('El nombre de la mesa debe ser "Mesa X" o "Pedidos".');
+          setSaving(false);
+          return;
+        }
+      }
+
       let response;
       if (editingItem) {
         response = await apiService.updateCatalogItem(selectedModel.id, editingItem._id!, dataToSend);
@@ -305,6 +349,11 @@ const Catalogos: React.FC = () => {
       user && (user.nombreTipoUsuario === 'Mesero' || user.nombreTipoUsuario === 'Despachador')
     ) {
       setError('No tienes permiso para eliminar usuarios tipo Administrador o Encargado.');
+      return;
+    }
+    // No permitir eliminar la mesa con nombre "pedidos"
+    if (selectedModel.id === 'mesa' && item.nombre && item.nombre.trim().toLowerCase() === 'pedidos') {
+      setError('No puedes eliminar la mesa "pedidos".');
       return;
     }
     if (!confirm('¿Estás seguro de que quieres eliminar este item?')) return;
@@ -507,11 +556,29 @@ const Catalogos: React.FC = () => {
           </div>
         );
       }
-      case 'numero':
-      case 'cantidad':
-      case 'capacidad':
-      case 'costo':
-      case 'precio':
+      case 'numero': {
+        // Si es mesa, solo permitir seleccionar el número correlativo siguiente
+        if (selectedModel.id === 'mesa') {
+          let maxNum = 0;
+          items.forEach((mesa) => {
+            if (mesa.nombre && mesa.nombre.startsWith('Mesa ')) {
+              const num = parseInt(mesa.nombre.replace('Mesa ', ''));
+              if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
+          });
+          const nextNum = maxNum + 1;
+          return (
+            <input
+              type="number"
+              value={formData.numero || nextNum}
+              min={nextNum}
+              max={nextNum}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 focus:outline-none"
+              placeholder="Número de mesa"
+            />
+          );
+        }
         return (
           <input
             type="number"
@@ -520,9 +587,10 @@ const Catalogos: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             placeholder={`Ingresa ${field}`}
             min="0"
-            step={field === 'costo' || field === 'precio' ? '0.01' : '1'}
+            step={['costo', 'precio'].includes(field) ? '0.01' : '1'}
           />
         );
+      }
       case 'descripcion':
         return (
           <textarea
@@ -533,6 +601,58 @@ const Catalogos: React.FC = () => {
             rows={3}
           />
         );
+      case 'nombre': {
+        if (selectedModel.id === 'mesa') {
+          // Permitir crear 'Pedidos' solo si no existe
+          const pedidosExists = items.some(
+            (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
+          );
+          // Si ya existe 'Pedidos', solo mostrar el nombre autogenerado y deshabilitado
+          if (formData.nombre && formData.nombre.trim().toLowerCase() === 'pedidos') {
+            if (pedidosExists) {
+              return (
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 focus:outline-none"
+                  placeholder="Nombre de la mesa"
+                />
+              );
+            }
+          }
+          // Permitir al usuario elegir entre 'Pedidos' (si no existe) o el nombre autogenerado
+          return (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.nombre || ''}
+                disabled={formData.nombre && formData.nombre.trim().toLowerCase() !== 'pedidos'}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 focus:outline-none"
+                placeholder="Nombre de la mesa"
+              />
+              {!pedidosExists && (
+                <button
+                  type="button"
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
+                  onClick={() => setFormData({ ...formData, nombre: 'Pedidos' })}
+                >
+                  Crear Pedidos
+                </button>
+              )}
+            </div>
+          );
+        }
+        return (
+          <input
+            type="text"
+            value={value || ''}
+            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder={`Ingresa ${field}`}
+          />
+        );
+      }
       default:
         return (
           <input
@@ -732,12 +852,14 @@ const Catalogos: React.FC = () => {
                         )}
                         <td className="py-2 px-1 sm:py-3 sm:px-4">
                           <div className="flex space-x-1">
-                            <button
-                              onClick={() => handleEdit(item)}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
-                            >
-                              <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
+                            {selectedModel.id !== 'mesa' && (
+                              <button
+                                onClick={() => handleEdit(item)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded flex-shrink-0"
+                              >
+                                <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(item)}
                               className="p-1 text-red-600 hover:bg-red-50 rounded flex-shrink-0"

@@ -98,6 +98,34 @@ const Despachar: React.FC = () => {
     return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
   };
 
+  // Function to load order details and set selected order, optionally scroll to details
+  const loadOrdenDetails = async (orden: OrdenConDetalles, scroll: boolean = true) => {
+    try {
+      const detallesRes = await apiService.getOrdenDetails(orden._id!);
+      if (detallesRes.success && detallesRes.data) {
+        setSelectedOrden({
+          ...orden,
+          productos: detallesRes.data.productos || [],
+          platillos: detallesRes.data.platillos || [],
+          extras: detallesRes.data.extras || []
+        });
+      } else {
+        setSelectedOrden({
+          ...orden,
+          productos: [],
+          platillos: [],
+          extras: []
+        });
+      }
+      if (scroll && orderDetailsRef.current) {
+        orderDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (error) {
+      setError('Error cargando detalles de la orden');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const toggleMesaExpansion = (idMesa: number) => {
     const newExpanded = new Set(expandedMesas);
     if (newExpanded.has(idMesa)) {
@@ -111,7 +139,7 @@ const Despachar: React.FC = () => {
   const loadData = async () => {
     try {
       const [ordenesRes, mesasRes] = await Promise.all([
-  apiService.getOrdenesActivas(),
+        apiService.getOrdenesActivas(),
         apiService.getCatalog<Mesa>('mesa')
       ]);
 
@@ -132,11 +160,71 @@ const Despachar: React.FC = () => {
         } else if (Array.isArray(ordenesRes.data)) {
           ordenesArray = ordenesRes.data;
         }
-        
+
         // Filtrar órdenes para despacho
-        const ordenesParaDespachar = ordenesArray.filter((orden: Orden) => 
+        const ordenesParaDespachar = ordenesArray.filter((orden: Orden) =>
           ['Surtida', 'Recepcion'].includes(orden.estatus)
         );
+
+        // Marcar automáticamente como entregadas TODAS las órdenes con estatus 'Surtida' y nombreMesa que comience con 'Pedido', repitiendo hasta que no queden más
+        let hayPedidosSurtidos = true;
+        let ordenesArrayLoop = [...ordenesArray];
+        while (hayPedidosSurtidos) {
+          hayPedidosSurtidos = false;
+          const ordenesParaDespacharLoop = ordenesArrayLoop.filter((orden: Orden) =>
+            orden.estatus === 'Surtida' &&
+            typeof orden.nombreMesa === 'string' &&
+            orden.nombreMesa.trim().toLowerCase().startsWith('pedido')
+          );
+          if (ordenesParaDespacharLoop.length === 0) break;
+          for (const orden of ordenesParaDespacharLoop) {
+            try {
+              const detallesRes = await apiService.getOrdenDetails(orden._id!);
+              if (detallesRes.success && detallesRes.data) {
+                const { productos = [], platillos = [], extras = [] } = detallesRes.data;
+                for (const producto of productos) {
+                  if (!producto.entregado && producto._id) {
+                    await apiService.markProductoEntregado(producto._id);
+                  }
+                }
+                for (const platillo of platillos) {
+                  if (!platillo.entregado && platillo._id) {
+                    await apiService.markPlatilloEntregado(platillo._id);
+                  }
+                  if (platillo.extras && Array.isArray(platillo.extras)) {
+                    for (const extra of platillo.extras) {
+                      if (!extra.entregado && extra._id) {
+                        await apiService.updateExtraStatus(extra._id, 'entregado');
+                      }
+                    }
+                  }
+                }
+                if (Array.isArray(extras)) {
+                  for (const extra of extras) {
+                    if (!extra.entregado && extra._id) {
+                      await apiService.updateExtraStatus(extra._id, 'entregado');
+                    }
+                  }
+                }
+              }
+              await apiService.updateOrdenStatus(orden._id!, 'Entregada');
+              hayPedidosSurtidos = true;
+            } catch (e) {
+              // Ignorar error, continuar
+            }
+          }
+          // Si alguna fue marcada, volver a consultar las órdenes activas para asegurar que no queden pendientes
+          if (hayPedidosSurtidos) {
+            const ordenesResRepeat = await apiService.getOrdenesActivas();
+            if (ordenesResRepeat.success) {
+              if (Array.isArray(ordenesResRepeat.data.ordenes)) {
+                ordenesArrayLoop = ordenesResRepeat.data.ordenes;
+              } else if (Array.isArray(ordenesResRepeat.data)) {
+                ordenesArrayLoop = ordenesResRepeat.data;
+              }
+            }
+          }
+        }
 
         // Obtener los detalles de cada orden (productos y platillos)
         const ordenesConDetalles: OrdenConDetalles[] = await Promise.all(
@@ -169,11 +257,11 @@ const Despachar: React.FC = () => {
         );
 
         setOrdenes(ordenesConDetalles);
-        
+
         // Group orders by table
         const grouped = groupOrdersByTable(ordenesConDetalles, mesasArray);
         setMesasAgrupadas(grouped);
-        
+
         // Si hay una orden seleccionada, actualizarla con los nuevos datos
         if (selectedOrden) {
           const updatedSelectedOrden = ordenesConDetalles.find(orden => orden._id === selectedOrden._id);
@@ -186,60 +274,14 @@ const Despachar: React.FC = () => {
           }
         }
       }
+      setLoading(false);
     } catch (error) {
-      setError('Error cargando órdenes');
-    } finally {
+      setError('Error cargando órdenes o mesas');
       setLoading(false);
     }
   };
 
-  const loadOrdenDetails = async (orden: OrdenConDetalles, shouldScroll: boolean = true) => {
-    try {
-      const response = await apiService.getOrdenDetails(orden._id!);
-      
-      if (response.success) {
-        const data = response.data;
-          // Mapear platillos al formato esperado y incluir extras
-          const platillos = (data.platillos || []).map((p: any) => ({
-            ...p,
-            platillo: p.nombrePlatillo,
-            guiso: p.nombreGuiso,
-            subtotal: p.importe,
-            extras: p.extras || [] // Include extras from platillo
-          }));
-
-          // Mapear productos al formato esperado
-          const productos = (data.productos || []).map((prod: any) => ({
-            ...prod,
-            producto: prod.nombreProducto,
-            subtotal: prod.importe,
-          }));
-
-          setSelectedOrden({
-            ...data,
-            platillos,
-            productos,
-            extras: data.extras || [] // Include general extras list
-          });
-
-          // Scroll to order details on mobile only if explicitly requested
-          if (shouldScroll) {
-            setTimeout(() => {
-              if (orderDetailsRef.current && window.innerWidth < 1024) { // lg breakpoint
-                orderDetailsRef.current.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start'
-                });
-              }
-            }, 100);
-          }
-      } else {
-        setError('Error cargando detalles de la orden');
-      }
-    } catch (error) {
-      setError('Error cargando detalles de la orden');
-    }
-  };
+  // ... rest of the component code remains unchanged ...
 
   const handleMarkAllAsDelivered = async (orden: OrdenConDetalles) => {
     try {
@@ -838,27 +880,29 @@ const Despachar: React.FC = () => {
                 )}
               </h2>
             </div>
-            {selectedOrden && isOrderReadyForDispatch(selectedOrden) && (
-              <button
-                onClick={handleCompleteDispatch}
-                disabled={dispatching}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-green-600 text-white text-sm sm:text-base rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center flex-shrink-0"
-              >
-                {dispatching ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    <span className="hidden sm:inline">Despachando...</span>
-                    <span className="sm:hidden">Despachando...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Completar Despacho</span>
-                    <span className="sm:hidden">Completar</span>
-                  </>
-                )}
-              </button>
-            )}
+            {selectedOrden &&
+              isOrderReadyForDispatch(selectedOrden) &&
+              !(typeof selectedOrden.nombreMesa === 'string' && selectedOrden.nombreMesa.trim().toLowerCase().startsWith('pedido')) && (
+                <button
+                  onClick={handleCompleteDispatch}
+                  disabled={dispatching}
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-green-600 text-white text-sm sm:text-base rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center flex-shrink-0"
+                >
+                  {dispatching ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <span className="hidden sm:inline">Despachando...</span>
+                      <span className="sm:hidden">Despachando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">Completar Despacho</span>
+                      <span className="sm:hidden">Completar</span>
+                    </>
+                  )}
+                </button>
+              )}
           </div>
 
           {!selectedOrden ? (

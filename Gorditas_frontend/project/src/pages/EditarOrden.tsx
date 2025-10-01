@@ -21,6 +21,8 @@ import { apiService } from '../services/api';
 import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada, Extra, TipoExtra } from '../types';
 
 const EditarOrden: React.FC = () => {
+  // Estado para la cantidad de extras de C/queso
+  const [cantidadQueso, setCantidadQueso] = useState(0);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
   const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
@@ -48,6 +50,8 @@ const EditarOrden: React.FC = () => {
   const [hasNewOrders, setHasNewOrders] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
+  // Ensure the component always returns JSX
+
   // Estados para extras
   const [extras, setExtras] = useState<Extra[]>([]);
   const [tiposExtras, setTiposExtras] = useState<TipoExtra[]>([]);
@@ -67,13 +71,13 @@ const EditarOrden: React.FC = () => {
   // Ref for order details section
   const orderDetailsRef = useRef<HTMLDivElement>(null);
 
-// Removed duplicate loadData and useEffect block
+  // Removed duplicate loadData and useEffect block
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false);
   const handleDeleteOrder = (orden: Orden) => {
-  console.log('Abriendo modal de eliminar orden para:', orden._id);
-  setSelectedOrden(orden);
-  setShowDeleteOrderModal(true);
+    console.log('Abriendo modal de eliminar orden para:', orden._id);
+    setSelectedOrden(orden);
+    setShowDeleteOrderModal(true);
   };
   const confirmDeleteOrder = async () => {
     if (!selectedOrden) return;
@@ -99,33 +103,7 @@ const EditarOrden: React.FC = () => {
       setShowDeleteOrderModal(false);
     }
   };
-      {/* Otros modales... */}
-    {/* Modal de confirmación para eliminar orden (al final del return) */}
-    {showDeleteOrderModal && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-        <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
-            ¿Estás seguro que deseas eliminar esta orden? Esta acción no se puede deshacer.
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <button
-              onClick={() => setShowDeleteOrderModal(false)}
-              disabled={deletingOrder}
-              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => { console.log('Click en botón Eliminar del modal'); confirmDeleteOrder(); }}
-              disabled={deletingOrder}
-              className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
-            >
-              {deletingOrder ? 'Eliminando...' : 'Eliminar'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+
   // Function to group orders by table
   const groupOrdersByTable = (ordenes: Orden[]): MesaAgrupada[] => {
     const grouped: { [idMesa: number]: MesaAgrupada } = {};
@@ -662,6 +640,16 @@ const EditarOrden: React.FC = () => {
                           <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                             {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                           </p>
+                          {/* Lista de clientes de las órdenes en la mesa */}
+                          {Object.keys(mesa.clientes).length > 0 && (
+                            <ul className="mt-1 text-xs sm:text-sm text-gray-700 flex flex-wrap gap-1">
+                              {Object.keys(mesa.clientes).map((cliente, idx) => (
+                                <li key={cliente + idx} className="bg-gray-100 rounded px-2 py-0.5">
+                                  {cliente}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
@@ -1009,7 +997,6 @@ const EditarOrden: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-md">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Platillo</h3>
-            
             <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Platillo</label>
@@ -1026,7 +1013,6 @@ const EditarOrden: React.FC = () => {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Guiso</label>
                 <select
@@ -1042,7 +1028,6 @@ const EditarOrden: React.FC = () => {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Cantidad</label>
                 <div className="flex items-center space-x-3">
@@ -1061,8 +1046,42 @@ const EditarOrden: React.FC = () => {
                   </button>
                 </div>
               </div>
+              {/* Input para cantidad de extras de queso */}
+              <div className="flex flex-col gap-1 mt-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="cantidad-queso" className="text-sm text-gray-700 select-none cursor-pointer">
+                    Num. de platillos c/queso
+                  </label>
+                  <input
+                    id="cantidad-queso"
+                    type="number"
+                    min={0}
+                    max={cantidad}
+                    value={cantidadQueso}
+                    onChange={e => {
+                      const val = Math.max(0, Math.min(Number(e.target.value), cantidad));
+                      setCantidadQueso(val);
+                    }}
+                    className="w-16 px-2 py-1 border border-purple-300 rounded text-sm text-center"
+                  />
+                </div>
+                {cantidadQueso > cantidad && (
+                  <div className="text-xs text-red-600 bg-red-50 rounded px-2 py-1 mt-1">
+                    No puedes agregar más extras de queso que el total de platillos ({cantidad}).
+                  </div>
+                )}
+                {cantidadQueso > 0 && cantidadQueso <= cantidad ? (
+                  <div className="text-xs text-purple-700 bg-purple-50 rounded px-2 py-1 mt-1">
+                    Se agregarán {cantidadQueso} platillo(s) del total de creados, con queso.
+                  </div>
+                ) : cantidadQueso === 0 ? (
+                  <div className="text-xs text-gray-500 px-2 py-1">
+                    Puedes agregar extras de queso después desde el botón de extras.
+                  </div>
+                ) : null}
+              </div>
+              {/* Sección de extras eliminada. Ahora los extras se gestionan después de agregar el platillo. */}
             </div>
-
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
               <button
                 onClick={() => setShowAddPlatillo(false)}
@@ -1071,8 +1090,34 @@ const EditarOrden: React.FC = () => {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  handleAddPlatillo();
+                onClick={async () => {
+                  await handleAddPlatillo();
+                  // Después de agregar el platillo, si hay cantidad de queso, agregar ese número de extras automáticamente
+                  if (selectedOrden && selectedPlatillo && selectedGuiso && cantidadQueso > 0) {
+                    const response = await apiService.getOrdenDetails(selectedOrden._id!);
+                    if (response.success) {
+                      const platillos = response.data.platillos || [];
+                      // Buscar el platillo más reciente con el idPlatillo y guiso seleccionados
+                      const nuevoPlatillo = platillos.reverse().find((p: any) =>
+                        String(p.idPlatillo) === String(selectedPlatillo) &&
+                        String(p.idGuiso) === String(selectedGuiso)
+                      );
+                      if (nuevoPlatillo) {
+                        const extraQueso = extras.find(e => e.nombre.toLowerCase().includes('queso'));
+                        if (extraQueso) {
+                          await apiService.addDetalleExtra({
+                            idOrdenDetallePlatillo: nuevoPlatillo._id,
+                            idExtra: extraQueso._id!,
+                            nombreExtra: extraQueso.nombre,
+                            costoExtra: extraQueso.costo,
+                            cantidad: cantidadQueso
+                          });
+                          await loadOrdenDetails(selectedOrden);
+                        }
+                      }
+                    }
+                  }
+                  setCantidadQueso(0); // Resetear el input
                 }}
                 disabled={saving || !selectedPlatillo || !selectedGuiso}
                 className="flex-1 px-3 sm:px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm sm:text-base"
@@ -1233,17 +1278,7 @@ const EditarOrden: React.FC = () => {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowExtrasModal(false);
-                  setSelectedPlatilloForExtras(null);
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-              >
-                Cerrar
-              </button>
-            </div>
+            {/* ...eliminado el botón 'Cerrar' de la parte inferior... */}
           </div>
         </div>
       )}
@@ -1340,6 +1375,8 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
         setSuccess('Extra removido exitosamente');
         if (selectedOrden) await loadOrdenDetails(selectedOrden);
         setTimeout(function() { setSuccess(''); }, 3000);
+        setShowExtrasModal(false);
+        setSelectedPlatilloForExtras(null);
       } else {
         setError('Error removiendo extra: ' + (response.error || 'Error desconocido'));
       }
@@ -1359,6 +1396,8 @@ function ExtraCantidadControl(props: ExtraCantidadControlProps) {
         setSuccess('Cantidad actualizada');
         if (selectedOrden) await loadOrdenDetails(selectedOrden);
         setTimeout(function() { setSuccess(''); }, 3000);
+        setShowExtrasModal(false);
+        setSelectedPlatilloForExtras(null);
       } else {
         setError('Error actualizando cantidad: ' + (response2.error || 'Error desconocido'));
       }

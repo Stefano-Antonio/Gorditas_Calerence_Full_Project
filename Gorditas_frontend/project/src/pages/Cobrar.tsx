@@ -96,9 +96,9 @@ const Cobrar: React.FC = () => {
         } else if (Array.isArray(response.data)) {
           ordenesArray = response.data;
         }
-        // Filtrar solo las órdenes con estatus Entregada
+        // Filtrar órdenes con estatus Surtida o Entregada
         const ordenesFiltradas = ordenesArray.filter(
-          (orden: Orden) => orden.estatus === 'Entregada'
+          (orden: Orden) => orden.estatus === 'Surtida' || orden.estatus === 'Entregada'
         );
         
         // Detectar nuevas órdenes para cobrar
@@ -115,45 +115,43 @@ const Cobrar: React.FC = () => {
           }, 5000);
         }
         
-        // Cargar detalles para cada orden
-        const ordenesConDetalles: OrdenCompleta[] = [];
-        for (const orden of ordenesFiltradas) {
-          try {
-            const detailsResponse = await apiService.getOrdenDetails(orden._id!);
-            if (detailsResponse.success) {
-              const data = detailsResponse.data;
-              
-              // Map platillos to include extras
-              const platillosConExtras = (data.platillos || []).map((p: any) => ({
-                ...p,
-                extras: p.extras || []
-              }));
-              
-              ordenesConDetalles.push({
-                ...data,
-                platillos: platillosConExtras,
-                extras: data.extras || []
-              });
-            } else {
-              ordenesConDetalles.push({
+        // Cargar detalles para cada orden en paralelo
+        const ordenesConDetalles: OrdenCompleta[] = await Promise.all(
+          ordenesFiltradas.map(async (orden) => {
+            try {
+              const detailsResponse = await apiService.getOrdenDetails(orden._id!);
+              if (detailsResponse.success) {
+                const data = detailsResponse.data;
+                // Map platillos to include extras
+                const platillosConExtras = (data.platillos || []).map((p: any) => ({
+                  ...p,
+                  extras: p.extras || []
+                }));
+                return {
+                  ...data,
+                  platillos: platillosConExtras,
+                  extras: data.extras || []
+                };
+              } else {
+                return {
+                  ...orden,
+                  productos: [],
+                  platillos: [],
+                  extras: []
+                };
+              }
+            } catch {
+              return {
                 ...orden,
                 productos: [],
                 platillos: [],
                 extras: []
-              });
+              };
             }
-          } catch {
-            ordenesConDetalles.push({
-              ...orden,
-              productos: [],
-              platillos: [],
-              extras: []
-            });
-          }
-        }
+          })
+        );
         setOrdenesActivas(ordenesConDetalles);
         setLastUpdateTime(new Date());
-        
         // Group orders by table
         const grouped = groupOrdersByTable(ordenesConDetalles);
         setMesasAgrupadas(grouped);
@@ -239,27 +237,38 @@ const Cobrar: React.FC = () => {
   };
 
   const handleCobrarTodaLaMesa = async (mesa: MesaAgrupada) => {
-    // Cobrar todas las órdenes de la mesa
-    for (const orden of mesa.ordenes) {
-      await handleFinalizarOrden(orden);
+    setProcessing(true);
+    try {
+      // Cobrar todas las órdenes de la mesa en paralelo
+      await Promise.all(mesa.ordenes.map(orden => handleFinalizarOrden(orden, true)));
+      setSuccess('Todas las órdenes de la mesa cobradas exitosamente');
+      await loadOrdenesActivas();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Error al cobrar todas las órdenes de la mesa');
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const handleFinalizarOrden = async (orden: OrdenCompleta) => {
-    setProcessing(true);
+  // El parámetro skipProcessing evita que se sobreescriba el estado global cuando se cobra en lote
+  const handleFinalizarOrden = async (orden: OrdenCompleta, skipProcessing = false) => {
+    if (!skipProcessing) setProcessing(true);
     try {
       const response = await apiService.updateOrdenStatus(orden._id?.toString() || '', 'Pagada');
       if (response.success) {
-        setSuccess('Orden cobrada exitosamente');
-        await loadOrdenesActivas();
-        setTimeout(() => setSuccess(''), 3000);
+        if (!skipProcessing) {
+          setSuccess('Orden cobrada exitosamente');
+          await loadOrdenesActivas();
+          setTimeout(() => setSuccess(''), 3000);
+        }
       } else {
         setError('Error al cobrar la orden');
       }
     } catch (err) {
       setError('Error al cobrar la orden');
     } finally {
-      setProcessing(false);
+      if (!skipProcessing) setProcessing(false);
     }
   };
 
@@ -405,7 +414,7 @@ const Cobrar: React.FC = () => {
             </div>
           )}
           <div className="text-xs text-gray-500 text-right sm:text-left truncate">
-            Actualizado: {lastUpdateTime.toLocaleTimeString('es-ES')}
+           {lastUpdateTime.toLocaleTimeString('es-ES')}
           </div>
         </div>
       </div>
@@ -450,6 +459,23 @@ const Cobrar: React.FC = () => {
                         <p className="text-xs sm:text-sm text-gray-600 break-words">
                           {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                         </p>
+                        {/* Lista de clientes de las órdenes en la mesa */}
+                        {Object.keys(mesa.clientes).length > 0 && (
+                          <div
+                            className="mt-1 text-xs sm:text-sm text-gray-700 flex gap-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                            style={{ WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}
+                          >
+                            {Object.keys(mesa.clientes).map((cliente, idx) => (
+                              <span
+                                key={cliente + idx}
+                                className="bg-gray-100 rounded px-2 py-0.5 whitespace-nowrap flex-shrink-0"
+                                title={cliente}
+                              >
+                                {cliente}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -495,7 +521,7 @@ const Cobrar: React.FC = () => {
                       >
                         <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
                         <span className="truncate">
-                          {mesa.totalOrdenes === 1 ? 'Cobrar orden' : 'Cobrar toda la mesa'}
+                          {mesa.totalOrdenes === 1 ? 'Cobrar orden' : `Cobrar ${mesa.nombreMesa}`}
                         </span>
                       </button>
                     </div>
@@ -505,303 +531,95 @@ const Cobrar: React.FC = () => {
                 {/* Orders grouped by client - Expanded view */}
                 {expandedMesas.has(mesa.idMesa) && (
                   <div className="p-2 sm:p-3 lg:p-4">
-                    <div className="space-y-2 sm:space-y-3 lg:space-y-4">
-                      {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
-                        <div key={cliente} className="bg-gray-50 rounded-lg p-2 sm:p-3 lg:p-4">
-                          <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base break-words">
-                            Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
-                          </h4>
-                          <div className="space-y-2 sm:space-y-3">
-                            {ordenesCliente.map((orden) => (
-                              <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-2 sm:p-3 lg:p-4">
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <h5 className="font-medium text-gray-900 break-words text-sm sm:text-base">
-                                        Orden #{orden._id?.toString().slice(-6)}
-                                      </h5>
-                                      <button
-                                        onClick={() => toggleOrdenExpansion(orden._id?.toString() || '')}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
-                                      >
-                                        {expandedOrdenes.has(orden._id?.toString() || '') ? (
-                                          <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
-                                        ) : (
-                                          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                                        )}
-                                      </button>
-                                    </div>
-                                    {orden.notas && (
-                                      <div className="flex items-start space-x-1 mt-1">
-                                        <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                        <p className="text-xs text-gray-700 italic break-words">
-                                          {orden.notas}
-                                        </p>
-                                      </div>
-                                    )}
-                                    <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1">
-                                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                                      <span className="break-words">
-                                        {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                      </span>
-                                    </p>
-                                  </div>
-                                  <div className="text-left sm:text-right flex-shrink-0">
-                                    <p className="text-sm sm:text-base lg:text-lg font-semibold text-green-600 break-words">${orden.total?.toFixed(2)}</p>
-                                    <span className={`inline-block px-1 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full break-words ${
-                                      orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800'
-                                      : 'bg-blue-100 text-blue-800'
-                                    }`}>{orden.estatus}</span>
-                                  </div>
-                                </div>
-
-                                {/* Detalles de la orden - Panel expandible */}
-                                {expandedOrdenes.has(orden._id?.toString() || '') && (
-                                  <div className="mb-2 sm:mb-3 p-2 sm:p-3 bg-gray-50 rounded-lg border">
-                                    <h6 className="font-medium text-gray-900 mb-1 sm:mb-2 text-xs sm:text-sm break-words">Detalles de la orden:</h6>
-                                    
-                                    {/* Productos */}
-                                    {orden.productos && orden.productos.length > 0 && (
-                                      <div className="mb-2 sm:mb-3">
-                                        <p className="text-xs font-medium text-gray-700 mb-1 break-words">Productos:</p>
-                                        <div className="space-y-1">
-                                          {orden.productos.map((producto, idx) => (
-                                            <div key={idx} className="flex justify-between items-start gap-1 text-xs">
-                                              <span className="text-gray-600 break-words flex-1 min-w-0">
-                                                {producto.cantidad}x {producto.nombreProducto || producto.nombre || 'Producto'}
-                                              </span>
-                                              <span className="font-medium text-gray-900 flex-shrink-0">
-                                                ${(producto.importe || 0).toFixed(2)}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Platillos */}
-                                    {orden.platillos && orden.platillos.length > 0 && (
-                                      <div className="mb-2 sm:mb-3">
-                                        <p className="text-xs font-medium text-gray-700 mb-1 break-words">Platillos:</p>
-                                        <div className="space-y-1 sm:space-y-2">
-                                          {orden.platillos.map((platillo, idx) => (
-                                            <div key={idx} className="space-y-1">
-                                              <div className="flex justify-between items-start gap-1 text-xs">
-                                                <span className="text-gray-600 break-words flex-1 min-w-0">
-                                                  {platillo.cantidad}x {platillo.nombrePlatillo} ({platillo.nombreGuiso})
-                                                </span>
-                                                <span className="font-medium text-gray-900 flex-shrink-0">
-                                                  ${(platillo.importe || 0).toFixed(2)}
-                                                </span>
-                                              </div>
-                                              
-                                              {/* Notas del platillo */}
-                                              {platillo.notas && (
-                                                <div className="ml-2 sm:ml-3 text-xs text-blue-600 italic break-words">
-                                                  Nota: {platillo.notas}
-                                                </div>
-                                              )}
-                                              
-                                              {/* Extras del platillo */}
-                                              {platillo.extras && platillo.extras.length > 0 && (
-                                                <div className="ml-2 sm:ml-3 space-y-1">
-                                                  {platillo.extras.map((extra: any, extraIdx: number) => (
-                                                    <div key={extraIdx} className="flex justify-between items-start gap-1 text-xs">
-                                                      <span className="text-purple-600 italic break-words flex-1 min-w-0">
-                                                        + {extra.cantidad}x {extra.nombreExtra}
-                                                      </span>
-                                                      <span className="font-medium text-purple-700 flex-shrink-0">
-                                                        ${(extra.importe || 0).toFixed(2)}
-                                                      </span>
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Total de la orden */}
-                                    <div className="pt-1 sm:pt-2 border-t border-gray-200">
-                                      <div className="flex justify-between items-center text-xs sm:text-sm font-semibold">
-                                        <span className="text-gray-900 break-words">Total:</span>
-                                        <span className="text-green-600 break-words">${orden.total?.toFixed(2)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                                  <button 
-                                    onClick={() => handleGenerateTicket(orden)} 
-                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-blue-600 text-white text-xs sm:text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center"
-                                  >
-                                    <Receipt className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                                    <span className="truncate">PDF</span>
-                                  </button>
-                                  <button 
-                                    onClick={() => handlePrintTicket(orden)} 
-                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-gray-600 text-white text-xs sm:text-sm rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
-                                  >
-                                    <Printer className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                                    <span className="truncate">Imprimir</span>
-                                  </button>
-                                  <button 
-                                    onClick={() => handleFinalizarOrden(orden)} 
-                                    disabled={processing} 
-                                    className="flex-1 px-2 sm:px-3 py-1 sm:py-2 bg-green-600 text-white text-xs sm:text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                                  >
-                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                                    <span className="truncate">Cobrar</span>
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                    {/* Mostrar las órdenes de la mesa en un grid de 3 columnas, sin agrupar por cliente */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {mesa.ordenes.map((orden) => (
+                        <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-2 flex flex-col h-full shadow-sm">
+                          {/* Nombre del cliente */}
+                          <div className="text-xs font-semibold text-gray-700 mb-1 truncate">
+                            {orden.nombreCliente || 'Sin nombre'}
                           </div>
-                          
-                          {/* Option to pay all orders for this client */}
-                          {ordenesCliente.length > 1 && (
-                            <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200">
-                              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                <span className="text-xs sm:text-sm font-medium text-gray-900 break-words">Total del cliente:</span>
-                                <span className="text-sm sm:text-base lg:text-lg font-semibold text-green-600 break-words">
-                                  ${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="space-y-1 sm:space-y-2">
-                                <div className="flex gap-1 sm:gap-2">
-                                  <button
-                                    onClick={() => {
-                                      // Generar ticket conjunto para el cliente
-                                      const clienteTicketContent = `
-                                        <div class="header">
-                                          <h2>RESTAURANTE</h2>
-                                          <p>Ticket de Venta - Cliente: ${cliente}</p>
-                                          <div class="line"></div>
-                                        </div>
-                                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
-                                        <p><strong>Hora:</strong> ${new Date().toLocaleTimeString('es-ES')}</p>
-                                        <p><strong>Mesa:</strong> ${mesa.nombreMesa}</p>
-                                        <p><strong>Cliente:</strong> ${cliente}</p>
-                                        <div class="line"></div>
-                                        ${ordenesCliente.map((orden: OrdenCompleta) => `
-                                          <h3>ORDEN #${orden._id?.toString().slice(-6)}</h3>
-                                          <h4>Platillos:</h4>
-                                          ${orden.platillos?.length 
-                                            ? orden.platillos.map((p: any) => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
-                                            : '<p>Sin platillos</p>'
-                                          }
-                                          <h4>Productos:</h4>
-                                          ${orden.productos?.length
-                                            ? orden.productos.map((p: any) => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
-                                            : '<p>Sin productos</p>'
-                                          }
-                                          <p><strong>Subtotal:</strong> $${orden.total?.toFixed(2)}</p>
-                                          <div class="line"></div>
-                                        `).join('')}
-                                        <div class="total">
-                                          <p>TOTAL CLIENTE: $${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}</p>
-                                        </div>
-                                        <div class="line"></div>
-                                        <p style="text-align: center;">¡Gracias por su preferencia!</p>
-                                      `;
-                                      const blob = new Blob([clienteTicketContent], { type: 'text/html' });
-                                      const url = URL.createObjectURL(blob);
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = `ticket-cliente-${cliente.replace(/\s/g, '-').toLowerCase()}.html`;
-                                      a.click();
-                                      URL.revokeObjectURL(url);
-                                    }}
-                                    className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
-                                  >
-                                    <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
-                                    <span className="truncate">PDF Cliente</span>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      // Imprimir ticket conjunto para el cliente
-                                      const clienteTicketContent = `
-                                        <div class="header">
-                                          <h2>RESTAURANTE</h2>
-                                          <p>Ticket de Venta - Cliente: ${cliente}</p>
-                                          <div class="line"></div>
-                                        </div>
-                                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
-                                        <p><strong>Hora:</strong> ${new Date().toLocaleTimeString('es-ES')}</p>
-                                        <p><strong>Mesa:</strong> ${mesa.nombreMesa}</p>
-                                        <p><strong>Cliente:</strong> ${cliente}</p>
-                                        <div class="line"></div>
-                                        ${ordenesCliente.map((orden: OrdenCompleta) => `
-                                          <h3>ORDEN #${orden._id?.toString().slice(-6)}</h3>
-                                          <h4>Platillos:</h4>
-                                          ${orden.platillos?.length 
-                                            ? orden.platillos.map((p: any) => `<p>${p.cantidad}x ${p.nombrePlatillo} - $${p.importe.toFixed(2)}</p>`).join('')
-                                            : '<p>Sin platillos</p>'
-                                          }
-                                          <h4>Productos:</h4>
-                                          ${orden.productos?.length
-                                            ? orden.productos.map((p: any) => `<p>${p.cantidad}x ${p.nombreProducto || p.nombre || ''} - $${(p.importe !== undefined ? p.importe.toFixed(2) : '0.00')}</p>`).join('')
-                                            : '<p>Sin productos</p>'
-                                          }
-                                          <p><strong>Subtotal:</strong> $${orden.total?.toFixed(2)}</p>
-                                          <div class="line"></div>
-                                        `).join('')}
-                                        <div class="total">
-                                          <p>TOTAL CLIENTE: $${ordenesCliente.reduce((sum, orden) => sum + (orden.total || 0), 0).toFixed(2)}</p>
-                                        </div>
-                                        <div class="line"></div>
-                                        <p style="text-align: center;">¡Gracias por su preferencia!</p>
-                                      `;
-                                      const printWindow = window.open('', '_blank');
-                                      if (printWindow) {
-                                        printWindow.document.write(`
-                                          <html>
-                                            <head>
-                                              <title>Ticket - Cliente ${cliente}</title>
-                                              <style>
-                                                body { font-family: monospace; font-size: 12px; margin: 20px; }
-                                                .header { text-align: center; margin-bottom: 20px; }
-                                                .line { border-bottom: 1px dashed #000; margin: 10px 0; }
-                                                .total { font-weight: bold; font-size: 14px; }
-                                                h3 { margin-top: 15px; margin-bottom: 5px; }
-                                                h4 { margin-top: 10px; margin-bottom: 3px; }
-                                              </style>
-                                            </head>
-                                            <body>${clienteTicketContent}</body>
-                                          </html>
-                                        `);
-                                        printWindow.document.close();
-                                        printWindow.print();
-                                      }
-                                    }}
-                                    className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
-                                  >
-                                    <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
-                                    <span className="truncate">Imprimir</span>
-                                  </button>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    // Cobrar todas las órdenes del cliente
-                                    ordenesCliente.forEach(orden => handleFinalizarOrden(orden));
-                                  }}
-                                  disabled={processing}
-                                  className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                                  <span className="truncate">Cobrar todas las órdenes de {cliente}</span>
-                                </button>
-                              </div>
+                          {/* Número de orden y hora */}
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-gray-900 text-sm">#{orden._id?.toString().slice(-6)}</span>
+                            <span className="text-xs text-gray-500 flex items-center">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {orden.fecha ? new Date(orden.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                          {/* Notas de la orden */}
+                          {orden.notas && (
+                            <div className="flex items-start space-x-1 mb-1">
+                              <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                              <p className="text-xs text-gray-700 italic break-words">{orden.notas}</p>
                             </div>
                           )}
+                          {/* Productos */}
+                          {orden.productos && orden.productos.length > 0 && (
+                            <div className="mb-1">
+                              <p className="text-xs font-medium text-gray-700 mb-0.5">Productos:</p>
+                              <ul className="space-y-0.5">
+                                {orden.productos.map((producto, idx) => (
+                                  <li key={idx} className="flex justify-between items-center text-xs">
+                                    <span className="text-gray-600 truncate">{producto.cantidad}x {producto.nombreProducto || producto.nombre || 'Producto'}</span>
+                                    <span className="font-medium text-gray-900">${(producto.importe || 0).toFixed(2)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {/* Platillos */}
+                          {orden.platillos && orden.platillos.length > 0 && (
+                            <div className="mb-1">
+                              <p className="text-xs font-medium text-gray-700 mb-0.5">Platillos:</p>
+                              <ul className="space-y-0.5">
+                                {orden.platillos.map((platillo, idx) => (
+                                  <li key={idx} className="flex flex-col">
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-gray-600 truncate">{platillo.cantidad}x {platillo.nombrePlatillo} ({platillo.nombreGuiso})</span>
+                                      <span className="font-medium text-gray-900">${(platillo.importe || 0).toFixed(2)}</span>
+                                    </div>
+                                    {/* Extras del platillo */}
+                                    {platillo.extras && platillo.extras.length > 0 && (
+                                      <ul className="ml-2 space-y-0.5">
+                                        {platillo.extras.map((extra: any, extraIdx: number) => (
+                                          <li key={extraIdx} className="flex justify-between items-center text-xs">
+                                            <span className="text-purple-600 italic truncate">+ {extra.cantidad}x {extra.nombreExtra}</span>
+                                            {/* No mostrar precio del extra */}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    {/* Notas del platillo */}
+                                    {platillo.notas && (
+                                      <div className="ml-2 text-xs text-blue-600 italic">Nota: {platillo.notas}</div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {/* Total y estatus */}
+                          <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
+                            <span className="text-sm font-bold text-green-600">${orden.total?.toFixed(2)}</span>
+                            <span className={`inline-block px-1 py-0.5 text-xs font-medium rounded-full ${orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{orden.estatus}</span>
+                          </div>
+                          {/* Acciones */}
+                          <div className="flex gap-1 mt-2">
+                            <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center justify-center">
+                              <Receipt className="w-3 h-3 mr-1" />PDF
+                            </button>
+                            <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 flex items-center justify-center">
+                              <Printer className="w-3 h-3 mr-1" />Imprimir
+                            </button>
+                            <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="flex-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                              <CheckCircle className="w-3 h-3 mr-1" />Cobrar
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Option to pay entire table when expanded */}
+                    {/* Opción para cobrar toda la mesa */}
                     <div className="mt-4 pt-4 border-t border-gray-200 bg-green-50 rounded-lg p-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                         <span className="text-lg font-semibold text-gray-900 truncate">Total de la mesa:</span>
@@ -831,7 +649,7 @@ const Cobrar: React.FC = () => {
                         >
                           <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
                           <span className="truncate">
-                            {mesa.totalOrdenes === 1 ? `Cobrar orden de ${mesa.nombreMesa}` : `Cobrar toda la mesa ${mesa.nombreMesa}`}
+                            {mesa.totalOrdenes === 1 ? `Cobrar orden de ${mesa.nombreMesa}` : `Cobrar ${mesa.nombreMesa}`}
                           </span>
                         </button>
                       </div>

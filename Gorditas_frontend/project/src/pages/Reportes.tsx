@@ -885,7 +885,7 @@ const Reportes: React.FC = () => {
                             <tr>
                               <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Folio</th>
                               <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Cliente</th>
-                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Mesa</th>
+                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Mesa/Pedido</th>
                               <th className="text-right px-2 py-2 w-1/6 font-medium text-gray-900">Total</th>
                               <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Hora</th>
                               <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Detalles</th>

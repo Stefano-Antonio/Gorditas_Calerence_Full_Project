@@ -321,5 +321,16 @@ class ApiService {
       body: JSON.stringify({ notas }),
     });
   }
+
+  async updateOrdenFechaHora(ordenId: string) {
+    return this.request(`/ordenes/${ordenId}/fecha-hora`, {
+      method: 'PUT',
+      body: JSON.stringify({ fechaHora: new Date().toISOString() }),
+    });
+  }
+
+  async getNextPedidoNumber() {
+    return this.request<{ nextNumber: number }>('/catalogos/pedido/next-number');
+  }
 }
 export const apiService = new ApiService();

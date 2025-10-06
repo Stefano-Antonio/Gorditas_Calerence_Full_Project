@@ -331,6 +331,24 @@ router.put('/:id/estatus', authenticate,
   })
 );
 
+// PUT /api/ordenes/:id/fecha-hora - Actualizar fecha y hora de la orden
+router.put('/:id/fecha-hora', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const { fechaHora } = req.body;
+    
+    const orden = await Orden.findById(req.params.id);
+    if (!orden) {
+      return res.status(404).json(createResponse(false, null, 'Orden no encontrada'));
+    }
+
+    // Actualizar la fecha y hora
+    orden.fechaHora = fechaHora ? new Date(fechaHora) : new Date();
+    await orden.save();
+
+    res.json(createResponse(true, orden, 'Fecha y hora actualizada exitosamente'));
+  })
+);
+
 // PUT /api/ordenes/:id/verificar - Verificar completitud de orden
 router.put('/:id/verificar', authenticate, isMesero,
   asyncHandler(async (req: any, res: any) => {

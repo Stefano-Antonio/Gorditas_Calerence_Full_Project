@@ -6,8 +6,6 @@ import {
   Plus, 
   Minus, 
   Trash2, 
-  Save,
-  Search,
   ShoppingCart,
   AlertCircle,
   RefreshCw,
@@ -15,19 +13,17 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  X
+  X,
+  Check
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { Orden, Suborden, OrdenDetallePlatillo, OrdenDetalleProducto, Platillo, Guiso, Producto, MesaAgrupada, Extra, TipoExtra } from '../types';
 
 const EditarOrden: React.FC = () => {
-  // Estado para la cantidad de extras de C/queso
-  const [cantidadQueso, setCantidadQueso] = useState(0);
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
   const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [selectedOrden, setSelectedOrden] = useState<Orden | null>(null);
-  const [nombreCliente, setNombreCliente] = useState('');
   const [subordenes, setSubordenes] = useState<Suborden[]>([]);
   const [platillosDetalle, setPlatillosDetalle] = useState<OrdenDetallePlatillo[]>([]);
   const [productosDetalle, setProductosDetalle] = useState<OrdenDetalleProducto[]>([]);
@@ -35,29 +31,39 @@ const EditarOrden: React.FC = () => {
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
   const [guisos, setGuisos] = useState<Guiso[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+
+  // Estados para los modales de selección (igual que NuevaOrden)
+  const [modalPlatilloOpen, setModalPlatilloOpen] = useState(false);
+  const [modalProductoOpen, setModalProductoOpen] = useState(false);
+  const [modalGuisoOpen, setModalGuisoOpen] = useState(false);
+  const [modalExtrasOpen, setModalExtrasOpen] = useState(false);
+  const [modalNotasOpen, setModalNotasOpen] = useState(false);
   
-  const [showAddPlatillo, setShowAddPlatillo] = useState(false);
-  const [showAddProducto, setShowAddProducto] = useState(false);
-  const [selectedPlatillo, setSelectedPlatillo] = useState<string>('');
-  const [selectedGuiso, setSelectedGuiso] = useState<string>('');
-  const [selectedProducto, setSelectedProducto] = useState<string>('');
-  const [cantidad, setCantidad] = useState(1);
+  // Estado para rastrear el flujo de selección de platillo
+  const [platilloEnConstruccion, setPlatilloEnConstruccion] = useState<{
+    platillo: Platillo | null;
+    guiso: Guiso | null;
+    cantidad: number;
+    extras: any[];
+    notas: string;
+  }>({
+    platillo: null,
+    guiso: null,
+    cantidad: 1,
+    extras: [],
+    notas: ''
+  });
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [hasNewOrders, setHasNewOrders] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
-
-  // Ensure the component always returns JSX
 
   // Estados para extras
   const [extras, setExtras] = useState<Extra[]>([]);
   const [tiposExtras, setTiposExtras] = useState<TipoExtra[]>([]);
   const [showExtrasModal, setShowExtrasModal] = useState(false);
   const [selectedPlatilloForExtras, setSelectedPlatilloForExtras] = useState<string | null>(null);
-  const [tempExtras, setTempExtras] = useState<{platilloId: string, extraId: string, cantidad: number}[]>([]);
 
   // Confirmación para eliminar platillo/producto
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'platillo' | 'producto'; id: string } | null>(null);
@@ -183,16 +189,13 @@ const EditarOrden: React.FC = () => {
       const hasNewData = newOrderIds.some((id: any) => !currentOrderIds.includes(id));
       
       if (hasNewData && ordenes.length > 0) {
-        setHasNewOrders(true);
         setSuccess('Nuevas órdenes editables detectadas');
         setTimeout(() => {
-          setHasNewOrders(false);
           setSuccess('');
         }, 5000);
       }
       
       setOrdenes(ordenesEditables);
-      setLastUpdateTime(new Date());
       
       // Group orders by table
       const grouped = groupOrdersByTable(ordenesEditables);
@@ -233,83 +236,9 @@ const EditarOrden: React.FC = () => {
   }
 };
 
-  // Función para gestionar cambios en extras
-  const handleExtraChange = async (idExtra: string, isSelected: boolean) => {
-    if (!selectedPlatilloForExtras) return;
-
-    // Verificar si el platillo está entregado
-    const platilloDetalle = platillosDetalle.find(p => p._id === selectedPlatilloForExtras);
-    if (platilloDetalle?.entregado) {
-      setError('No se pueden agregar extras a platillos entregados');
-      return;
-    }
-
-
-    try {
-      if (isSelected) {
-        // Buscar la información del extra en el catálogo
-        const extra = extras.find(e => e._id === idExtra);
-        if (!extra) {
-          setError('Extra no encontrado en el catálogo');
-          return;
-        }
-
-        const response = await apiService.addDetalleExtra({
-          idOrdenDetallePlatillo: selectedPlatilloForExtras,
-          idExtra,
-          nombreExtra: extra.nombre,
-          costoExtra: extra.costo,
-          cantidad: 1
-        });
-        
-        
-        if (response.success) {
-          setSuccess('Extra agregado exitosamente');
-          // Recargar los detalles de la orden
-          if (selectedOrden) {
-            await loadOrdenDetails(selectedOrden);
-          }
-          setTimeout(() => setSuccess(''), 3000);
-        } else {
-          setError('Error agregando extra: ' + (response.error || 'Error desconocido'));
-        }
-      } else {
-        // Remover extra
-        const platilloDetalle = platillosDetalle
-          .find((d: any) => d._id === selectedPlatilloForExtras);
-        
-        const extraToRemove = platilloDetalle?.extras?.find((e: any) => e.idExtra === idExtra);
-        
-        
-        if (extraToRemove && extraToRemove._id) {
-          const response = await apiService.removeDetalleExtra(extraToRemove._id);
-          
-          
-          if (response.success) {
-            setSuccess('Extra removido exitosamente');
-            // Recargar los detalles de la orden
-            if (selectedOrden) {
-              await loadOrdenDetails(selectedOrden);
-            }
-            setTimeout(() => setSuccess(''), 3000);
-          } else {
-            setError('Error removiendo extra: ' + (response.error || 'Error desconocido'));
-          }
-        } else {
-          setError('No se encontró el extra para remover');
-        }
-      }
-    } catch (error) {
-      console.error('Error al gestionar extra:', error);
-      setError('Error de conexión al gestionar extra');
-    }
-  };
-
-
   const loadOrdenDetails = async (orden: Orden) => {
     try {
       setSelectedOrden(orden);
-      setNombreCliente(orden.nombreCliente || '');
       const response = await apiService.getOrdenDetails(orden._id!);
       
       if (response.success) {
@@ -351,110 +280,236 @@ const EditarOrden: React.FC = () => {
     }
   };
 
-  const handleAddPlatillo = async () => {
-  if (!selectedOrden || !selectedPlatillo || !selectedGuiso) {
-    setError('Selecciona platillo y guiso');
-    return;
-  }
+  // Funciones para el flujo modal de platillos (igual que NuevaOrden)
+  const iniciarSeleccionPlatillo = () => {
+    setPlatilloEnConstruccion({
+      platillo: null,
+      guiso: null,
+      cantidad: 1,
+      extras: [],
+      notas: ''
+    });
+    setModalPlatilloOpen(true);
+  };
 
-  setSaving(true);
-  try {
-    // Convertir los valores seleccionados a números
-    const platilloId = Number(selectedPlatillo);
-    const guisoId = Number(selectedGuiso);
+  const seleccionarPlatillo = (platillo: Platillo) => {
+    setPlatilloEnConstruccion(prev => ({ ...prev, platillo }));
+    setModalPlatilloOpen(false);
+    setModalGuisoOpen(true);
+  };
 
-    const platillo = platillos.find(p => Number(p._id) === platilloId);
-    const guiso = guisos.find(g => Number(g._id) === guisoId);
+  const seleccionarGuiso = (guiso: Guiso) => {
+    setPlatilloEnConstruccion(prev => ({ ...prev, guiso }));
+    setModalGuisoOpen(false);
+    setModalExtrasOpen(true);
+  };
 
-    if (!platillo || !guiso) {
-      setError('Platillo o guiso no válido');
-      return;
-    }
-
-    let subordenId = '';
-    if (subordenes.length === 0) {
-      const subordenData = { nombre: 'Suborden 1' };
-      const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
-      if (subordenResponse.success) {
-        subordenId = subordenResponse.data._id;
-        setSubordenes([subordenResponse.data]);
+  const toggleExtraEnConstruccion = (extra: Extra) => {
+    setPlatilloEnConstruccion(prev => {
+      const existeIndex = prev.extras.findIndex(e => e.idExtra === extra._id);
+      if (existeIndex >= 0) {
+        // Si ya existe, aumentar cantidad en 1 (sin exceder la cantidad del platillo)
+        const extraActual = prev.extras[existeIndex];
+        if (extraActual.cantidad >= prev.cantidad) {
+          // No permitir agregar más extras que la cantidad del platillo
+          return prev;
+        }
+        return {
+          ...prev,
+          extras: prev.extras.map((e, i) => 
+            i === existeIndex ? { ...e, cantidad: e.cantidad + 1 } : e
+          )
+        };
       } else {
-        setError('Error creando suborden');
-        return;
+        // Si no existe, lo agregamos con cantidad 1 y avanzamos automáticamente
+        const nuevosExtras = [...prev.extras, {
+          idExtra: extra._id,
+          nombreExtra: extra.nombre,
+          costoExtra: extra.costo,
+          idTipoExtra: extra.idTipoExtra,
+          cantidad: 1
+        }];
+        
+        // Avanzar automáticamente después de agregar el primer extra
+        setTimeout(() => {
+          setModalExtrasOpen(false);
+          setModalNotasOpen(true);
+        }, 300);
+        
+        return {
+          ...prev,
+          extras: nuevosExtras
+        };
       }
-    } else {
-      subordenId = subordenes[0]._id!;
-    }
+    });
+  };
 
-    const platilloData = {
-      idPlatillo: platilloId,
-      nombrePlatillo: platillo.nombre,
-      idGuiso: guisoId,
-      nombreGuiso: guiso.nombre,
-      costoPlatillo: platillo.precio || platillo.costo,
-      cantidad
-    };
+  const actualizarCantidadExtraEnConstruccion = (idExtra: string, cantidad: number) => {
+    setPlatilloEnConstruccion(prev => ({
+      ...prev,
+      extras: prev.extras.map(e => 
+        e.idExtra === idExtra 
+          ? { ...e, cantidad: Math.max(1, Math.min(prev.cantidad, cantidad)) }
+          : e
+      )
+    }));
+  };
 
-    const response = await apiService.addPlatillo(subordenId, platilloData);
+  const eliminarExtraEnConstruccion = (idExtra: string) => {
+    setPlatilloEnConstruccion(prev => ({
+      ...prev,
+      extras: prev.extras.filter(e => e.idExtra !== idExtra)
+    }));
+  };
 
-    if (response.success) {
-      if (selectedOrden.estatus !== 'Recepcion') {
-        await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
-      }
+  const saltarExtras = () => {
+    setModalExtrasOpen(false);
+    setModalNotasOpen(true);
+  };
 
-      setSuccess('Platillo agregado exitosamente');
-      await loadOrdenDetails(selectedOrden);
-      setShowAddPlatillo(false);
-      setSelectedPlatillo('');
-      setSelectedGuiso('');
-      setCantidad(1);
-      setTimeout(() => setSuccess(''), 3000);
-    } else {
-      setError('Error agregando platillo');
-    }
-  } catch (error) {
-    setError('Error agregando platillo');
-  } finally {
-    setSaving(false);
-  }
-};
-
-  const handleAddProducto = async () => {
-    if (!selectedOrden || !selectedProducto) {
-      setError('Selecciona un producto');
+  const finalizarPlatillo = async () => {
+    if (!platilloEnConstruccion.platillo || !platilloEnConstruccion.guiso || !selectedOrden) {
+      setError('Error al agregar platillo');
       return;
     }
 
     setSaving(true);
+    setError('');
+
     try {
-      // Convertir el valor seleccionado a número
-      const productoId = Number(selectedProducto);
-      const producto = productos.find(p => Number(p._id) === productoId);
-      if (!producto) {
-        setError('Producto no válido');
-        return;
+      let subordenId = '';
+      if (subordenes.length === 0) {
+        const subordenData = { nombre: 'Suborden 1' };
+        const subordenResponse = await apiService.addSuborden(selectedOrden._id!, subordenData);
+        if (subordenResponse.success) {
+          subordenId = subordenResponse.data._id;
+          setSubordenes([subordenResponse.data]);
+        } else {
+          setError('Error creando suborden');
+          setSaving(false);
+          return;
+        }
+      } else {
+        subordenId = subordenes[0]._id!;
       }
 
+      const platilloData = {
+        idPlatillo: Number(platilloEnConstruccion.platillo._id),
+        nombrePlatillo: platilloEnConstruccion.platillo.nombre,
+        idGuiso: Number(platilloEnConstruccion.guiso._id),
+        nombreGuiso: platilloEnConstruccion.guiso.nombre,
+        costoPlatillo: platilloEnConstruccion.platillo.precio || platilloEnConstruccion.platillo.costo,
+        cantidad: platilloEnConstruccion.cantidad,
+        notas: platilloEnConstruccion.notas
+      };
+
+      const response = await apiService.addPlatillo(subordenId, platilloData);
+
+      if (response.success) {
+        // Agregar extras si existen
+        if (platilloEnConstruccion.extras.length > 0) {
+          const platilloId = response.data._id;
+          for (const extra of platilloEnConstruccion.extras) {
+            const extraData = {
+              idOrdenDetallePlatillo: platilloId,
+              idExtra: extra.idExtra,
+              nombreExtra: extra.nombreExtra,
+              costoExtra: extra.costoExtra,
+              cantidad: extra.cantidad
+            };
+            await apiService.addDetalleExtra(extraData);
+          }
+        }
+
+        // Actualizar el estatus de la orden si no está en Recepcion
+        if (selectedOrden.estatus !== 'Recepcion') {
+          const statusResponse = await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
+          if (statusResponse.success) {
+            // Actualizar el objeto selectedOrden con el nuevo estatus
+            setSelectedOrden({ ...selectedOrden, estatus: 'Recepcion' });
+          }
+        }
+
+        // Actualizar la fecha y hora de la orden a la hora actual
+        try {
+          await apiService.updateOrdenFechaHora(selectedOrden._id!);
+        } catch (error) {
+          console.warn('Error actualizando fecha y hora de la orden:', error);
+        }
+
+        setSuccess('Platillo agregado exitosamente');
+        await loadOrdenDetails(selectedOrden);
+        await loadData(); // Refrescar la lista de órdenes para mostrar el nuevo estatus
+        setModalNotasOpen(false);
+        
+        // Limpiar el estado de construcción
+        setPlatilloEnConstruccion({
+          platillo: null,
+          guiso: null,
+          cantidad: 1,
+          extras: [],
+          notas: ''
+        });
+        
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error agregando platillo');
+      }
+    } catch (error) {
+      setError('Error agregando platillo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelarSeleccionPlatillo = () => {
+    setModalPlatilloOpen(false);
+    setModalGuisoOpen(false);
+    setModalExtrasOpen(false);
+    setModalNotasOpen(false);
+    setPlatilloEnConstruccion({
+      platillo: null,
+      guiso: null,
+      cantidad: 1,
+      extras: [],
+      notas: ''
+    });
+  };
+
+  // Función para seleccionar producto directamente
+  const seleccionarProducto = async (producto: any) => {
+    if (!selectedOrden) {
+      setError('No hay orden seleccionada');
+      return;
+    }
+
+    if (producto.cantidad < 1) {
+      setError('Stock insuficiente para el producto seleccionado');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
       const productoData = {
         idOrden: selectedOrden._id!,
-        idProducto: productoId,
+        idProducto: Number(producto._id),
         nombreProducto: producto.nombre,
         costoProducto: producto.costo,
-        cantidad
+        cantidad: 1
       };
 
       const response = await apiService.addProducto(selectedOrden._id!, productoData);
 
       if (response.success) {
-        if (selectedOrden.estatus !== 'Recepcion') {
-          await apiService.updateOrdenStatus(selectedOrden._id!, 'Recepcion');
-        }
+        // NO cambiar el estatus cuando se agregan productos
+        // El estatus solo cambia cuando se agregan platillos
 
         setSuccess('Producto agregado exitosamente');
         await loadOrdenDetails(selectedOrden);
-        setShowAddProducto(false);
-        setSelectedProducto('');
-        setCantidad(1);
+        await loadData(); // Refrescar la lista de órdenes
+        setModalProductoOpen(false);
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError('Error agregando producto');
@@ -577,7 +632,7 @@ const EditarOrden: React.FC = () => {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 p-2 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 py-2 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-6">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Editar Orden</h1>
@@ -586,11 +641,11 @@ const EditarOrden: React.FC = () => {
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center disabled:opacity-50"
+          className="flex-shrink-0 p-2 sm:px-4 sm:py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center disabled:opacity-50"
           title="Actualizar"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 flex-shrink-0 ${loading ? 'animate-spin' : ''}`} />
-          <span className="truncate">Actualizar</span>
+          <RefreshCw className={`w-5 h-5 sm:w-4 sm:h-4 sm:mr-2 flex-shrink-0 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline truncate">Actualizar</span>
         </button>
       </div>
 
@@ -608,8 +663,8 @@ const EditarOrden: React.FC = () => {
 
       <div className="grid gap-3 sm:gap-6 grid-cols-1 xl:grid-cols-2">
         {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6 min-w-0">
-          <div className="flex items-center space-x-2 mb-3 sm:mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 sm:p-6 min-w-0">
+          <div className="flex items-center space-x-2 mb-2 sm:mb-6">
             <Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">Órdenes Editables</h2>
           </div>
@@ -628,23 +683,23 @@ const EditarOrden: React.FC = () => {
                     className="p-3 sm:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => toggleMesaExpansion(mesa.idMesa)}
                   >
-                    <div className="flex items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 break-words hyphens-auto">
+                          <h3 className="text-xs sm:text-base lg:text-lg font-semibold text-gray-900 break-words">
                             {mesa.nombreMesa}
                           </h3>
-                          <p className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          <p className="text-[10px] sm:text-sm text-gray-600">
                             {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                           </p>
                           {/* Lista de clientes de las órdenes en la mesa */}
                           {Object.keys(mesa.clientes).length > 0 && (
-                            <ul className="mt-1 text-xs sm:text-sm text-gray-700 flex flex-wrap gap-1">
+                            <ul className="mt-1 text-xs text-gray-700 flex flex-wrap gap-1">
                               {Object.keys(mesa.clientes).map((cliente, idx) => (
-                                <li key={cliente + idx} className="bg-gray-100 rounded px-2 py-0.5">
+                                <li key={cliente + idx} className="bg-gray-100 rounded px-2 py-0.5 whitespace-nowrap">
                                   {cliente}
                                 </li>
                               ))}
@@ -652,17 +707,17 @@ const EditarOrden: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                        <div className="text-right">
-                          <p className="text-xs sm:text-base font-semibold text-green-600 whitespace-nowrap">
+                      <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-3 flex-shrink-0">
+                        <div className="text-left sm:text-right">
+                          <p className="text-sm sm:text-base font-semibold text-green-600">
                             ${mesa.totalMonto.toFixed(2)}
                           </p>
-                          <p className="text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">Total</p>
+                          <p className="text-[10px] sm:text-xs text-gray-600">Total</p>
                         </div>
                         {expandedMesas.has(mesa.idMesa) ? (
-                          <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                          <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                         )}
                       </div>
                     </div>
@@ -674,7 +729,7 @@ const EditarOrden: React.FC = () => {
                       <div className="space-y-3 sm:space-y-4">
                         {Object.entries(mesa.clientes).map(([cliente, ordenesCliente]) => (
                           <div key={cliente} className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                            <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base break-words">
+                            <h4 className="font-medium text-gray-900 mb-2 sm:mb-3 text-xs sm:text-base break-words">
                               Cliente: {cliente} ({ordenesCliente.length} {ordenesCliente.length === 1 ? 'orden' : 'órdenes'})
                             </h4>
                             <div className="grid grid-cols-1 gap-3 sm:gap-4">
@@ -692,61 +747,47 @@ const EditarOrden: React.FC = () => {
                                       onClick={() => loadOrdenDetails(orden)}
                                       className="flex-1 cursor-pointer min-w-0"
                                     >
-                                      <h5 className="font-medium text-gray-900 text-sm sm:text-base break-words">
+                                      <h5 className="font-medium text-gray-900 text-xs sm:text-base break-words">
                                         Orden #{orden._id?.toString().slice(-6)}
                                       </h5>
                                       {orden.notas && (
                                         <div className="flex items-start space-x-1 mt-1">
                                           <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                          <p className="text-xs text-gray-700 italic line-clamp-2 break-words">
+                                          <p className="text-[10px] sm:text-xs text-gray-700 italic line-clamp-2 break-words">
                                             {orden.notas}
                                           </p>
                                         </div>
                                       )}
-                                      <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                                      <p className="text-[10px] sm:text-sm text-gray-600 mt-1">
                                         {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
                                           hour: '2-digit',
                                           minute: '2-digit'
                                         })}
                                       </p>
-                                      <p className="text-sm font-medium text-green-600 mt-1">
+                                      <p className="text-xs sm:text-sm font-medium text-green-600 mt-1">
                                         Total: ${orden.total.toFixed(2)}
                                       </p>
                                     </div>
                                     <div className="flex flex-row sm:flex-col items-center sm:items-end space-x-2 sm:space-x-0 sm:space-y-2 flex-shrink-0">
-                                      <span className="px-2 sm:px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
+                                      <span className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
                                         {orden.estatus}
                                       </span>
                                       {orden.estatus === 'Pendiente' && (
                                         <button
                                           onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
                                           disabled={updatingStatus === orden._id}
-                                          className="px-2 sm:px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center whitespace-nowrap"
+                                          className="p-1 sm:px-3 sm:py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center whitespace-nowrap"
+                                          title="Confirmar orden"
                                         >
                                           {updatingStatus === orden._id ? (
                                             <>
-                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1 flex-shrink-0"></div>
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white sm:mr-1 flex-shrink-0"></div>
                                               <span className="hidden sm:inline">Actualizando...</span>
-                                              <span className="sm:hidden">...</span>
                                             </>
                                           ) : (
-                                            <span className="hidden sm:inline">Confirmar orden</span>
-                                          )}
-                                        </button>
-                                      )}
-                                      {/* Botón eliminar orden, solo para la orden seleccionada */}
-                                      {selectedOrden?._id === orden._id && (
-                                        <button
-                                          onClick={() => handleDeleteOrder(orden)}
-                                          disabled={deletingOrder}
-                                          className="px-2 sm:px-3 py-1 text-xs bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors flex items-center whitespace-nowrap disabled:opacity-50"
-                                          title="Eliminar orden"
-                                        >
-                                          {deletingOrder ? (
-                                            <span className="flex items-center"><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></span>Eliminando...</span>
-                                          ) : (
                                             <>
-                                              <Trash2 className="w-3 h-3 mr-1 inline" /> Eliminar
+                                              <Check className="w-4 h-4 sm:w-3 sm:h-3 sm:mr-1" />
+                                              <span className="hidden sm:inline">Confirmar orden</span>
                                             </>
                                           )}
                                         </button>
@@ -769,34 +810,67 @@ const EditarOrden: React.FC = () => {
 
         {/* Order Details */}
         <div ref={orderDetailsRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-6 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-6 gap-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
-                {selectedOrden
-                  ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
-                  : 'Selecciona una orden'}
-              </h2>
-              {selectedOrden && selectedOrden.nombreCliente && (
-                <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
-                  Cliente: <span className="font-medium">{selectedOrden.nombreCliente}</span>
-                </p>
+          <div className="flex flex-col space-y-3 sm:space-y-4">
+            {/* Header con información de la orden */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 break-words">
+                  {selectedOrden
+                    ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
+                    : 'Selecciona una orden'}
+                </h2>
+                {selectedOrden && selectedOrden.nombreCliente && (
+                  <p className="text-sm sm:text-base text-gray-600 mt-1 break-words">
+                    Cliente: <span className="font-medium">{selectedOrden.nombreCliente}</span>
+                  </p>
+                )}
+                {selectedOrden && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedOrden.estatus === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                      selectedOrden.estatus === 'Preparacion' ? 'bg-blue-100 text-blue-800' :
+                      selectedOrden.estatus === 'Surtida' ? 'bg-green-100 text-green-800' :
+                      selectedOrden.estatus === 'Entregada' ? 'bg-gray-100 text-gray-800' :
+                      'bg-orange-100 text-orange-800'
+                    }`}>
+                      {selectedOrden.estatus}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      Total: <span className="font-semibold text-green-600">${selectedOrden.total.toFixed(2)}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Botón de eliminar arriba a la derecha */}
+              {selectedOrden && (
+                <button
+                  onClick={() => handleDeleteOrder(selectedOrden)}
+                  className="w-24 sm:w-auto px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center justify-center flex-shrink-0"
+                  title="Eliminar orden"
+                >
+                  <Trash2 className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span>Eliminar</span>
+                </button>
               )}
             </div>
+
+            {/* Botones de acción para agregar */}
             {selectedOrden && (
-              <div className="flex flex-row space-x-2 flex-shrink-0">
+              <div className="flex flex-row space-x-2">
                 <button
-                  onClick={() => setShowAddPlatillo(true)}
-                  className="px-2 sm:px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs sm:text-sm flex items-center"
+                  onClick={iniciarSeleccionPlatillo}
+                  className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center"
                 >
-                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                  <span className="truncate">Platillo</span>
+                  <Plus className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span>Platillo</span>
                 </button>
                 <button
-                  onClick={() => setShowAddProducto(true)}
-                  className="px-2 sm:px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm flex items-center"
+                  onClick={() => setModalProductoOpen(true)}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center"
                 >
-                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                  <span className="truncate">Producto</span>
+                  <Plus className="w-4 h-4 mr-1 flex-shrink-0" />
+                  <span>Producto</span>
                 </button>
               </div>
             )}
@@ -808,11 +882,14 @@ const EditarOrden: React.FC = () => {
               <p className="text-gray-500 text-sm sm:text-base">Selecciona una orden para ver los detalles</p>
             </div>
           ) : (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-6">
               {/* Platillos */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Platillos</h3>
-                <div className="space-y-2">
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Platillos</h3>
+                  <span className="text-sm text-gray-500">{platillosDetalle.length} items</span>
+                </div>
+                <div className="space-y-3">
                     {platillosDetalle.length === 0 ? (
                       <p className="text-gray-500 text-xs sm:text-sm">No hay platillos agregados</p>
                     ) : (
@@ -866,24 +943,23 @@ const EditarOrden: React.FC = () => {
                                   </div>
                                   <button
                                     onClick={() => handleEditNota(detalle._id!, detalle.notas || '')}
-                                    className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
+                                    className="ml-2 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-shrink-0"
                                     title={detalle.notas ? "Editar nota" : "Agregar nota"}
                                   >
-                                    {detalle.notas ? "Editar" : "Agregar"} nota
+                                    {detalle.notas ? "Edit." : "+"} nota
                                   </button>
                                 </div>
                               </div>
                             )}
                             
-                            <p className="text-xs sm:text-sm text-gray-600 truncate mt-1">Tipo: {detalle.idPlatillo ? detalle.idPlatillo : 'N/A'}</p>
                             <p className="text-xs sm:text-sm text-gray-600 truncate">Guiso: {detalle.nombreGuiso || detalle.guiso}</p>
                             <p className="text-xs sm:text-sm text-gray-600">Cantidad: {detalle.cantidad}</p>
                             
                             {/* Mostrar extras del platillo */}
                             {detalle.extras && detalle.extras.length > 0 && (
-                              <div className="mt-2 p-2 bg-purple-50 rounded-md border border-purple-200">
-                                <p className="text-xs font-medium text-purple-800 mb-1">Extras:</p>
-                                <div className="space-y-1">
+                              <div className="mt-1 sm:mt-2 p-1 sm:p-2 bg-purple-50 rounded-md border border-purple-200">
+                                <p className="text-xs font-medium text-purple-800 mb-0.5 sm:mb-1">Extras:</p>
+                                <div className="space-y-0.5 sm:space-y-1">
                                   {detalle.extras.map((extra, extraIndex) => (
                                     <div key={extraIndex} className="flex justify-between items-center text-xs">
                                       <span className="text-purple-700">
@@ -947,9 +1023,12 @@ const EditarOrden: React.FC = () => {
               </div>
 
               {/* Productos */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Productos</h3>
-                <div className="space-y-2">
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Productos</h3>
+                  <span className="text-sm text-gray-500">{productosDetalle.length} items</span>
+                </div>
+                <div className="space-y-3">
                     {productosDetalle.length === 0 ? (
                       <p className="text-gray-500 text-xs sm:text-sm">No hay productos agregados</p>
                     ) : (
@@ -992,135 +1071,269 @@ const EditarOrden: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Platillo Modal */}
-      {showAddPlatillo && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-md">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Platillo</h3>
-            <div className="space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Platillo</label>
-                <select
-                  value={selectedPlatillo}
-                  onChange={(e) => setSelectedPlatillo(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                >
-                  <option value="">Seleccionar platillo</option>
-                  {(platillos || []).filter(p => p.activo).map((platillo) => (
-                    <option key={platillo._id} value={platillo._id}>
-                      {platillo.nombre} - ${platillo.precio || platillo.costo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Guiso</label>
-                <select
-                  value={selectedGuiso}
-                  onChange={(e) => setSelectedGuiso(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                >
-                  <option value="">Seleccionar guiso</option>
-                  {(guisos || []).filter(g => g.activo).map((guiso) => (
-                    <option key={guiso._id} value={guiso._id}>
-                      {guiso.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Cantidad</label>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="text-base sm:text-lg font-semibold w-12 text-center">{cantidad}</span>
-                  <button
-                    onClick={() => setCantidad(cantidad + 1)}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              {/* Input para cantidad de extras de queso */}
-              <div className="flex flex-col gap-1 mt-2">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="cantidad-queso" className="text-sm text-gray-700 select-none cursor-pointer">
-                    Num. de platillos c/queso
-                  </label>
-                  <input
-                    id="cantidad-queso"
-                    type="number"
-                    min={0}
-                    max={cantidad}
-                    value={cantidadQueso}
-                    onChange={e => {
-                      const val = Math.max(0, Math.min(Number(e.target.value), cantidad));
-                      setCantidadQueso(val);
-                    }}
-                    className="w-16 px-2 py-1 border border-purple-300 rounded text-sm text-center"
-                  />
-                </div>
-                {cantidadQueso > cantidad && (
-                  <div className="text-xs text-red-600 bg-red-50 rounded px-2 py-1 mt-1">
-                    No puedes agregar más extras de queso que el total de platillos ({cantidad}).
-                  </div>
-                )}
-                {cantidadQueso > 0 && cantidadQueso <= cantidad ? (
-                  <div className="text-xs text-purple-700 bg-purple-50 rounded px-2 py-1 mt-1">
-                    Se agregarán {cantidadQueso} platillo(s) del total de creados, con queso.
-                  </div>
-                ) : cantidadQueso === 0 ? (
-                  <div className="text-xs text-gray-500 px-2 py-1">
-                    Puedes agregar extras de queso después desde el botón de extras.
-                  </div>
-                ) : null}
-              </div>
-              {/* Sección de extras eliminada. Ahora los extras se gestionan después de agregar el platillo. */}
+      {/* Modal: Selección de Platillo */}
+      {modalPlatilloOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Selecciona un Platillo</h3>
+              <button onClick={cancelarSeleccionPlatillo} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {platillos.filter(p => p.activo).map(platillo => (
+                <button
+                  key={platillo._id}
+                  onClick={() => seleccionarPlatillo(platillo)}
+                  className="p-3 bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 rounded-lg transition-colors text-left"
+                >
+                  <p className="font-medium text-gray-900 text-sm">{platillo.nombre}</p>
+                  <p className="text-orange-600 font-bold text-xs">${platillo.costo}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Selección de Guiso */}
+      {modalGuisoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Selecciona un Guiso</h3>
+                {platilloEnConstruccion.platillo && (
+                  <p className="text-sm text-gray-600">Para: {platilloEnConstruccion.platillo.nombre}</p>
+                )}
+              </div>
+              <button onClick={cancelarSeleccionPlatillo} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {guisos.filter(g => g.activo).map(guiso => (
+                <button
+                  key={guiso._id}
+                  onClick={() => seleccionarGuiso(guiso)}
+                  className="p-3 bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-lg transition-colors"
+                >
+                  <p className="font-medium text-gray-900 text-sm">{guiso.nombre}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Selección de Extras */}
+      {modalExtrasOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Selección de Extras</h3>
+                <p className="text-sm text-gray-600">Haz clic en un extra para agregarlo. Se avanzará automáticamente.</p>
+              </div>
+              <button onClick={cancelarSeleccionPlatillo} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {tiposExtras.filter(t => t.activo).map(tipo => {
+                const extrasDelTipo = extras.filter(e => e.activo && e.idTipoExtra === tipo._id);
+                if (extrasDelTipo.length === 0) return null;
+
+                return (
+                  <div key={tipo._id}>
+                    <h4 className="font-semibold text-purple-600 mb-2">{tipo.nombre}</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {extrasDelTipo.map(extra => {
+                        const extraSeleccionado = platilloEnConstruccion.extras.find(e => e.idExtra === extra._id);
+                        const cantidad = extraSeleccionado?.cantidad || 0;
+
+                        return (
+                          <button
+                            key={extra._id}
+                            onClick={() => toggleExtraEnConstruccion(extra)}
+                            className={`p-3 border-2 rounded-lg transition-colors text-left ${
+                              cantidad > 0
+                                ? 'bg-purple-100 border-purple-500'
+                                : 'bg-purple-50 hover:bg-purple-100 border-purple-200'
+                            }`}
+                          >
+                            <p className="font-medium text-gray-900 text-sm">{extra.nombre}</p>
+                            <p className="text-purple-600 font-bold text-xs">+${extra.costo}</p>
+                            {cantidad > 0 && (
+                              <p className="text-xs text-purple-700 font-bold mt-1">Cantidad: {cantidad}</p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex justify-between items-center">
               <button
-                onClick={() => setShowAddPlatillo(false)}
-                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+                onClick={() => {
+                  setModalExtrasOpen(false);
+                  setModalGuisoOpen(true);
+                }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              >
+                Volver a Guisos
+              </button>
+              <button
+                onClick={saltarExtras}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              >
+                Sin Extras
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Notas y Cantidad del Platillo */}
+      {modalNotasOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-2 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900">Cantidad y Notas</h3>
+              <button onClick={cancelarSeleccionPlatillo} className="text-gray-500 hover:text-gray-700">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+
+            {/* Selector de cantidad */}
+            <div className="mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <button
+                  onClick={() => {
+                    const nuevaCantidad = Math.max(1, platilloEnConstruccion.cantidad - 1);
+                    setPlatilloEnConstruccion(prev => ({
+                      ...prev,
+                      cantidad: nuevaCantidad,
+                      extras: prev.extras.map(e => ({
+                        ...e,
+                        cantidad: Math.min(e.cantidad, nuevaCantidad)
+                      }))
+                    }));
+                  }}
+                  className="p-1 sm:p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+                <span className="text-lg sm:text-xl font-bold w-12 sm:w-14 text-center">{platilloEnConstruccion.cantidad}</span>
+                <button
+                  onClick={() => setPlatilloEnConstruccion(prev => ({ ...prev, cantidad: prev.cantidad + 1 }))}
+                  className="p-1 sm:p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de notas */}
+            <div className="mb-3">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                Notas (Opcional)
+              </label>
+              <textarea
+                value={platilloEnConstruccion.notas}
+                onChange={(e) => setPlatilloEnConstruccion(prev => ({ ...prev, notas: e.target.value }))}
+                maxLength={200}
+                rows={2}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none text-xs sm:text-sm"
+                placeholder="Ej: Sin cebolla, extra salsa"
+              />
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                {platilloEnConstruccion.notas.length}/200
+              </p>
+            </div>
+
+            {/* Extras Seleccionados */}
+            {platilloEnConstruccion.extras.length > 0 && (
+              <div className="mb-2 p-1.5 sm:p-2 bg-purple-50 rounded-lg border border-purple-200 max-h-32 sm:max-h-36 overflow-y-auto">
+                <h4 className="font-semibold text-purple-700 mb-1 text-[10px] sm:text-xs">Extras</h4>
+                <div className="space-y-0.5">
+                  {platilloEnConstruccion.extras.map(extra => {
+                    const alcanzoLimite = extra.cantidad >= platilloEnConstruccion.cantidad;
+                    return (
+                      <div key={extra.idExtra} className="flex items-center justify-between bg-white p-1 rounded text-[10px] sm:text-xs">
+                        <span className="font-medium text-gray-900 truncate flex-1 mr-1">{extra.nombreExtra}</span>
+                        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                          <span className="text-[10px] sm:text-xs font-semibold text-purple-600">+${extra.costoExtra}</span>
+                          <button
+                            onClick={() => {
+                              if (extra.cantidad === 1) {
+                                eliminarExtraEnConstruccion(extra.idExtra);
+                              } else {
+                                actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad - 1);
+                              }
+                            }}
+                            className="p-0.5 bg-gray-200 hover:bg-gray-300 rounded"
+                          >
+                            <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                          </button>
+                          <span className="w-5 sm:w-6 text-center text-[10px] sm:text-xs font-bold">{extra.cantidad}</span>
+                          <button
+                            onClick={() => actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad + 1)}
+                            disabled={alcanzoLimite}
+                            className={`p-0.5 rounded ${
+                              alcanzoLimite
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[9px] sm:text-[10px] text-purple-600 mt-0.5">
+                  Máx. {platilloEnConstruccion.cantidad} por tipo
+                </p>
+              </div>
+            )}
+
+            {/* Resumen */}
+            <div className="mb-2 p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-700 mb-0.5 text-[10px] sm:text-xs">Resumen</h4>
+              <p className="text-[10px] sm:text-xs text-gray-600">
+                <span className="font-medium">{platilloEnConstruccion.platillo?.nombre}</span> con{' '}
+                <span className="font-medium">{platilloEnConstruccion.guiso?.nombre}</span>
+              </p>
+              <p className="text-[10px] sm:text-xs text-gray-600">Cantidad: {platilloEnConstruccion.cantidad}</p>
+              {(() => {
+                const totalExtras = platilloEnConstruccion.extras.reduce((sum, e) => sum + e.cantidad, 0);
+                return (
+                  <p className="text-[10px] sm:text-xs text-gray-600">
+                    {totalExtras} extra{totalExtras > 1 ? 's' : ''} agregado{totalExtras > 1 ? 's' : ''}
+                  </p>
+                );
+              })()}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={cancelarSeleccionPlatillo}
+                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
               >
                 Cancelar
               </button>
               <button
-                onClick={async () => {
-                  await handleAddPlatillo();
-                  // Después de agregar el platillo, si hay cantidad de queso, agregar ese número de extras automáticamente
-                  if (selectedOrden && selectedPlatillo && selectedGuiso && cantidadQueso > 0) {
-                    const response = await apiService.getOrdenDetails(selectedOrden._id!);
-                    if (response.success) {
-                      const platillos = response.data.platillos || [];
-                      // Buscar el platillo más reciente con el idPlatillo y guiso seleccionados
-                      const nuevoPlatillo = platillos.reverse().find((p: any) =>
-                        String(p.idPlatillo) === String(selectedPlatillo) &&
-                        String(p.idGuiso) === String(selectedGuiso)
-                      );
-                      if (nuevoPlatillo) {
-                        const extraQueso = extras.find(e => e.nombre.toLowerCase().includes('queso'));
-                        if (extraQueso) {
-                          await apiService.addDetalleExtra({
-                            idOrdenDetallePlatillo: nuevoPlatillo._id,
-                            idExtra: extraQueso._id!,
-                            nombreExtra: extraQueso.nombre,
-                            costoExtra: extraQueso.costo,
-                            cantidad: cantidadQueso
-                          });
-                          await loadOrdenDetails(selectedOrden);
-                        }
-                      }
-                    }
-                  }
-                  setCantidadQueso(0); // Resetear el input
-                }}
-                disabled={saving || !selectedPlatillo || !selectedGuiso}
-                className="flex-1 px-3 sm:px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm sm:text-base"
+                onClick={finalizarPlatillo}
+                disabled={saving}
+                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-xs sm:text-sm"
               >
                 {saving ? 'Agregando...' : 'Agregar'}
               </button>
@@ -1129,63 +1342,35 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
 
-      {/* Add Producto Modal */}
-      {showAddProducto && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-md">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Agregar Producto</h3>
-            
-            <div className="space-y-3 sm:space-y-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Producto</label>
-                <select
-                  value={selectedProducto}
-                  onChange={(e) => setSelectedProducto(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                >
-                  <option value="">Seleccionar producto</option>
-                  {(productos || []).filter(p => p.activo).map((producto) => (
-                    <option key={producto._id} value={producto._id}>
-                      {producto.nombre} - ${producto.costo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Cantidad</label>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <span className="text-base sm:text-lg font-semibold w-12 text-center">{cantidad}</span>
-                  <button
-                    onClick={() => setCantidad(cantidad + 1)}
-                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex-shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+      {/* Modal: Selección de Producto */}
+      {modalProductoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Selecciona un Producto</h3>
+              <button onClick={() => setModalProductoOpen(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-              <button
-                onClick={() => setShowAddProducto(false)}
-                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAddProducto}
-                disabled={saving || !selectedProducto}
-                className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
-              >
-                {saving ? 'Agregando...' : 'Agregar'}
-              </button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {productos.filter(p => p.activo).map(producto => (
+                <button
+                  key={producto._id}
+                  onClick={() => seleccionarProducto(producto)}
+                  disabled={producto.cantidad < 1}
+                  className={`p-3 border-2 rounded-lg transition-colors text-left ${
+                    producto.cantidad < 1
+                      ? 'bg-gray-100 border-gray-300 opacity-50 cursor-not-allowed'
+                      : 'bg-blue-50 hover:bg-blue-100 border-blue-200'
+                  }`}
+                >
+                  <p className="font-medium text-gray-900 text-sm">{producto.nombre}</p>
+                  <p className="text-blue-600 font-bold text-xs">${producto.costo}</p>
+                  {producto.cantidad < 1 && (
+                    <p className="text-xs text-red-600 mt-1">Sin stock</p>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import {
 } from '../models';
 import { authenticate, isAdmin, isEncargado } from '../middleware/auth';
 import { asyncHandler, createResponse } from '../utils/helpers';
-import { getNextSequence } from '../utils/counters';
+import { getNextSequence, getNextPedidoNumber } from '../utils/counters';
 
 const router = Router();
 
@@ -134,6 +134,14 @@ router.delete('/:modelo/:id', authenticate, validateModel,
     }
 
     res.json(createResponse(true, null, 'Registro eliminado exitosamente'));
+  })
+);
+
+// GET /api/catalogos/pedido/next-number - Obtener el siguiente número de pedido del día
+router.get('/pedido/next-number', authenticate,
+  asyncHandler(async (req: any, res: any) => {
+    const nextNumber = await getNextPedidoNumber();
+    res.json(createResponse(true, { nextNumber }, 'Siguiente número de pedido obtenido'));
   })
 );
 

@@ -163,14 +163,95 @@ const Catalogos: React.FC = () => {
       if (response.success && response.data) {
         // Backend returns {items: [], pagination: {}} structure
         const data = response.data as any;
+        let itemsArray: CatalogItem[] = [];
+        
         if (data.items && Array.isArray(data.items)) {
-          setItems(data.items);
+          itemsArray = data.items;
         } else if (Array.isArray(response.data)) {
           // Fallback in case backend returns array directly
-          setItems(response.data);
-        } else {
-          setItems([]);
+          itemsArray = response.data;
         }
+        
+        // Filtrar mesas temporales si el catálogo es de mesas
+        if (selectedModel.id === 'mesa') {
+          // Filtrar mesas temporales y mesas con nombre "Pedido N"
+          itemsArray = itemsArray.filter((item: any) => {
+            // Filtrar mesas con propiedad temporal
+            if (item.temporal) return false;
+            // Filtrar mesas con nombre "Pedido N" (ej: Pedido 1, Pedido 2, etc)
+            if (item.nombre && /^Pedido \d+$/i.test(item.nombre.trim())) return false;
+            return true;
+          });
+          
+          // Lógica para crear o renombrar la mesa "Nuevo pedido"
+          const mesaNuevoPedido = itemsArray.find((mesa: any) => 
+            mesa.nombre && mesa.nombre.trim().toLowerCase() === 'nuevo pedido'
+          );
+          const mesaPedidos = itemsArray.find((mesa: any) => 
+            mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
+          );
+          
+          // Si existe "Pedidos" pero no "Nuevo pedido", renombrar "Pedidos" a "Nuevo pedido"
+          if (mesaPedidos && !mesaNuevoPedido) {
+            try {
+              await apiService.updateCatalogItem('mesa', mesaPedidos._id!, {
+                ...mesaPedidos,
+                nombre: 'Nuevo pedido'
+              });
+              // Recargar items después de renombrar
+              const updatedResponse = await apiService.getCatalog<CatalogItem>('mesa');
+              if (updatedResponse.success && updatedResponse.data) {
+                const updatedData = updatedResponse.data as any;
+                if (updatedData.items && Array.isArray(updatedData.items)) {
+                  itemsArray = updatedData.items.filter((item: any) => {
+                    if (item.temporal) return false;
+                    if (item.nombre && /^Pedido \d+$/i.test(item.nombre.trim())) return false;
+                    return true;
+                  });
+                } else if (Array.isArray(updatedResponse.data)) {
+                  itemsArray = updatedResponse.data.filter((item: any) => {
+                    if (item.temporal) return false;
+                    if (item.nombre && /^Pedido \d+$/i.test(item.nombre.trim())) return false;
+                    return true;
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error renombrando mesa Pedidos a Nuevo pedido:', error);
+            }
+          }
+          // Si no existe ni "Nuevo pedido" ni "Pedidos", crear "Nuevo pedido"
+          else if (!mesaNuevoPedido && !mesaPedidos) {
+            try {
+              await apiService.createCatalogItem('mesa', {
+                nombre: 'Nuevo pedido',
+                activo: true
+              });
+              // Recargar items después de crear
+              const updatedResponse = await apiService.getCatalog<CatalogItem>('mesa');
+              if (updatedResponse.success && updatedResponse.data) {
+                const updatedData = updatedResponse.data as any;
+                if (updatedData.items && Array.isArray(updatedData.items)) {
+                  itemsArray = updatedData.items.filter((item: any) => {
+                    if (item.temporal) return false;
+                    if (item.nombre && /^Pedido \d+$/i.test(item.nombre.trim())) return false;
+                    return true;
+                  });
+                } else if (Array.isArray(updatedResponse.data)) {
+                  itemsArray = updatedResponse.data.filter((item: any) => {
+                    if (item.temporal) return false;
+                    if (item.nombre && /^Pedido \d+$/i.test(item.nombre.trim())) return false;
+                    return true;
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error creando mesa Nuevo pedido:', error);
+            }
+          }
+        }
+        
+        setItems(itemsArray);
       } else {
         setItems([]);
       }
@@ -210,10 +291,14 @@ const Catalogos: React.FC = () => {
     }
     // Si es mesa, solo permitir seleccionar el número y autogenerar el nombre
     if (selectedModel.id === 'mesa') {
-      // Si el usuario quiere crear la mesa especial 'Pedidos', solo si no existe
+      // Verificar si existe 'Nuevo pedido' o 'Pedidos'
+      const nuevoPedidoExists = items.some(
+        (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'nuevo pedido'
+      );
       const pedidosExists = items.some(
         (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
       );
+      initialData.nuevoPedidoExists = nuevoPedidoExists;
       initialData.pedidosExists = pedidosExists;
       let maxNum = 0;
       items.forEach((mesa) => {
@@ -285,26 +370,32 @@ const Catalogos: React.FC = () => {
 
       // Validación especial para mesa
       if (selectedModel.id === 'mesa') {
+        const nuevoPedidoExists = items.some(
+          (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'nuevo pedido'
+        );
         const pedidosExists = items.some(
           (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
         );
-        // Si el usuario intenta crear 'Pedidos' y ya existe, bloquear
-        if (
-          formData.nombre &&
-          formData.nombre.trim().toLowerCase() === 'pedidos' &&
-          pedidosExists
-        ) {
-          setError('Ya existe una mesa llamada "Pedidos".');
-          setSaving(false);
-          return;
+        
+        // Si el usuario intenta crear 'Nuevo pedido' o 'Pedidos' y ya existe, bloquear
+        if (formData.nombre) {
+          const nombreLower = formData.nombre.trim().toLowerCase();
+          if ((nombreLower === 'nuevo pedido' && nuevoPedidoExists) ||
+              (nombreLower === 'pedidos' && (pedidosExists || nuevoPedidoExists))) {
+            setError('Ya existe una mesa llamada "Nuevo pedido".');
+            setSaving(false);
+            return;
+          }
         }
-        // Si el nombre no es 'Mesa X' o 'Pedidos', bloquear
+        
+        // Si el nombre no es 'Mesa X', 'Pedidos' o 'Nuevo pedido', bloquear
         if (
           formData.nombre &&
           !/^Mesa \d+$/.test(formData.nombre.trim()) &&
-          formData.nombre.trim().toLowerCase() !== 'pedidos'
+          formData.nombre.trim().toLowerCase() !== 'pedidos' &&
+          formData.nombre.trim().toLowerCase() !== 'nuevo pedido'
         ) {
-          setError('El nombre de la mesa debe ser "Mesa X" o "Pedidos".');
+          setError('El nombre de la mesa debe ser "Mesa X" o "Nuevo pedido".');
           setSaving(false);
           return;
         }
@@ -351,9 +442,11 @@ const Catalogos: React.FC = () => {
       setError('No tienes permiso para eliminar usuarios tipo Administrador o Encargado.');
       return;
     }
-    // No permitir eliminar la mesa con nombre "pedidos"
-    if (selectedModel.id === 'mesa' && item.nombre && item.nombre.trim().toLowerCase() === 'pedidos') {
-      setError('No puedes eliminar la mesa "pedidos".');
+    // No permitir eliminar la mesa con nombre "pedidos" o "nuevo pedido"
+    if (selectedModel.id === 'mesa' && item.nombre && 
+        (item.nombre.trim().toLowerCase() === 'pedidos' || 
+         item.nombre.trim().toLowerCase() === 'nuevo pedido')) {
+      setError('No puedes eliminar la mesa "Nuevo pedido".');
       return;
     }
     if (!confirm('¿Estás seguro de que quieres eliminar este item?')) return;
@@ -603,13 +696,20 @@ const Catalogos: React.FC = () => {
         );
       case 'nombre': {
         if (selectedModel.id === 'mesa') {
-          // Permitir crear 'Pedidos' solo si no existe
+          // Permitir crear 'Nuevo pedido' solo si no existe
+          const nuevoPedidoExists = items.some(
+            (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'nuevo pedido'
+          );
           const pedidosExists = items.some(
             (mesa) => mesa.nombre && mesa.nombre.trim().toLowerCase() === 'pedidos'
           );
-          // Si ya existe 'Pedidos', solo mostrar el nombre autogenerado y deshabilitado
-          if (formData.nombre && formData.nombre.trim().toLowerCase() === 'pedidos') {
-            if (pedidosExists) {
+          const mesaEspecialExists = nuevoPedidoExists || pedidosExists;
+          
+          // Si ya existe 'Nuevo pedido' o 'Pedidos', solo mostrar el nombre autogenerado y deshabilitado
+          if (formData.nombre && 
+              (formData.nombre.trim().toLowerCase() === 'nuevo pedido' || 
+               formData.nombre.trim().toLowerCase() === 'pedidos')) {
+            if (mesaEspecialExists) {
               return (
                 <input
                   type="text"
@@ -621,23 +721,25 @@ const Catalogos: React.FC = () => {
               );
             }
           }
-          // Permitir al usuario elegir entre 'Pedidos' (si no existe) o el nombre autogenerado
+          // Permitir al usuario elegir entre 'Nuevo pedido' (si no existe) o el nombre autogenerado
           return (
             <div className="flex gap-2">
               <input
                 type="text"
                 value={formData.nombre || ''}
-                disabled={formData.nombre && formData.nombre.trim().toLowerCase() !== 'pedidos'}
+                disabled={formData.nombre && 
+                         formData.nombre.trim().toLowerCase() !== 'nuevo pedido' && 
+                         formData.nombre.trim().toLowerCase() !== 'pedidos'}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 focus:outline-none"
                 placeholder="Nombre de la mesa"
               />
-              {!pedidosExists && (
+              {!mesaEspecialExists && (
                 <button
                   type="button"
-                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                  onClick={() => setFormData({ ...formData, nombre: 'Pedidos' })}
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs whitespace-nowrap"
+                  onClick={() => setFormData({ ...formData, nombre: 'Nuevo pedido' })}
                 >
-                  Crear Pedidos
+                  Crear Nuevo pedido
                 </button>
               )}
             </div>

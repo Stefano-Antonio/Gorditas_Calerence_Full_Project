@@ -16,6 +16,7 @@ const Cobrar: React.FC = () => {
   // Eliminamos mesas y selectedMesa
   const [ordenesActivas, setOrdenesActivas] = useState<OrdenCompleta[]>([]);
   const [mesasAgrupadas, setMesasAgrupadas] = useState<MesaAgrupada[]>([]);
+  const [todasLasOrdenesActivas, setTodasLasOrdenesActivas] = useState<Orden[]>([]); // Todas las órdenes sin filtrar
   const [expandedMesas, setExpandedMesas] = useState<Set<number>>(new Set());
   const [expandedOrdenes, setExpandedOrdenes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,16 @@ const Cobrar: React.FC = () => {
     setExpandedOrdenes(newExpanded);
   };
 
+  // Función para verificar si TODAS las órdenes de una mesa están listas para cobrar
+  const todasLasOrdenesDeMesaListasParaCobrar = (idMesa: number): boolean => {
+    // Obtener TODAS las órdenes de esta mesa (incluyendo las que no están en Surtida/Entregada)
+    const ordenesDelaMesa = todasLasOrdenesActivas.filter(orden => orden.idMesa === idMesa);
+    
+    // Verificar que todas estén en estatus Surtida o Entregada
+    return ordenesDelaMesa.length > 0 && 
+           ordenesDelaMesa.every(orden => orden.estatus === 'Surtida' || orden.estatus === 'Entregada');
+  };
+
   const loadOrdenesActivas = async () => {
     try {
   const response = await apiService.getOrdenesActivas();
@@ -96,7 +107,11 @@ const Cobrar: React.FC = () => {
         } else if (Array.isArray(response.data)) {
           ordenesArray = response.data;
         }
-        // Filtrar órdenes con estatus Surtida o Entregada
+        
+        // Guardar TODAS las órdenes activas sin filtrar (para verificar disponibilidad del botón)
+        setTodasLasOrdenesActivas(ordenesArray);
+        
+        // Filtrar órdenes con estatus Surtida o Entregada para mostrar en la vista
         const ordenesFiltradas = ordenesArray.filter(
           (orden: Orden) => orden.estatus === 'Surtida' || orden.estatus === 'Entregada'
         );
@@ -241,6 +256,19 @@ const Cobrar: React.FC = () => {
     try {
       // Cobrar todas las órdenes de la mesa en paralelo
       await Promise.all(mesa.ordenes.map(orden => handleFinalizarOrden(orden, true)));
+      
+      // Si el nombre de la mesa comienza con "Pedido" (temporal), eliminarla después de cobrar todas las órdenes
+      // No necesitamos consultar órdenes activas porque acabamos de cobrar TODAS las órdenes de esta mesa
+      if (mesa.nombreMesa && mesa.nombreMesa.trim().toLowerCase().startsWith('pedido')) {
+        try {
+          await apiService.deleteCatalogItem('mesa', mesa.idMesa.toString());
+          console.log(`Mesa temporal ${mesa.nombreMesa} eliminada después de cobrar toda la mesa`);
+        } catch (error) {
+          console.error('Error al eliminar mesa temporal:', error);
+          // No fallar el cobro si hay error con la mesa temporal
+        }
+      }
+      
       setSuccess('Todas las órdenes de la mesa cobradas exitosamente');
       await loadOrdenesActivas();
       setTimeout(() => setSuccess(''), 3000);
@@ -257,6 +285,51 @@ const Cobrar: React.FC = () => {
     try {
       const response = await apiService.updateOrdenStatus(orden._id?.toString() || '', 'Pagada');
       if (response.success) {
+        // Solo verificar/eliminar mesa temporal si NO viene del botón "Cobrar toda la mesa"
+        // (cuando skipProcessing=true, la eliminación la maneja handleCobrarTodaLaMesa)
+        if (!skipProcessing) {
+          // Verificar si la mesa es temporal (nombre comienza con "Pedido") y si es la última orden activa
+          try {
+            const mesasResponse = await apiService.getCatalog<any>('mesa');
+            const todasLasMesas = Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : [];
+            
+            // Buscar la mesa de esta orden
+            const mesaDeOrden = todasLasMesas.find((mesa: any) => mesa._id === orden.idMesa);
+            
+            // Si el nombre de la mesa comienza con "Pedido" (temporal), verificar si quedan más órdenes activas
+            if (mesaDeOrden && mesaDeOrden.nombre && mesaDeOrden.nombre.trim().toLowerCase().startsWith('pedido')) {
+              // Obtener todas las órdenes activas
+              const ordenesRes = await apiService.getOrdenesActivas();
+              let todasLasOrdenes: any[] = [];
+              if (Array.isArray(ordenesRes.data?.ordenes)) {
+                todasLasOrdenes = ordenesRes.data.ordenes;
+              } else if (Array.isArray(ordenesRes.data)) {
+                todasLasOrdenes = ordenesRes.data;
+              }
+              
+              // Filtrar órdenes de esta mesa que NO sean Pagada ni Cancelado (excluyendo la que acabamos de cobrar)
+              const ordenesActivasEnMesa = todasLasOrdenes.filter(
+                (ord: any) => 
+                  ord.idMesa === orden.idMesa && 
+                  ord._id !== orden._id &&
+                  ord.estatus !== 'Pagada' && 
+                  ord.estatus !== 'Cancelado'
+              );
+              
+              // Si no quedan más órdenes activas en esta mesa, eliminarla
+              if (ordenesActivasEnMesa.length === 0) {
+                await apiService.deleteCatalogItem('mesa', mesaDeOrden._id.toString());
+                console.log(`Mesa temporal ${mesaDeOrden.nombre} eliminada - era la última orden activa`);
+              } else {
+                console.log(`Mesa temporal ${mesaDeOrden.nombre} conservada - aún hay ${ordenesActivasEnMesa.length} orden(es) activa(s)`);
+              }
+            }
+          } catch (error) {
+            console.error('Error al verificar/eliminar mesa temporal:', error);
+            // No fallar el cobro si hay error con la mesa temporal
+          }
+        }
+        
         if (!skipProcessing) {
           setSuccess('Orden cobrada exitosamente');
           await loadOrdenesActivas();
@@ -387,7 +460,7 @@ const Cobrar: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 px-1 sm:px-2 lg:px-3 max-w-full mx-auto relative">
+    <div className="space-y-3 sm:space-y-4 px-0.1 sm:px-2 lg:px-3 max-w-full mx-auto relative">
       {/* Overlay de carga al procesar cobro */}
       {processing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
@@ -431,8 +504,8 @@ const Cobrar: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 sm:p-4 lg:p-6">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 break-words">Órdenes para Cobrar</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1 sm:p-4 lg:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-4 break-words">Órdenes para Cobrar</h2>
         {mesasAgrupadas.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
@@ -444,7 +517,7 @@ const Cobrar: React.FC = () => {
               <div key={mesa.idMesa} className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* Mesa Header - Clickable to expand/collapse */}
                 <div 
-                  className="p-2 sm:p-3 lg:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="p-1.5 sm:p-3 lg:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => toggleMesaExpansion(mesa.idMesa)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
@@ -501,40 +574,43 @@ const Cobrar: React.FC = () => {
                       <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
                         <button
                           onClick={() => handleGenerateMesaTicket(mesa)}
-                          className="flex-1 bg-blue-600 text-white py-1 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-xs sm:text-sm"
+                          className="flex-1 bg-blue-600 text-white py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-xs sm:text-sm min-w-0"
                         >
                           <Receipt className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                          <span className="truncate">Ticket Mesa</span>
+                          <span className="truncate">PDF</span>
                         </button>
                         <button
                           onClick={() => handlePrintMesaTicket(mesa)}
-                          className="flex-1 bg-gray-600 text-white py-1 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-xs sm:text-sm"
+                          className="flex-1 bg-gray-600 text-white py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-xs sm:text-sm min-w-0"
                         >
                           <Printer className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
                           <span className="truncate">Imprimir</span>
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleCobrarTodaLaMesa(mesa)}
-                        disabled={processing}
-                        className="w-full bg-green-600 text-white py-1 sm:py-2 px-2 sm:px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-xs sm:text-sm"
-                      >
-                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                        <span className="truncate">
-                          {mesa.totalOrdenes === 1 ? 'Cobrar orden' : `Cobrar ${mesa.nombreMesa}`}
-                        </span>
-                      </button>
+                      {/* Solo mostrar botón de cobrar si TODAS las órdenes de la mesa (incluyendo las no mostradas) están listas */}
+                      {todasLasOrdenesDeMesaListasParaCobrar(mesa.idMesa) && (
+                        <button
+                          onClick={() => handleCobrarTodaLaMesa(mesa)}
+                          disabled={processing}
+                          className="w-full bg-green-600 text-white py-1.5 sm:py-2 px-2 sm:px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-xs sm:text-sm min-w-0"
+                        >
+                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                          <span className="truncate">
+                            {mesa.totalOrdenes === 1 ? 'Cobrar' : `Cobrar Mesa`}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* Orders grouped by client - Expanded view */}
                 {expandedMesas.has(mesa.idMesa) && (
-                  <div className="p-2 sm:p-3 lg:p-4">
+                  <div className="p-1.5 sm:p-3 lg:p-4">
                     {/* Mostrar las órdenes de la mesa en un grid de 3 columnas, sin agrupar por cliente */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {mesa.ordenes.map((orden) => (
-                        <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-2 flex flex-col h-full shadow-sm">
+                        <div key={orden._id?.toString()} className="bg-white border border-gray-200 rounded-lg p-1.5 flex flex-col h-full shadow-sm">
                           {/* Nombre del cliente */}
                           <div className="text-xs font-semibold text-gray-700 mb-1 truncate">
                             {orden.nombreCliente || 'Sin nombre'}
@@ -605,53 +681,61 @@ const Cobrar: React.FC = () => {
                             <span className={`inline-block px-1 py-0.5 text-xs font-medium rounded-full ${orden.estatus === 'Entregada' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{orden.estatus}</span>
                           </div>
                           {/* Acciones */}
-                          <div className="flex gap-1 mt-2">
-                            <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center justify-center">
-                              <Receipt className="w-3 h-3 mr-1" />PDF
-                            </button>
-                            <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 flex items-center justify-center">
-                              <Printer className="w-3 h-3 mr-1" />Imprimir
-                            </button>
-                            <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="flex-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                              <CheckCircle className="w-3 h-3 mr-1" />Cobrar
+                          <div className="flex flex-col gap-1 mt-2">
+                            <div className="flex gap-1">
+                              <button onClick={() => handleGenerateTicket(orden)} className="flex-1 px-1.5 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center justify-center min-w-0">
+                                <Receipt className="w-3 h-3 mr-0.5 flex-shrink-0" />
+                                <span className="truncate">PDF</span>
+                              </button>
+                              <button onClick={() => handlePrintTicket(orden)} className="flex-1 px-1.5 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 flex items-center justify-center min-w-0">
+                                <Printer className="w-3 h-3 mr-0.5 flex-shrink-0" />
+                                <span className="truncate">Impr.</span>
+                              </button>
+                            </div>
+                            <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="w-full px-1.5 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                              <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">Cobrar</span>
                             </button>
                           </div>
                         </div>
                       ))}
                     </div>
                     {/* Opción para cobrar toda la mesa */}
-                    <div className="mt-4 pt-4 border-t border-gray-200 bg-green-50 rounded-lg p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                        <span className="text-lg font-semibold text-gray-900 truncate">Total de la mesa:</span>
-                        <span className="text-xl font-bold text-green-600">${mesa.totalMonto.toFixed(2)}</span>
+                    <div className="mt-3 pt-3 border-t border-gray-200 bg-green-50 rounded-lg p-1.5 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 mb-1.5 sm:mb-3">
+                        <span className="text-sm sm:text-lg font-semibold text-gray-900">Total de la mesa:</span>
+                        <span className="text-lg sm:text-xl font-bold text-green-600">${mesa.totalMonto.toFixed(2)}</span>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2">
                           <button
                             onClick={() => handleGenerateMesaTicket(mesa)}
-                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
+                            className="flex-1 bg-blue-600 text-white py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-xs sm:text-sm min-w-0"
                           >
-                            <Receipt className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate">Ticket Mesa PDF</span>
+                            <Receipt className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">PDF Mesa</span>
                           </button>
                           <button
                             onClick={() => handlePrintMesaTicket(mesa)}
-                            className="flex-1 bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-sm"
+                            className="flex-1 bg-gray-600 text-white py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-xs sm:text-sm min-w-0"
                           >
-                            <Printer className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate">Imprimir Mesa</span>
+                            <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">Imprimir</span>
                           </button>
                         </div>
-                        <button
-                          onClick={() => handleCobrarTodaLaMesa(mesa)}
-                          disabled={processing}
-                          className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-lg font-medium"
-                        >
-                          <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-                          <span className="truncate">
-                            {mesa.totalOrdenes === 1 ? `Cobrar orden de ${mesa.nombreMesa}` : `Cobrar ${mesa.nombreMesa}`}
-                          </span>
-                        </button>
+                        {/* Solo mostrar botón de cobrar si TODAS las órdenes de la mesa (incluyendo las no mostradas) están listas */}
+                        {todasLasOrdenesDeMesaListasParaCobrar(mesa.idMesa) && (
+                          <button
+                            onClick={() => handleCobrarTodaLaMesa(mesa)}
+                            disabled={processing}
+                            className="w-full bg-green-600 text-white py-2 sm:py-3 px-2 sm:px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-sm sm:text-lg font-medium min-w-0"
+                          >
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 flex-shrink-0" />
+                            <span className="truncate">
+                              {mesa.totalOrdenes === 1 ? `Cobrar orden` : `Cobrar ${mesa.nombreMesa}`}
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

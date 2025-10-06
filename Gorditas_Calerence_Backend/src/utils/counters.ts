@@ -30,3 +30,22 @@ export const generateFolio = async (): Promise<string> => {
   
   return `ORD-${year}${month}${day}-${sequence.toString().padStart(4, '0')}`;
 };
+
+// Obtener el siguiente número de pedido del día
+export const getNextPedidoNumber = async (): Promise<number> => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = (today.getMonth() + 1).toString().padStart(2, '0');
+  const day = today.getDate().toString().padStart(2, '0');
+  
+  // ID único por día: pedido-YYYYMMDD
+  const counterId = `pedido-${year}${month}${day}`;
+  
+  const result = await Counter.findByIdAndUpdate(
+    counterId,
+    { $inc: { sequence_value: 1 } },
+    { new: true, upsert: true }
+  );
+  
+  return result.sequence_value;
+};

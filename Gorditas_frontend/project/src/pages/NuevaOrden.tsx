@@ -208,6 +208,26 @@ const NuevaOrden: React.FC = () => {
     return esPedido(selectedMesa) ? 'Pedido' : 'Mesa';
   };
 
+  // Función para mostrar el nombre de mesa, especialmente para pedidos temporales
+  const getMostrarNombreMesa = (mesa: Mesa, ordenesMesa?: any[]): string => {
+    if (!mesa?.nombre) return 'Mesa sin nombre';
+    
+    // Si es una mesa temporal (nombre empieza con "pedido"), mostrar con nombres de clientes
+    if (mesa.nombre.trim().toLowerCase().startsWith('pedido')) {
+      if (ordenesMesa && ordenesMesa.length > 0) {
+        const clientesUnicos = [...new Set(ordenesMesa.map(orden => orden.nombreCliente).filter(cliente => cliente && cliente !== 'Sin nombre'))];
+        if (clientesUnicos.length > 0) {
+          return `Pedido: ${clientesUnicos.join(', ')}`;
+        }
+      }
+      // Fallback si no hay información de clientes
+      return mesa.nombre;
+    }
+    
+    // Para mesas normales, mostrar el nombre tal como está
+    return mesa.nombre;
+  };
+
   // Funciones para el flujo modal de platillos
   const iniciarSeleccionPlatillo = () => {
     setPlatilloEnConstruccion({
@@ -502,7 +522,7 @@ const NuevaOrden: React.FC = () => {
           return platillosIguales && productosIguales && notasIguales && (!orden.estatus || orden.estatus !== 'Pagada');
         });
         if (ordenDuplicada) {
-          setError(`Ya existe una orden activa para el cliente \"${ordenData.nombreCliente}\" en esta mesa con los mismos platillos, productos, extras y notas. Verifica antes de continuar.`);
+          setError(`Ya existe una orden activa para el cliente \"${ordenData.nombreCliente}\" en esta mesa/pedido con los mismos platillos, productos, extras y notas. Verifica antes de continuar.`);
           setLoading(false);
           setOrderSubmitting(false);
           return;
@@ -847,7 +867,7 @@ const NuevaOrden: React.FC = () => {
                         <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                       </div>
                     )}
-                    <div className="text-sm sm:text-base lg:text-lg font-semibold">{mesa.nombre}</div>
+                    <div className="text-sm sm:text-base lg:text-lg font-semibold">{getMostrarNombreMesa(mesa, mesaInfo.ordenes)}</div>
                     <div className={`text-[10px] sm:text-xs lg:text-sm ${
                       mesaInfo.isOcupada ? 'text-orange-600' : 'text-green-600'
                     }`}>
@@ -868,7 +888,7 @@ const NuevaOrden: React.FC = () => {
             
             {selectedMesa && (
               <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-900 mb-2 text-sm sm:text-base">{getTipoMesaLabel()} seleccionado: {selectedMesa.nombre}</h3>
+                <h3 className="font-medium text-blue-900 mb-2 text-sm sm:text-base">{getTipoMesaLabel()} seleccionado: {getMostrarNombreMesa(selectedMesa, getMesaInfo(selectedMesa._id).ordenes)}</h3>
                 {(() => {
                   const mesaInfo = getMesaInfo(selectedMesa._id);
                   // Avanzar automáticamente al paso 2
@@ -929,30 +949,86 @@ const NuevaOrden: React.FC = () => {
         {/* Step 3: Add Dishes */}
         {currentStep === 3 && (
           <div className="px-2 sm:px-0">
-            <h2 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 mb-2 sm:mb-4">Agregar Platillos y Productos</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
-              {/* Botones de acción */}
-              <div className="space-y-2 sm:space-y-4">
+            <h2 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">Agregar Platillos y Productos</h2>
+            
+            {/* Botones de acción - agrupados en la parte superior */}
+            <div className="mb-4">
+              <div className={`grid gap-0.5 ${(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <button
                   onClick={iniciarSeleccionPlatillo}
-                  className="w-full bg-orange-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors text-xs sm:text-lg flex items-center justify-center"
-                  style={{ height: 'auto' }}
+                  className="w-full h-12 sm:h-14 bg-orange-600 text-white px-2 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors text-xs sm:text-base flex items-center justify-center"
                 >
-                  <Plus className="w-4 h-4 sm:w-6 sm:h-6 mr-1 sm:mr-2" />
-                  Agregar Platillo
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Agregar </span>Platillo
                 </button>
+
+                {/* Botones de confirmación solo cuando hay items seleccionados */}
+                {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) ? (
+                  <button
+                    onClick={() => {
+                      // Guardar la orden actual antes de limpiar
+                      const guardada = guardarOrdenActual();
+                      if (guardada) {
+                        // Reset form but keep the selected table and saved orders
+                        setCurrentStep(2);
+                        setNombreSuborden('');
+                        setNotas('');
+                        setPlatillosSeleccionados([]);
+                        setProductosSeleccionados([]);
+                        setPlatilloEnConstruccion({
+                          platillo: null,
+                          guiso: null,
+                          cantidad: 1,
+                          extras: [],
+                          notas: ''
+                        });
+                        setIsOrderComplete(true);
+                        setError('');
+                        setSuccess('');
+                      }
+                    }}
+                    disabled={loading || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
+                    className="w-full h-12 sm:h-14 bg-blue-600 text-white px-2 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-base flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Agregar </span>Cliente
+                  </button>
+                ) : null}
 
                 <button
                   onClick={() => setModalProductoOpen(true)}
-                  className="w-full bg-green-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-green-700 transition-colors text-xs sm:text-lg flex items-center justify-center"
-                  style={{ height: 'auto' }}
+                  className="w-full h-12 sm:h-14 bg-green-600 text-white px-2 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-green-700 transition-colors text-xs sm:text-base flex items-center justify-center"
                 >
-                  <Plus className="w-4 h-4 sm:w-6 sm:h-6 mr-1 sm:mr-2" />
-                  Agregar Producto
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Agregar </span>Producto
                 </button>
-              </div>
 
-              {/* Selected Items List */}
+                {/* Botón de crear orden solo cuando hay items seleccionados */}
+                {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
+                  <button
+                    onClick={handleSubmitOrder}
+                    disabled={loading || !selectedMesa || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
+                    className="w-full h-12 sm:h-14 bg-purple-600 text-white px-2 sm:px-4 py-2 sm:py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-base flex items-center justify-center"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    )}
+                    <span className="truncate">
+                      {loading
+                        ? 'Creando...'
+                        : ordenesEnProceso.length > 0
+                          ? 'Crear Ordenes'
+                          : 'Crear Orden'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Selected Items List */}
+            {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
               <div>
                 <h3 className="text-xs sm:text-base lg:text-lg font-medium text-gray-900 mb-2 sm:mb-4">
                   Platillos Seleccionados ({platillosSeleccionados.length})
@@ -1096,7 +1172,7 @@ const NuevaOrden: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
+            )}
 
             {/* Order Validation and Confirmation Section */}
             {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
@@ -1230,59 +1306,6 @@ const NuevaOrden: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </div>
-
-                {/* Confirmation Buttons */}
-                <div className="space-y-3">
-                  <button
-                    onClick={handleSubmitOrder}
-                    disabled={loading || !selectedMesa || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
-                    className="w-full bg-green-600 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-sm sm:text-base"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                    )}
-                    <span className="truncate">
-                      {loading
-                        ? 'Creando Orden...'
-                        : ordenesEnProceso.length > 0
-                          ? 'Confirmar y Crear Ordenes'
-                          : 'Confirmar y Crear Orden'}
-                    </span>
-                  </button>
-
-                  {/* Button to add another order for the same table */}
-                  <button
-                    onClick={() => {
-                      // Guardar la orden actual antes de limpiar
-                      const guardada = guardarOrdenActual();
-                      if (guardada) {
-                        // Reset form but keep the selected table and saved orders
-                        setCurrentStep(2);
-                        setNombreSuborden('');
-                        setNotas('');
-                        setPlatillosSeleccionados([]);
-                        setProductosSeleccionados([]);
-                        setPlatilloEnConstruccion({
-                          platillo: null,
-                          guiso: null,
-                          cantidad: 1,
-                          extras: [],
-                          notas: ''
-                        });
-                        setIsOrderComplete(true);
-                        setError('');
-                        setSuccess('');
-                      }
-                    }}
-                    disabled={loading || !nombreSuborden || (platillosSeleccionados.length === 0 && productosSeleccionados.length === 0)}
-                    className="w-full bg-orange-600 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-sm sm:text-base"
-                  >
-                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                    <span className="truncate">Agregar Orden de otro cliente</span>
-                  </button>
                 </div>
               </div>
             )}

@@ -64,7 +64,10 @@ const Cobrar: React.FC = () => {
       grouped[idMesa].clientes[cliente].push(orden);
     });
     
-    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+    // Mantener nombres de mesas como están (sin procesar)
+    const result = Object.values(grouped);
+    
+    return result.sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
   };
 
   const toggleMesaExpansion = (idMesa: number) => {

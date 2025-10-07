@@ -66,14 +66,17 @@ const SurtirOrden: React.FC = () => {
       // Agrupación por cliente eliminada
     });
     
-    // Ordenar mesas: primero por la orden más reciente de cada mesa, luego por nombre
-    return Object.values(grouped).sort((a, b) => {
-      // Encontrar la orden más reciente de cada mesa
-      const fechaMasRecienteA = Math.max(...a.ordenes.map(o => new Date(o.fechaHora || o.fecha || 0).getTime()));
-      const fechaMasRecienteB = Math.max(...b.ordenes.map(o => new Date(o.fechaHora || o.fecha || 0).getTime()));
+    // Mantener nombres de mesas como están (sin procesar)
+    const result = Object.values(grouped);
+    
+    // Ordenar mesas: primero por la orden más antigua de cada mesa (más antiguas arriba)
+    return result.sort((a, b) => {
+      // Encontrar la orden más antigua de cada mesa
+      const fechaMasAntiguaA = Math.min(...a.ordenes.map(o => new Date(o.fechaHora || o.fecha || Date.now()).getTime()));
+      const fechaMasAntiguaB = Math.min(...b.ordenes.map(o => new Date(o.fechaHora || o.fecha || Date.now()).getTime()));
       
-      // Ordenar por fecha más reciente primero
-      return fechaMasRecienteB - fechaMasRecienteA;
+      // Ordenar por fecha más antigua primero (más antiguas arriba)
+      return fechaMasAntiguaA - fechaMasAntiguaB;
     });
   };
 
@@ -85,6 +88,14 @@ const SurtirOrden: React.FC = () => {
       newExpanded.add(idMesa);
     }
     setExpandedMesas(newExpanded);
+  };
+
+  // Función para mostrar el nombre de mesa de una orden individual
+  const getMostrarNombreMesaOrden = (orden: OrdenConDetalles): string => {
+    if (!orden.nombreMesa) return 'Sin Mesa';
+    
+    // Mostrar el nombre de la mesa tal como está (sin modificar)
+    return orden.nombreMesa;
   };
 
   const loadData = async () => {
@@ -506,7 +517,7 @@ const SurtirOrden: React.FC = () => {
                         {/* Lista de clientes de la mesa */}
                         {mesa.ordenes.length > 0 && (
                           <div className="mt-1">
-                            <span className="text-xs sm:text-[20px] text-gray-500 font-medium">Clientes en esta mesa: </span>
+                            <span className="text-xs sm:text-[20px] text-gray-500 font-medium">Cliente(s): </span>
                             <span className="text-xs sm:text-[20px] text-gray-700">
                               {Array.from(new Set(mesa.ordenes.map(o => o.nombreCliente || 'Sin nombre'))).join(', ')}
                             </span>
@@ -721,7 +732,7 @@ const SurtirOrden: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
-                    Detalles de Orden - {selectedOrden.nombreMesa || 'Sin Mesa'}
+                    Detalles de Orden - {getMostrarNombreMesaOrden(selectedOrden)}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1 break-words">
                     Estado: {selectedOrden.estatus}

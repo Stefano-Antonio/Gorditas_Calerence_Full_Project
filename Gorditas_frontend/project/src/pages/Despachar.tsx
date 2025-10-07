@@ -95,10 +95,11 @@ const Despachar: React.FC = () => {
       grouped[idMesa].clientes[cliente].push(orden);
     });
     
-    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
-  };
+    // Mantener nombres de mesas como están (sin procesar)
+    const result = Object.values(grouped);
 
-  // Function to load order details and set selected order, optionally scroll to details
+    return result.sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };  // Function to load order details and set selected order, optionally scroll to details
   const loadOrdenDetails = async (orden: OrdenConDetalles, scroll: boolean = true) => {
     try {
       const detallesRes = await apiService.getOrdenDetails(orden._id!);
@@ -867,7 +868,7 @@ const Despachar: React.FC = () => {
                 {selectedOrden ? (
                   <>
                     <span className="block sm:inline">
-                      Detalles - Mesa {selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}
+                      Detalles -  {selectedOrden.nombreMesa || getMesaInfo(selectedOrden.mesa)?.nombre || getMesaInfo(selectedOrden.mesa)?.numero || selectedOrden.mesa}
                     </span>
                     {selectedOrden.nombreCliente && (
                       <span className="block sm:inline text-sm sm:text-base text-gray-600 mt-1 sm:mt-0"> 

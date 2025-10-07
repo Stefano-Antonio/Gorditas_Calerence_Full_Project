@@ -74,6 +74,11 @@ const EditarOrden: React.FC = () => {
   const [tempNota, setTempNota] = useState('');
   const [savingNota, setSavingNota] = useState(false);
 
+  // Estados para eliminar mesa completa
+  const [deletingMesa, setDeletingMesa] = useState(false);
+  const [showDeleteMesaModal, setShowDeleteMesaModal] = useState(false);
+  const [selectedMesaToDelete, setSelectedMesaToDelete] = useState<MesaAgrupada | null>(null);
+
   // Ref for order details section
   const orderDetailsRef = useRef<HTMLDivElement>(null);
 
@@ -85,6 +90,62 @@ const EditarOrden: React.FC = () => {
     setSelectedOrden(orden);
     setShowDeleteOrderModal(true);
   };
+
+  const handleDeleteMesa = (mesa: MesaAgrupada) => {
+    console.log('Abriendo modal de eliminar mesa para:', mesa.idMesa);
+    setSelectedMesaToDelete(mesa);
+    setShowDeleteMesaModal(true);
+  };
+
+  const confirmDeleteMesa = async () => {
+    if (!selectedMesaToDelete) return;
+    console.log('Intentando eliminar todas las órdenes de la mesa:', selectedMesaToDelete.idMesa);
+    setDeletingMesa(true);
+    setError('');
+    try {
+      // Eliminar todas las órdenes de la mesa
+      const deletePromises = selectedMesaToDelete.ordenes.map(orden => 
+        apiService.deleteOrden(orden._id!)
+      );
+      
+      const responses = await Promise.all(deletePromises);
+      const allSuccessful = responses.every(response => response.success);
+      
+      if (allSuccessful) {
+        // Si todas las órdenes se eliminaron exitosamente, intentar eliminar la mesa si es temporal
+        try {
+          const mesasResponse = await apiService.getCatalog<any>('mesa');
+          const todasLasMesas = Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : [];
+          
+          // Buscar la mesa
+          const mesaDeOrden = todasLasMesas.find((mesa: any) => mesa._id === selectedMesaToDelete.idMesa);
+          
+          // Si el nombre de la mesa comienza con "Pedido" (temporal), eliminarla
+          if (mesaDeOrden && mesaDeOrden.nombre && mesaDeOrden.nombre.trim().toLowerCase().startsWith('pedido')) {
+            await apiService.deleteCatalogItem('mesa', mesaDeOrden._id.toString());
+            console.log(`Mesa temporal ${mesaDeOrden.nombre} eliminada`);
+          }
+        } catch (error) {
+          console.error('Error al eliminar mesa temporal:', error);
+          // No fallar la operación si hay error con la mesa temporal
+        }
+
+        setSuccess(`Mesa ${selectedMesaToDelete.nombreMesa} eliminada exitosamente`);
+        setSelectedOrden(null); // Limpiar orden seleccionada si pertenecía a esta mesa
+        await loadData();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError('Error eliminando algunas órdenes de la mesa');
+      }
+    } catch (error) {
+      setError('Error eliminando la mesa');
+      console.error('Error en confirmDeleteMesa:', error);
+    } finally {
+      setDeletingMesa(false);
+      setShowDeleteMesaModal(false);
+      setSelectedMesaToDelete(null);
+    }
+  };
   const confirmDeleteOrder = async () => {
     if (!selectedOrden) return;
     console.log('Intentando eliminar orden:', selectedOrden._id);
@@ -94,6 +155,47 @@ const EditarOrden: React.FC = () => {
       const response = await apiService.deleteOrden(selectedOrden._id!);
       console.log('Respuesta deleteOrden:', response);
       if (response.success) {
+        // Verificar si la mesa es temporal (nombre comienza con "Pedido") y si es la última orden activa
+        try {
+          const mesasResponse = await apiService.getCatalog<any>('mesa');
+          const todasLasMesas = Array.isArray(mesasResponse.data?.items) ? mesasResponse.data.items : Array.isArray(mesasResponse.data) ? mesasResponse.data : [];
+          
+          // Buscar la mesa de esta orden
+          const mesaDeOrden = todasLasMesas.find((mesa: any) => mesa._id === selectedOrden.idMesa);
+          
+          // Si el nombre de la mesa comienza con "Pedido" (temporal), verificar si quedan más órdenes activas
+          if (mesaDeOrden && mesaDeOrden.nombre && mesaDeOrden.nombre.trim().toLowerCase().startsWith('pedido')) {
+            // Obtener todas las órdenes activas
+            const ordenesRes = await apiService.getOrdenesActivas();
+            let todasLasOrdenes: any[] = [];
+            if (Array.isArray(ordenesRes.data?.ordenes)) {
+              todasLasOrdenes = ordenesRes.data.ordenes;
+            } else if (Array.isArray(ordenesRes.data)) {
+              todasLasOrdenes = ordenesRes.data;
+            }
+            
+            // Filtrar órdenes de esta mesa que NO sean Pagada ni Cancelado (excluyendo la que acabamos de eliminar)
+            const ordenesActivasEnMesa = todasLasOrdenes.filter(
+              (ord: any) => 
+                ord.idMesa === selectedOrden.idMesa && 
+                ord._id !== selectedOrden._id &&
+                ord.estatus !== 'Pagada' && 
+                ord.estatus !== 'Cancelado'
+            );
+            
+            // Si no quedan más órdenes activas en esta mesa, eliminarla
+            if (ordenesActivasEnMesa.length === 0) {
+              await apiService.deleteCatalogItem('mesa', mesaDeOrden._id.toString());
+              console.log(`Mesa temporal ${mesaDeOrden.nombre} eliminada - era la última orden activa`);
+            } else {
+              console.log(`Mesa temporal ${mesaDeOrden.nombre} conservada - aún hay ${ordenesActivasEnMesa.length} orden(es) activa(s)`);
+            }
+          }
+        } catch (error) {
+          console.error('Error al verificar/eliminar mesa temporal:', error);
+          // No fallar la eliminación de la orden si hay error con la mesa temporal
+        }
+
         setSuccess('Orden eliminada exitosamente');
         setSelectedOrden(null);
         await loadData();
@@ -141,7 +243,18 @@ const EditarOrden: React.FC = () => {
       grouped[idMesa].clientes[cliente].push(orden);
     });
     
-    return Object.values(grouped).sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+    // Mantener nombres de mesas como están (sin procesar)
+    const result = Object.values(grouped);
+    
+    return result.sort((a, b) => a.nombreMesa.localeCompare(b.nombreMesa));
+  };
+
+  // Función para mostrar el nombre de mesa de una orden individual
+  const getMostrarNombreMesaOrden = (orden: Orden): string => {
+    if (!orden.nombreMesa) return 'Sin mesa';
+    
+    // Mostrar el nombre de la mesa tal como está (sin modificar)
+    return orden.nombreMesa;
   };
 
   const toggleMesaExpansion = (idMesa: number) => {
@@ -714,11 +827,25 @@ const EditarOrden: React.FC = () => {
                           </p>
                           <p className="text-[10px] sm:text-xs text-gray-600">Total</p>
                         </div>
-                        {expandedMesas.has(mesa.idMesa) ? (
-                          <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        )}
+                        <div className="flex items-center space-x-1">
+                          {/* Botón para eliminar mesa completa */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Evitar que se expanda/contraiga la mesa
+                              handleDeleteMesa(mesa);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                            title="Eliminar mesa completa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          {/* Icono de expandir/contraer */}
+                          {expandedMesas.has(mesa.idMesa) ? (
+                            <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -816,7 +943,7 @@ const EditarOrden: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900 break-words">
                   {selectedOrden
-                    ? `${selectedOrden.nombreMesa || 'Sin mesa'} | Folio: ${selectedOrden.folio}`
+                    ? `${getMostrarNombreMesaOrden(selectedOrden)} | Folio: ${selectedOrden.folio}`
                     : 'Selecciona una orden'}
                 </h2>
                 {selectedOrden && selectedOrden.nombreCliente && (
@@ -1468,6 +1595,38 @@ const EditarOrden: React.FC = () => {
         </div>
       )}
     </div>
+    {/* Modal de confirmación para eliminar mesa completa */}
+    {showDeleteMesaModal && selectedMesaToDelete && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-xl p-3 sm:p-6 w-full max-w-sm">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+            ¿Eliminar mesa/pedido completa?
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Se eliminarán todas las {selectedMesaToDelete.totalOrdenes} órdenes de "{selectedMesaToDelete.nombreMesa}". Esta acción no se puede deshacer.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <button
+              onClick={() => {
+                setShowDeleteMesaModal(false);
+                setSelectedMesaToDelete(null);
+              }}
+              disabled={deletingMesa}
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm sm:text-base"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDeleteMesa}
+              disabled={deletingMesa}
+              className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
+            >
+              {deletingMesa ? 'Eliminando...' : 'Eliminar Mesa'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {/* Modal de confirmación para eliminar orden (dentro del fragmento raíz) */}
     {showDeleteOrderModal && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">

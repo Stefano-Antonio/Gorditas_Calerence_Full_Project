@@ -38,6 +38,8 @@ const EditarOrden: React.FC = () => {
   const [modalGuisoOpen, setModalGuisoOpen] = useState(false);
   const [modalExtrasOpen, setModalExtrasOpen] = useState(false);
   const [modalNotasOpen, setModalNotasOpen] = useState(false);
+  const [modalVariantesOpen, setModalVariantesOpen] = useState(false);
+  const [productoConVariantes, setProductoConVariantes] = useState<any>(null);
   
   // Estado para rastrear el flujo de selección de platillo
   const [platilloEnConstruccion, setPlatilloEnConstruccion] = useState<{
@@ -349,7 +351,7 @@ const EditarOrden: React.FC = () => {
   }
 };
 
-  const loadOrdenDetails = async (orden: Orden) => {
+  const loadOrdenDetails = async (orden: Orden, shouldScroll: boolean = true) => {
     try {
       setSelectedOrden(orden);
       const response = await apiService.getOrdenDetails(orden._id!);
@@ -360,14 +362,16 @@ const EditarOrden: React.FC = () => {
         setProductosDetalle(response.data.productos || []);
 
         // Scroll to order details on mobile
-        setTimeout(() => {
-          if (orderDetailsRef.current && window.innerWidth < 1280) { // xl breakpoint
-            orderDetailsRef.current.scrollIntoView({
-              behavior: 'smooth',
-              block: 'start'
-            });
-          }
-        }, 100);
+        if (shouldScroll) {
+          setTimeout(() => {
+            if (orderDetailsRef.current && window.innerWidth < 1280) { // xl breakpoint
+              orderDetailsRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+            }
+          }, 100);
+        }
       } else {
         setError('Error cargando detalles de la orden');
         setSubordenes([]);
@@ -601,6 +605,24 @@ const EditarOrden: React.FC = () => {
       return;
     }
 
+    // Si el producto tiene variantes, abrir modal de variantes
+    if (producto.variantes && producto.variantes.length > 0) {
+      setProductoConVariantes(producto);
+      setModalProductoOpen(false);
+      setModalVariantesOpen(true);
+      return;
+    }
+
+    // Si no tiene variantes, agregar directamente
+    agregarProductoDirecto(producto.nombre);
+  };
+
+  const agregarProductoDirecto = async (nombreProducto: string) => {
+    if (!selectedOrden) return;
+
+    const producto = productoConVariantes || productos.find(p => p.nombre === nombreProducto);
+    if (!producto) return;
+
     setSaving(true);
     setError('');
 
@@ -608,7 +630,7 @@ const EditarOrden: React.FC = () => {
       const productoData = {
         idOrden: selectedOrden._id!,
         idProducto: Number(producto._id),
-        nombreProducto: producto.nombre,
+        nombreProducto: nombreProducto,
         costoProducto: producto.costo,
         cantidad: 1
       };
@@ -623,6 +645,8 @@ const EditarOrden: React.FC = () => {
         await loadOrdenDetails(selectedOrden);
         await loadData(); // Refrescar la lista de órdenes
         setModalProductoOpen(false);
+        setModalVariantesOpen(false);
+        setProductoConVariantes(null);
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError('Error agregando producto');
@@ -632,6 +656,13 @@ const EditarOrden: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const seleccionarVariante = (variante: string) => {
+    if (!productoConVariantes) return;
+
+    const nombreConVariante = `${productoConVariantes.nombre} - ${variante}`;
+    agregarProductoDirecto(nombreConVariante);
   };
 
   const handleRemovePlatillo = async (id: string) => {
@@ -848,6 +879,44 @@ const EditarOrden: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Botones de acción rápida a nivel de mesa */}
+                    <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-200">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Obtener la primera orden de la primera lista de clientes
+                          const primeraOrden = Object.values(mesa.clientes)[0]?.[0];
+                          if (primeraOrden) {
+                            setSelectedOrden(primeraOrden);
+                            loadOrdenDetails(primeraOrden, false); // No hacer scroll
+                            iniciarSeleccionPlatillo();
+                          }
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                        title="Agregar platillo a la primera orden"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Platillo</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Obtener la primera orden de la primera lista de clientes
+                          const primeraOrden = Object.values(mesa.clientes)[0]?.[0];
+                          if (primeraOrden) {
+                            setSelectedOrden(primeraOrden);
+                            loadOrdenDetails(primeraOrden, false); // No hacer scroll
+                            setModalProductoOpen(true);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        title="Agregar producto a la primera orden"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Producto</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Orders grouped by client - Expanded view */}
@@ -863,7 +932,7 @@ const EditarOrden: React.FC = () => {
                               {ordenesCliente.map((orden) => (
                                 <div
                                   key={orden._id}
-                                  className={`bg-white rounded-lg border p-3 sm:p-4 transition-colors ${
+                                  className={`bg-white rounded-lg border p-3 sm:p-4 transition-colors relative ${
                                     selectedOrden?._id === orden._id
                                       ? 'border-orange-500 bg-orange-50'
                                       : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
@@ -920,6 +989,36 @@ const EditarOrden: React.FC = () => {
                                         </button>
                                       )}
                                     </div>
+                                  </div>
+                                  
+                                  {/* Botones de acción rápida */}
+                                  <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-gray-200">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedOrden(orden);
+                                        loadOrdenDetails(orden, false); // No hacer scroll
+                                        iniciarSeleccionPlatillo();
+                                      }}
+                                      className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                                      title="Agregar platillo"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>Platillo</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedOrden(orden);
+                                        loadOrdenDetails(orden, false); // No hacer scroll
+                                        setModalProductoOpen(true);
+                                      }}
+                                      className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                      title="Agregar producto"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>Producto</span>
+                                    </button>
                                   </div>
                                 </div>
                               ))}
@@ -1319,7 +1418,7 @@ const EditarOrden: React.FC = () => {
                 onClick={saltarExtras}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
               >
-                Sin Extras
+                {platilloEnConstruccion.extras.length > 0 ? 'Siguiente' : 'Sin Extras'}
               </button>
             </div>
           </div>
@@ -1395,7 +1494,7 @@ const EditarOrden: React.FC = () => {
                     return (
                       <div key={extra.idExtra} className="flex items-center justify-between bg-white p-1 rounded text-[10px] sm:text-xs">
                         <span className="font-medium text-gray-900 truncate flex-1 mr-1">{extra.nombreExtra}</span>
-                        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                           <span className="text-[10px] sm:text-xs font-semibold text-purple-600">+${extra.costoExtra}</span>
                           <button
                             onClick={() => {
@@ -1405,21 +1504,21 @@ const EditarOrden: React.FC = () => {
                                 actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad - 1);
                               }
                             }}
-                            className="p-0.5 bg-gray-200 hover:bg-gray-300 rounded"
+                            className="p-1.5 sm:p-2 bg-gray-200 hover:bg-gray-300 rounded active:scale-95 transition-transform"
                           >
-                            <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            <Minus className="w-5 h-5 sm:w-6 sm:h-6" />
                           </button>
-                          <span className="w-5 sm:w-6 text-center text-[10px] sm:text-xs font-bold">{extra.cantidad}</span>
+                          <span className="w-8 sm:w-10 text-center text-sm sm:text-base font-bold">{extra.cantidad}</span>
                           <button
                             onClick={() => actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad + 1)}
                             disabled={alcanzoLimite}
-                            className={`p-0.5 rounded ${
+                            className={`p-1.5 sm:p-2 rounded active:scale-95 transition-transform ${
                               alcanzoLimite
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                                 : 'bg-gray-200 hover:bg-gray-300'
                             }`}
                           >
-                            <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
                           </button>
                         </div>
                       </div>
@@ -1451,6 +1550,15 @@ const EditarOrden: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setModalNotasOpen(false);
+                  setModalExtrasOpen(true);
+                }}
+                className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
+              >
+                Volver a Extras
+              </button>
               <button
                 onClick={cancelarSeleccionPlatillo}
                 className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
@@ -1498,6 +1606,60 @@ const EditarOrden: React.FC = () => {
                   )}
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Selección de Variantes */}
+      {modalVariantesOpen && productoConVariantes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Seleccionar Variante</h3>
+                <p className="text-sm text-gray-600 mt-1">{productoConVariantes.nombre}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setModalVariantesOpen(false);
+                  setProductoConVariantes(null);
+                  setModalProductoOpen(true);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              {productoConVariantes.variantes.map((variante: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => seleccionarVariante(variante)}
+                  disabled={saving}
+                  className="p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center disabled:opacity-50"
+                >
+                  <div className="text-base font-semibold text-gray-900">{variante}</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {productoConVariantes.nombre} - {variante}
+                  </div>
+                  <div className="text-sm text-green-600 font-medium mt-2">
+                    ${productoConVariantes.costo}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setModalVariantesOpen(false);
+                  setProductoConVariantes(null);
+                  setModalProductoOpen(true);
+                }}
+                className="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Volver a Productos
+              </button>
             </div>
           </div>
         </div>

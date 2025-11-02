@@ -52,6 +52,8 @@ const NuevaOrden: React.FC = () => {
   const [modalGuisoOpen, setModalGuisoOpen] = useState(false);
   const [modalExtrasOpen, setModalExtrasOpen] = useState(false);
   const [modalNotasOpen, setModalNotasOpen] = useState(false);
+  const [modalVariantesOpen, setModalVariantesOpen] = useState(false);
+  const [productoConVariantes, setProductoConVariantes] = useState<any>(null);
   
   // Estado para rastrear el flujo de selección de platillo
   const [platilloEnConstruccion, setPlatilloEnConstruccion] = useState<{
@@ -76,6 +78,8 @@ const NuevaOrden: React.FC = () => {
   const [isOrderComplete, setIsOrderComplete] = useState(true); // For order validation
   const [notas, setNotas] = useState(''); // Field for order notes
   const [showReiniciarModal, setShowReiniciarModal] = useState(false);
+  const [showSalirModal, setShowSalirModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   const steps: OrderStep[] = [
     { step: 1, title: 'Seleccionar Mesa', completed: !!selectedMesa },
@@ -126,6 +130,51 @@ const NuevaOrden: React.FC = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [ordenesEnProceso, platillosSeleccionados, productosSeleccionados, nombreSuborden]);
+
+  // Verificar si hay datos sin guardar
+  const tieneDatosSinGuardar = (): boolean => {
+    const hayOrdenesEnProceso = ordenesEnProceso.length > 0;
+    const hayItemsSeleccionados = platillosSeleccionados.length > 0 || productosSeleccionados.length > 0;
+    return hayOrdenesEnProceso || hayItemsSeleccionados || !!nombreSuborden || !!selectedMesa;
+  };
+
+  // Bloquear navegación con modal personalizado
+  useEffect(() => {
+    // Interceptar clics en enlaces de navegación del sidebar
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a');
+      
+      if (link && tieneDatosSinGuardar() && !orderSubmitting) {
+        const href = link.getAttribute('href');
+        if (href && !href.startsWith('http') && href !== '#') {
+          e.preventDefault();
+          e.stopPropagation();
+          setPendingNavigation(href);
+          setShowSalirModal(true);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleClick, true);
+    
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [ordenesEnProceso, platillosSeleccionados, productosSeleccionados, nombreSuborden, selectedMesa, orderSubmitting]);
+
+  // Función para confirmar salida
+  const confirmarSalida = () => {
+    if (pendingNavigation) {
+      window.location.href = pendingNavigation;
+    }
+  };
+
+  // Función para cancelar salida
+  const cancelarSalida = () => {
+    setShowSalirModal(false);
+    setPendingNavigation(null);
+  };
 
   const loadInitialData = async () => {
     try {
@@ -356,6 +405,15 @@ const NuevaOrden: React.FC = () => {
       return;
     }
 
+    // Si el producto tiene variantes, abrir modal de variantes
+    if (producto.variantes && producto.variantes.length > 0) {
+      setProductoConVariantes(producto);
+      setModalProductoOpen(false);
+      setModalVariantesOpen(true);
+      return;
+    }
+
+    // Si no tiene variantes, agregar directamente
     const nuevo = {
       idProducto: producto._id,
       nombreProducto: producto.nombre,
@@ -364,6 +422,21 @@ const NuevaOrden: React.FC = () => {
     };
     setProductosSeleccionados(prev => [...prev, nuevo]);
     setModalProductoOpen(false);
+    setError('');
+  };
+
+  const seleccionarVariante = (variante: string) => {
+    if (!productoConVariantes) return;
+
+    const nuevo = {
+      idProducto: productoConVariantes._id,
+      nombreProducto: `${productoConVariantes.nombre} - ${variante}`,
+      costoProducto: productoConVariantes.costo,
+      cantidad: 1
+    };
+    setProductosSeleccionados(prev => [...prev, nuevo]);
+    setModalVariantesOpen(false);
+    setProductoConVariantes(null);
     setError('');
   };
 
@@ -1219,23 +1292,62 @@ const NuevaOrden: React.FC = () => {
                   {/* Órdenes ya guardadas en proceso */}
                   {ordenesEnProceso.map((orden, index) => (
                     <div key={index} className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded-lg border border-green-200">
-                      <h4 className="font-medium text-green-700 mb-2 sm:mb-3 text-xs sm:text-sm truncate">Orden #{index + 1} - {orden.nombreCliente}</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm">
-                        <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                          <span className="text-gray-600 flex-shrink-0">Platillos:</span>
-                          <span className="sm:ml-2 font-medium truncate">{orden.platillos.length} items</span>
+                      <h4 className="font-medium text-green-700 mb-2 sm:mb-3 text-xs sm:text-sm">Orden #{index + 1} - {orden.nombreCliente}</h4>
+                      
+                      {/* Detalles de platillos */}
+                      {orden.platillos.length > 0 && (
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">Platillos:</p>
+                          <div className="space-y-1">
+                            {orden.platillos.map((item, idx) => (
+                              <div key={idx} className="flex items-start justify-between text-[9px] sm:text-xs bg-green-50 px-2 py-1 rounded">
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium">{item.cantidad}x {item.platillo.nombre}</span>
+                                  <span className="text-gray-600"> - {item.guiso.nombre}</span>
+                                  {item.extras.length > 0 && (
+                                    <div className="text-[8px] sm:text-[10px] text-gray-500 mt-0.5">
+                                      Extras: {item.extras.map((e: any) => `${e.cantidad}x ${e.nombreExtra}`).join(', ')}
+                                    </div>
+                                  )}
+                                  {item.notas && (
+                                    <div className="text-[8px] sm:text-[10px] text-blue-600 italic mt-0.5">
+                                      Nota: {item.notas}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="flex-shrink-0 ml-2 font-semibold text-green-600">
+                                  ${((item.platillo.precio * item.cantidad) + item.extras.reduce((sum: number, e: any) => sum + (e.costoExtra * e.cantidad), 0)).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                          <span className="text-gray-600 flex-shrink-0">Productos:</span>
-                          <span className="sm:ml-2 font-medium truncate">{orden.productos.length} items</span>
+                      )}
+
+                      {/* Detalles de productos */}
+                      {orden.productos.length > 0 && (
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">Productos:</p>
+                          <div className="space-y-1">
+                            {orden.productos.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[9px] sm:text-xs bg-green-50 px-2 py-1 rounded">
+                                <span className="font-medium">{item.cantidad}x {item.nombreProducto}</span>
+                                <span className="font-semibold text-green-600">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                          <span className="text-gray-600 flex-shrink-0">Total:</span>
-                          <span className="sm:ml-2 font-medium text-green-600">${orden.total.toFixed(2)}</span>
+                      )}
+
+                      {/* Notas y total */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="flex justify-between items-center text-xs sm:text-sm mb-1">
+                          <span className="text-gray-600">Notas:</span>
+                          <span className="text-[10px] sm:text-xs text-gray-700">{orden.notas || 'Sin notas'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                          <span className="text-gray-600 flex-shrink-0">Notas:</span>
-                          <span className="sm:ml-2 text-xs sm:text-sm truncate">{orden.notas || 'Sin notas'}</span>
+                        <div className="flex justify-between items-center text-xs sm:text-sm font-semibold">
+                          <span className="text-gray-900">Total:</span>
+                          <span className="text-green-600">${orden.total.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -1243,31 +1355,70 @@ const NuevaOrden: React.FC = () => {
 
                   {/* Orden actual */}
                   <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded-lg border border-orange-200">
-                    <h4 className="font-medium text-orange-700 mb-2 sm:mb-3 text-xs sm:text-sm truncate">Orden Actual - {nombreSuborden}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm">
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">{getTipoMesaLabel()}:</span>
-                        <span className="sm:ml-2 font-medium">{selectedMesa?.nombre}</span>
+                    <h4 className="font-medium text-orange-700 mb-2 sm:mb-3 text-xs sm:text-sm">Orden Actual - {nombreSuborden}</h4>
+                    
+                    {/* Información de mesa y cliente */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-xs mb-2">
+                      <div>
+                        <span className="text-gray-600">{getTipoMesaLabel()}:</span>
+                        <span className="ml-1 font-medium">{selectedMesa?.nombre}</span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">Cliente:</span>
-                        <span className="sm:ml-2 font-medium">{nombreSuborden}</span>
+                      <div>
+                        <span className="text-gray-600">Cliente:</span>
+                        <span className="ml-1 font-medium">{nombreSuborden}</span>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">Platillos:</span>
-                        <span className="sm:ml-2 font-medium">{platillosSeleccionados.length} tipo(s)</span>
+                    </div>
+
+                    {/* Detalles de platillos */}
+                    {platillosSeleccionados.length > 0 && (
+                      <div className="mb-2 sm:mb-3">
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">Platillos:</p>
+                        <div className="space-y-1">
+                          {platillosSeleccionados.map((item, idx) => (
+                            <div key={idx} className="flex items-start justify-between text-[9px] sm:text-xs bg-orange-50 px-2 py-1 rounded">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium">{item.cantidad}x {item.platillo.nombre}</span>
+                                <span className="text-gray-600"> - {item.guiso.nombre}</span>
+                                {item.extras.length > 0 && (
+                                  <div className="text-[8px] sm:text-[10px] text-gray-500 mt-0.5">
+                                    Extras: {item.extras.map((e: any) => `${e.cantidad}x ${e.nombreExtra}`).join(', ')}
+                                  </div>
+                                )}
+                                {item.notas && (
+                                  <div className="text-[8px] sm:text-[10px] text-blue-600 italic mt-0.5">
+                                    Nota: {item.notas}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="flex-shrink-0 ml-2 font-semibold text-orange-600">
+                                ${(((item.platillo.costo ?? 0) * item.cantidad) + item.extras.reduce((sum, e) => sum + (e.costoExtra * e.cantidad), 0)).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">Productos:</span>
-                        <span className="sm:ml-2 font-medium">{productosSeleccionados.length} tipo(s)</span>
+                    )}
+
+                    {/* Detalles de productos */}
+                    {productosSeleccionados.length > 0 && (
+                      <div className="mb-2 sm:mb-3">
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">Productos:</p>
+                        <div className="space-y-1">
+                          {productosSeleccionados.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-[9px] sm:text-xs bg-orange-50 px-2 py-1 rounded">
+                              <span className="font-medium">{item.cantidad}x {item.nombreProducto}</span>
+                              <span className="font-semibold text-orange-600">${(item.costoProducto * item.cantidad).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">Total orden:</span>
-                        <span className="sm:ml-2 font-medium text-orange-600">${getTotalOrden().toFixed(2)}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
-                        <span className="text-gray-600 flex-shrink-0">Estado:</span>
-                        <span className={`sm:ml-2 font-medium ${
+                    )}
+
+                    {/* Estado y notas */}
+                    <div className="border-t border-gray-200 pt-2 mt-2">
+                      <div className="flex justify-between items-center text-xs sm:text-sm mb-1">
+                        <span className="text-gray-600">Estado:</span>
+                        <span className={`font-medium ${
                           !isOrderComplete 
                             ? 'text-orange-600' 
                             : (platillosSeleccionados.length === 0 && productosSeleccionados.length > 0)
@@ -1282,15 +1433,17 @@ const NuevaOrden: React.FC = () => {
                           }
                         </span>
                       </div>
-                    </div>
-                    {notas && (
-                      <div className="mt-2 sm:mt-3 p-2 bg-orange-50 rounded border border-orange-100">
-                        <div className="flex flex-col sm:flex-row min-w-0">
-                          <span className="text-gray-600 text-xs sm:text-sm font-medium flex-shrink-0">Notas:</span>
-                          <span className="sm:ml-2 text-xs sm:text-sm break-words">{notas}</span>
+                      {notas && (
+                        <div className="mb-1">
+                          <span className="text-gray-600 text-xs">Notas:</span>
+                          <p className="text-[10px] sm:text-xs text-gray-700 mt-0.5 bg-orange-50 p-1 rounded">{notas}</p>
                         </div>
+                      )}
+                      <div className="flex justify-between items-center text-xs sm:text-sm font-semibold">
+                        <span className="text-gray-900">Total:</span>
+                        <span className="text-orange-600">${getTotalOrden().toFixed(2)}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Total general */}
@@ -1482,7 +1635,7 @@ const NuevaOrden: React.FC = () => {
                 onClick={saltarExtras}
                 className="bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors text-sm sm:text-base"
               >
-                Sin Extras
+                {platilloEnConstruccion.extras.length > 0 ? 'Siguiente' : 'Sin Extras'}
               </button>
             </div>
           </div>
@@ -1563,7 +1716,7 @@ const NuevaOrden: React.FC = () => {
                           <p className="text-[9px] sm:text-[10px] text-purple-600">+${extra.costoExtra} c/u</p>
                         </div>
                         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                          <div className="flex items-center gap-0.5 sm:gap-1 bg-white rounded-lg p-0.5 border border-purple-300">
+                          <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-lg p-1 border border-purple-300">
                             <button
                               onClick={() => {
                                 if (extra.cantidad === 1) {
@@ -1576,21 +1729,21 @@ const NuevaOrden: React.FC = () => {
                                   actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad - 1);
                                 }
                               }}
-                              className="p-0.5 hover:bg-purple-100 rounded transition-colors"
+                              className="p-1.5 sm:p-2 hover:bg-purple-100 rounded transition-colors active:scale-95"
                             >
-                              <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-purple-600" />
+                              <Minus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                             </button>
-                            <span className="text-[10px] sm:text-xs font-semibold w-4 sm:w-5 text-center">{extra.cantidad}</span>
+                            <span className="text-sm sm:text-base font-semibold w-8 sm:w-10 text-center">{extra.cantidad}</span>
                             <button
                               onClick={() => actualizarCantidadExtraEnConstruccion(extra.idExtra, extra.cantidad + 1)}
                               disabled={alcanzoLimite}
-                              className={`p-0.5 rounded transition-colors ${
+                              className={`p-1.5 sm:p-2 rounded transition-colors active:scale-95 ${
                                 alcanzoLimite 
                                   ? 'opacity-50 cursor-not-allowed bg-gray-100' 
                                   : 'hover:bg-purple-100'
                               }`}
                             >
-                              <Plus className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${alcanzoLimite ? 'text-gray-400' : 'text-purple-600'}`} />
+                              <Plus className={`w-5 h-5 sm:w-6 sm:h-6 ${alcanzoLimite ? 'text-gray-400' : 'text-purple-600'}`} />
                             </button>
                           </div>
                           <span className="text-[10px] sm:text-xs font-medium text-purple-700 min-w-[40px] sm:min-w-[50px] text-right">
@@ -1634,6 +1787,15 @@ const NuevaOrden: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setModalNotasOpen(false);
+                  setModalExtrasOpen(true);
+                }}
+                className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors text-xs sm:text-sm"
+              >
+                Volver a Extras
+              </button>
               <button
                 onClick={cancelarSeleccionPlatillo}
                 className="flex-1 bg-gray-200 text-gray-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors text-xs sm:text-sm"
@@ -1688,52 +1850,284 @@ const NuevaOrden: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Confirmación de Reinicio */}
-      {showReiniciarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
-            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
-              <RotateCcw className="w-8 h-8 text-red-600" />
+      {/* Modal: Selección de Variantes */}
+      {modalVariantesOpen && productoConVariantes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-1 sm:p-2">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-2 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Seleccionar Variante</h2>
+                <p className="text-sm text-gray-600 mt-1">{productoConVariantes.nombre}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setModalVariantesOpen(false);
+                  setProductoConVariantes(null);
+                  setModalProductoOpen(true);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
             </div>
-            
-            <h3 className="text-xl font-bold text-gray-900 text-center mb-3">
-              ¿Reiniciar Formulario?
-            </h3>
-            
-            <div className="mb-6">
-              {ordenesEnProceso.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600 text-center">
-                    Tienes <span className="font-semibold text-red-600">{ordenesEnProceso.length} orden{ordenesEnProceso.length > 1 ? 'es' : ''}</span> en proceso de creación.
-                  </p>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-800 font-medium text-center">
-                      ⚠️ Si reinicias, se perderán todos las ordenes que tengas en fila en creación.
-                    </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              {productoConVariantes.variantes.map((variante: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => seleccionarVariante(variante)}
+                  className="p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
+                >
+                  <div className="text-base font-semibold text-gray-900">{variante}</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {productoConVariantes.nombre} - {variante}
                   </div>
-                </div>
-              ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800 text-center">
-                    Si tienes ordenes en fila sin confirmación, perderán esas ordenes.
-                  </p>
-                </div>
-              )}
+                  <div className="text-sm text-green-600 font-medium mt-2">
+                    ${productoConVariantes.costo}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setModalVariantesOpen(false);
+                  setProductoConVariantes(null);
+                  setModalProductoOpen(true);
+                }}
+                className="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Volver a Productos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmación de Salida */}
+      {showSalirModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all animate-fade-in">
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-5">
+              <div className="flex items-center justify-center w-20 h-20 mx-auto mb-3 bg-white rounded-full shadow-lg">
+                <svg className="w-12 h-12 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white text-center">
+                🚪 ¿Abandonar página?
+              </h3>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowReiniciarModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={ejecutarReinicio}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-              >
-                Sí, Reiniciar
-              </button>
+            {/* Contenido */}
+            <div className="p-6">
+              <h4 className="text-lg font-semibold text-gray-900 text-center mb-4">
+                Tienes datos sin guardar
+              </h4>
+              
+              <div className="mb-6 space-y-3">
+                {/* Advertencia principal */}
+                <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg p-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-yellow-800">
+                        Advertencia de pérdida de datos
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        Si abandonas esta página ahora, se perderán todos los datos que hayas ingresado
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información de órdenes en proceso */}
+                {ordenesEnProceso.length > 0 && (
+                  <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-red-800">
+                          <span className="font-bold">{ordenesEnProceso.length}</span> {ordenesEnProceso.length === 1 ? 'orden' : 'órdenes'} sin confirmar
+                        </p>
+                        <div className="mt-2 max-h-24 overflow-y-auto">
+                          <ul className="space-y-1">
+                            {ordenesEnProceso.map((orden, index) => (
+                              <li key={index} className="flex items-center justify-between text-xs text-red-700 bg-red-100 px-2 py-1 rounded">
+                                <span>{orden.nombreCliente}</span>
+                                <span className="font-semibold">${orden.total.toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Información de orden actual */}
+                {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
+                  <div className="bg-blue-50 border-l-4 border-blue-500 rounded-r-lg p-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-blue-800">
+                          Orden actual sin guardar
+                        </p>
+                        <p className="text-xs text-blue-700 mt-1">
+                          {platillosSeleccionados.length} platillos • {productosSeleccionados.length} productos
+                          {nombreSuborden && ` • Cliente: ${nombreSuborden}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mesa seleccionada */}
+                {selectedMesa && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-xs text-gray-700">
+                      <span className="font-semibold">Mesa seleccionada:</span> {selectedMesa.nombre}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelarSalida}
+                  className="flex-1 px-5 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 active:from-green-800 active:to-green-900 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  ⬅️ Quedarse
+                </button>
+                <button
+                  onClick={confirmarSalida}
+                  className="flex-1 px-5 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 active:bg-gray-300 transition-all duration-200 border-2 border-gray-300 hover:border-gray-400"
+                >
+                  🚪 Salir de todas formas
+                </button>
+              </div>
+
+              <p className="text-center text-xs text-gray-500 mt-3">
+                💡 Te recomendamos guardar tus cambios antes de salir
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmación de Reinicio */}
+      {showReiniciarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all animate-fade-in">
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-red-600 to-orange-600 px-6 py-5">
+              <div className="flex items-center justify-center w-20 h-20 mx-auto mb-3 bg-white rounded-full shadow-lg">
+                <RotateCcw className="w-10 h-10 text-red-600 animate-pulse" />
+              </div>
+              <h3 className="text-2xl font-bold text-white text-center">
+                ⚠️ ¡Atención!
+              </h3>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-6">
+              <h4 className="text-lg font-semibold text-gray-900 text-center mb-4">
+                ¿Deseas reiniciar el formulario?
+              </h4>
+              
+              <div className="mb-6 space-y-3">
+                {ordenesEnProceso.length > 0 ? (
+                  <>
+                    <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <p className="text-sm font-medium text-red-800">
+                            Tienes <span className="font-bold">{ordenesEnProceso.length} {ordenesEnProceso.length === 1 ? 'orden' : 'órdenes'}</span> en proceso
+                          </p>
+                          <p className="text-xs text-red-700 mt-1">
+                            Se perderán todos los datos no confirmados
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Lista de órdenes en proceso */}
+                    <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Órdenes que se perderán:</p>
+                      <ul className="space-y-1">
+                        {ordenesEnProceso.map((orden, index) => (
+                          <li key={index} className="flex items-center justify-between text-xs text-gray-600 bg-white px-2 py-1 rounded">
+                            <span className="font-medium">{orden.nombreCliente}</span>
+                            <span className="text-green-600 font-semibold">${orden.total.toFixed(2)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg p-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-yellow-800">
+                          Datos sin guardar
+                        </p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Si tienes órdenes en fila sin confirmar, se perderán todos los datos ingresados
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Información adicional si hay items en la orden actual */}
+                {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-800">
+                      <span className="font-semibold">Orden actual:</span> {platillosSeleccionados.length} platillos, {productosSeleccionados.length} productos
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowReiniciarModal(false)}
+                  className="flex-1 px-5 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 active:bg-gray-300 transition-all duration-200 border-2 border-gray-300 hover:border-gray-400"
+                >
+                  ✕ Cancelar
+                </button>
+                <button
+                  onClick={ejecutarReinicio}
+                  className="flex-1 px-5 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 active:from-red-800 active:to-red-900 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  🔄 Sí, Reiniciar
+                </button>
+              </div>
             </div>
           </div>
         </div>

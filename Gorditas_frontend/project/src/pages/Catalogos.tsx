@@ -22,7 +22,7 @@ interface CatalogItem extends BaseEntity {
 const catalogModels = [
   { id: 'guiso', name: 'Guisos', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'tipoproducto', name: 'Tipos de Producto', fields: ['nombre', 'descripcion'], hasActivo: true },
-  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo'], hasActivo: true },
+  { id: 'producto', name: 'Productos', fields: ['nombre', 'idTipoProducto', 'cantidad', 'costo', 'variantes'], hasActivo: true },
   { id: 'tipoplatillo', name: 'Tipos de Platillo', fields: ['nombre', 'descripcion'], hasActivo: true },
   { id: 'platillo', name: 'Platillos', fields: ['nombre', 'idTipoPlatillo', 'descripcion', 'costo'], hasActivo: true },
   { id: 'tipoextra', name: 'Tipos de Extra', fields: ['nombre', 'descripcion'], hasActivo: true },
@@ -147,6 +147,7 @@ const Catalogos: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [nuevaVariante, setNuevaVariante] = useState('');
 
   useEffect(() => {
     loadItems();
@@ -282,6 +283,7 @@ const Catalogos: React.FC = () => {
 
   const handleCreate = () => {
     setEditingItem(null);
+    setNuevaVariante(''); // Limpiar el estado de nueva variante
     const initialData: any = {};
     if (selectedModel.hasActivo) {
       initialData.activo = true;
@@ -316,6 +318,7 @@ const Catalogos: React.FC = () => {
 
   const handleEdit = (item: CatalogItem) => {
     setEditingItem(item);
+    setNuevaVariante(''); // Limpiar el estado de nueva variante
     setFormData({ ...item });
     setShowModal(true);
   };
@@ -755,6 +758,72 @@ const Catalogos: React.FC = () => {
           />
         );
       }
+      case 'variantes': {
+        // Campo especial para manejar variantes de productos
+        const variantes = Array.isArray(value) ? value : [];
+
+        return (
+          <div className="space-y-2">
+            {/* Lista de variantes existentes */}
+            {variantes.length > 0 && (
+              <div className="space-y-1">
+                {variantes.map((variante: string, index: number) => (
+                  <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded">
+                    <span className="flex-1 text-sm">{variante}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nuevasVariantes = variantes.filter((_: string, i: number) => i !== index);
+                        setFormData({ ...formData, variantes: nuevasVariantes });
+                      }}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Input para agregar nueva variante */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={nuevaVariante}
+                onChange={(e) => setNuevaVariante(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (nuevaVariante.trim()) {
+                      const nuevasVariantes = [...variantes, nuevaVariante.trim()];
+                      setFormData({ ...formData, variantes: nuevasVariantes });
+                      setNuevaVariante('');
+                    }
+                  }
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Escribe una variante y presiona Enter"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (nuevaVariante.trim()) {
+                    const nuevasVariantes = [...variantes, nuevaVariante.trim()];
+                    setFormData({ ...formData, variantes: nuevasVariantes });
+                    setNuevaVariante('');
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 whitespace-nowrap"
+              >
+                Agregar
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Las variantes son opcionales y no afectan el precio del producto
+            </p>
+          </div>
+        );
+      }
       default:
         return (
           <input
@@ -787,7 +856,8 @@ const Catalogos: React.FC = () => {
       numero: 'Número',
       capacidad: 'Capacidad',
       ubicacion: 'Ubicación',
-      activo: 'Activo'
+      activo: 'Activo',
+      variantes: 'Variantes del Producto'
     };
     return labels[field] || field;
   };

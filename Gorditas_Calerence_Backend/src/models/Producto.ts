@@ -1,7 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { IProducto } from '../types';
 
-export interface IProductoDocument extends Omit<IProducto, '_id'>, Document {}
+export interface IProductoDocument extends Omit<IProducto, '_id'>, Document {
+  variantes?: string[];
+}
 
 const productoSchema = new Schema<IProductoDocument>({
   _id: { type: Number, required: true },
@@ -10,7 +12,11 @@ const productoSchema = new Schema<IProductoDocument>({
   nombre: { type: String, required: true, trim: true },
   cantidad: { type: Number, required: true, min: 0 },
   costo: { type: Number, required: true, min: 0 },
-  activo: { type: Boolean, default: true }
+  activo: { type: Boolean, default: true },
+  variantes: [{ 
+    type: String, 
+    trim: true 
+  }]
 }, {
   timestamps: true,
   versionKey: false

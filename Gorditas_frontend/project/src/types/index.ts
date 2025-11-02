@@ -24,6 +24,7 @@ export interface Producto extends BaseEntity {
   cantidad: number;
   costo: number;
   precio: number;
+  variantes?: string[];
 }
 
 export interface TipoPlatillo extends BaseEntity {

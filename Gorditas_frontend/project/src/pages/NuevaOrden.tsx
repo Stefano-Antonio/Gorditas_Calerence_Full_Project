@@ -77,6 +77,7 @@ const NuevaOrden: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [isOrderComplete, setIsOrderComplete] = useState(true); // For order validation
   const [notas, setNotas] = useState(''); // Field for order notes
+  const [ordenPagada, setOrdenPagada] = useState(false); // Estado para orden pagada
   const [showReiniciarModal, setShowReiniciarModal] = useState(false);
   const [showSalirModal, setShowSalirModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -545,12 +546,17 @@ const NuevaOrden: React.FC = () => {
           estatus = 'Recepcion';
         }
 
+        // Agregar " - Pagada" al nombre del cliente si la orden está marcada como pagada
+        const nombreClienteFinal = ordenPagada 
+          ? `${ordenData.nombreCliente} - Pagada` 
+          : ordenData.nombreCliente;
+
         const nuevaOrdenData = {
           idMesa: mesaParaOrden?._id || selectedMesa._id,
           nombreMesa: mesaParaOrden?.nombre || selectedMesa.nombre,
           idTipoOrden: 1,
           nombreTipoOrden: 'Mesa',
-          nombreCliente: ordenData.nombreCliente,
+          nombreCliente: nombreClienteFinal,
           total: ordenData.total,
           estatus,
           notas: ordenData.notas || undefined
@@ -707,6 +713,7 @@ const NuevaOrden: React.FC = () => {
           notas: ''
         });
         setIsOrderComplete(true);
+        setOrdenPagada(false); // Resetear estado de orden pagada
         setSuccess('');
         setError('');
         setOrderSubmitting(false);
@@ -785,6 +792,7 @@ const NuevaOrden: React.FC = () => {
       notas: ''
     });
     setIsOrderComplete(true);
+    setOrdenPagada(false); // Resetear estado de orden pagada
     setError('');
     setSuccess('');
     setOrderSubmitting(false);
@@ -1023,6 +1031,24 @@ const NuevaOrden: React.FC = () => {
         {currentStep === 3 && (
           <div className="px-2 sm:px-0">
             <h2 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">Agregar Platillos y Productos</h2>
+            
+            {/* Checkbox de Orden Pagada */}
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ordenPagada}
+                  onChange={(e) => setOrdenPagada(e.target.checked)}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="ml-3 text-sm sm:text-base font-medium text-gray-900">
+                  Orden Pagada
+                </span>
+                <span className="ml-2 text-xs text-gray-500">
+                  (se agregará "- Pagada" al nombre del cliente)
+                </span>
+              </label>
+            </div>
             
             {/* Botones de acción - agrupados en la parte superior */}
             <div className="mb-4">
@@ -1449,13 +1475,31 @@ const NuevaOrden: React.FC = () => {
                   {/* Total general */}
                   {ordenesEnProceso.length > 0 && (
                     <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                        <span className="text-sm sm:text-base lg:text-lg font-semibold text-blue-900">
-                          Total General ({ordenesEnProceso.length + 1} orden{ordenesEnProceso.length + 1 > 1 ? 'es' : ''}):
-                        </span>
-                        <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600">
-                          ${getTotalTodasLasOrdenes().toFixed(2)}
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <span className="text-sm sm:text-base lg:text-lg font-semibold text-blue-900">
+                            Total General ({ordenesEnProceso.length + 1} orden{ordenesEnProceso.length + 1 > 1 ? 'es' : ''}):
+                          </span>
+                          <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600">
+                            ${getTotalTodasLasOrdenes().toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 pt-2 border-t border-blue-200">
+                          <span className="text-xs sm:text-sm font-medium text-blue-800">
+                            Número de gorditas totales:
+                          </span>
+                          <span className="text-sm sm:text-base font-bold text-blue-700">
+                            {(() => {
+                              // Sumar gorditas de órdenes en proceso
+                              const gorditasEnProceso = ordenesEnProceso.reduce((total, orden) => {
+                                return total + orden.platillos.reduce((sum, platillo) => sum + platillo.cantidad, 0);
+                              }, 0);
+                              // Sumar gorditas de orden actual
+                              const gorditasActuales = platillosSeleccionados.reduce((sum, platillo) => sum + platillo.cantidad, 0);
+                              return gorditasEnProceso + gorditasActuales;
+                            })()} gorditas
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}

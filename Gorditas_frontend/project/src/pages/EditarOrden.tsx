@@ -81,12 +81,42 @@ const EditarOrden: React.FC = () => {
   const [showDeleteMesaModal, setShowDeleteMesaModal] = useState(false);
   const [selectedMesaToDelete, setSelectedMesaToDelete] = useState<MesaAgrupada | null>(null);
 
+  // Estado para almacenar detalles de órdenes en las tarjetas móviles
+  const [ordenesDetalles, setOrdenesDetalles] = useState<{ [key: string]: { platillos: any[], productos: any[] } }>({});
+  // Estado para controlar qué resúmenes están expandidos (por ID de orden)
+  const [resumenesExpandidos, setResumenesExpandidos] = useState<Set<string>>(new Set());
+
   // Ref for order details section
   const orderDetailsRef = useRef<HTMLDivElement>(null);
 
   // Removed duplicate loadData and useEffect block
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false);
+
+  // Función para detectar si una orden está marcada como pagada
+  const esOrdenPagada = (nombreCliente: string | undefined): boolean => {
+    if (!nombreCliente) return false;
+    return nombreCliente.trim().endsWith('- Pagada');
+  };
+
+  // Función para verificar si TODAS las órdenes de una mesa están pagadas
+  const todasLasOrdenesDeMesaPagadas = (mesa: MesaAgrupada): boolean => {
+    return mesa.ordenes.length > 0 && mesa.ordenes.every(orden => esOrdenPagada(orden.nombreCliente));
+  };
+
+  // Función para alternar expansión del resumen de una orden
+  const toggleResumenExpansion = (ordenId: string) => {
+    setResumenesExpandidos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ordenId)) {
+        newSet.delete(ordenId);
+      } else {
+        newSet.add(ordenId);
+      }
+      return newSet;
+    });
+  };
+
   const handleDeleteOrder = (orden: Orden) => {
     console.log('Abriendo modal de eliminar orden para:', orden._id);
     setSelectedOrden(orden);
@@ -259,14 +289,53 @@ const EditarOrden: React.FC = () => {
     return orden.nombreMesa;
   };
 
-  const toggleMesaExpansion = (idMesa: number) => {
+  const toggleMesaExpansion = async (idMesa: number) => {
     const newExpanded = new Set(expandedMesas);
     if (newExpanded.has(idMesa)) {
       newExpanded.delete(idMesa);
     } else {
       newExpanded.add(idMesa);
+      // Cargar detalles de todas las órdenes de esta mesa para vista móvil
+      const mesa = mesasAgrupadas.find(m => m.idMesa === idMesa);
+      if (mesa) {
+        await loadOrdenesDetallesMesa(mesa);
+      }
     }
     setExpandedMesas(newExpanded);
+  };
+
+  // Función para cargar detalles de todas las órdenes de una mesa
+  const loadOrdenesDetallesMesa = async (mesa: MesaAgrupada) => {
+    try {
+      const detallesPromises = mesa.ordenes.map(async (orden) => {
+        try {
+          const response = await apiService.getOrdenDetails(orden._id!);
+          if (response.success) {
+            return {
+              ordenId: orden._id!,
+              platillos: response.data.platillos || [],
+              productos: response.data.productos || []
+            };
+          }
+          return { ordenId: orden._id!, platillos: [], productos: [] };
+        } catch {
+          return { ordenId: orden._id!, platillos: [], productos: [] };
+        }
+      });
+
+      const detalles = await Promise.all(detallesPromises);
+      const detallesMap: { [key: string]: { platillos: any[], productos: any[] } } = {};
+      detalles.forEach(detalle => {
+        detallesMap[detalle.ordenId] = {
+          platillos: detalle.platillos,
+          productos: detalle.productos
+        };
+      });
+
+      setOrdenesDetalles(prev => ({ ...prev, ...detallesMap }));
+    } catch (error) {
+      console.error('Error cargando detalles de órdenes:', error);
+    }
   };
 
   useEffect(() => {
@@ -665,12 +734,50 @@ const EditarOrden: React.FC = () => {
     agregarProductoDirecto(nombreConVariante);
   };
 
-  const handleRemovePlatillo = async (id: string) => {
-    setConfirmDelete({ type: 'platillo', id });
+  const handleRemovePlatillo = async (id: string, skipModal: boolean = false) => {
+    if (skipModal) {
+      // Eliminación directa sin modal
+      setSaving(true);
+      setError('');
+      try {
+        const response = await apiService.removePlatillo(id);
+        if (response.success) {
+          setSuccess('Platillo eliminado exitosamente');
+          setTimeout(() => setSuccess(''), 3000);
+        } else {
+          setError('Error eliminando platillo');
+        }
+      } catch (error) {
+        setError('Error eliminando platillo');
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setConfirmDelete({ type: 'platillo', id });
+    }
   };
 
-  const handleRemoveProducto = async (id: string) => {
-    setConfirmDelete({ type: 'producto', id });
+  const handleRemoveProducto = async (id: string, skipModal: boolean = false) => {
+    if (skipModal) {
+      // Eliminación directa sin modal
+      setSaving(true);
+      setError('');
+      try {
+        const response = await apiService.removeProducto(id);
+        if (response.success) {
+          setSuccess('Producto eliminado exitosamente');
+          setTimeout(() => setSuccess(''), 3000);
+        } else {
+          setError('Error eliminando producto');
+        }
+      } catch (error) {
+        setError('Error eliminando producto');
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setConfirmDelete({ type: 'producto', id });
+    }
   };
 
   const confirmDeleteAction = async () => {
@@ -833,9 +940,17 @@ const EditarOrden: React.FC = () => {
                           <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-xs sm:text-base lg:text-lg font-semibold text-gray-900 break-words">
-                            {mesa.nombreMesa}
-                          </h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-xs sm:text-base lg:text-lg font-semibold text-gray-900 break-words">
+                              {mesa.nombreMesa}
+                            </h3>
+                            {/* Leyenda de Mesa/Pedido Pagado */}
+                            {todasLasOrdenesDeMesaPagadas(mesa) && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-green-100 text-green-800 whitespace-nowrap">
+                                {mesa.nombreMesa.toLowerCase().startsWith('pedido') ? 'Pedido Pagado' : 'Mesa Pagada'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] sm:text-sm text-gray-600">
                             {mesa.totalOrdenes} {mesa.totalOrdenes === 1 ? 'orden' : 'órdenes'}
                           </p>
@@ -1020,6 +1135,136 @@ const EditarOrden: React.FC = () => {
                                       <span>Producto</span>
                                     </button>
                                   </div>
+
+                                  {/* Resumen de platillos y productos - Solo visible en móvil */}
+                                  {ordenesDetalles[orden._id!] && (
+                                    <div className="block sm:hidden mt-2 pt-2 border-t border-gray-200">
+                                      {/* Header del resumen - Clickeable para expandir/colapsar */}
+                                      <div 
+                                        className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5 -mx-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleResumenExpansion(orden._id!);
+                                        }}
+                                      >
+                                        <div className="flex items-center gap-1.5">
+                                          <h6 className="text-[10px] font-semibold text-gray-700">Resumen</h6>
+                                          <span className="text-[9px] text-gray-500">
+                                            ({ordenesDetalles[orden._id!].platillos.length} platillos)
+                                          </span>
+                                        </div>
+                                        {resumenesExpandidos.has(orden._id!) ? (
+                                          <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                                        ) : (
+                                          <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
+                                        )}
+                                      </div>
+
+                                      {/* Contenido del resumen - Solo se muestra si está expandido */}
+                                      {resumenesExpandidos.has(orden._id!) && (
+                                        <div className="mt-1.5">
+                                          {/* Platillos */}
+                                          {ordenesDetalles[orden._id!].platillos.length > 0 && (
+                                            <div className="mb-2">
+                                              <p className="text-[9px] font-medium text-orange-600 mb-1">Platillos:</p>
+                                              <div className="space-y-1">
+                                                {ordenesDetalles[orden._id!].platillos.map((platillo: any, idx: number) => (
+                                              <div key={idx} className="flex items-center justify-between text-[10px] bg-orange-50 rounded px-1.5 py-1">
+                                                <span className="text-gray-700 truncate flex-1">
+                                                  {platillo.cantidad}x {platillo.nombrePlatillo}
+                                                  {platillo.extras && platillo.extras.length > 0 && (
+                                                    <span className="text-purple-600 text-[9px]">
+                                                      {' '}+{platillo.extras.length} extra{platillo.extras.length > 1 ? 's' : ''}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('¿Eliminar este platillo?')) {
+                                                      await handleRemovePlatillo(platillo._id, true);
+                                                      // Recargar detalles de esta orden
+                                                      const response = await apiService.getOrdenDetails(orden._id!);
+                                                      if (response.success) {
+                                                        setOrdenesDetalles(prev => ({
+                                                          ...prev,
+                                                          [orden._id!]: {
+                                                            platillos: response.data.platillos || [],
+                                                            productos: response.data.productos || []
+                                                          }
+                                                        }));
+                                                      }
+                                                      // Si la orden seleccionada es esta, actualizar también
+                                                      if (selectedOrden?._id === orden._id) {
+                                                        await loadOrdenDetails(orden, false);
+                                                      }
+                                                      await loadData();
+                                                    }
+                                                  }}
+                                                  className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                                                  title="Eliminar platillo"
+                                                >
+                                                  <Minus className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Productos */}
+                                      {ordenesDetalles[orden._id!].productos.length > 0 && (
+                                        <div>
+                                          <p className="text-[9px] font-medium text-blue-600 mb-1">Productos:</p>
+                                          <div className="space-y-1">
+                                            {ordenesDetalles[orden._id!].productos.map((producto: any, idx: number) => (
+                                              <div key={idx} className="flex items-center justify-between text-[10px] bg-blue-50 rounded px-1.5 py-1">
+                                                <span className="text-gray-700 truncate flex-1">
+                                                  {producto.cantidad}x {producto.nombreProducto}
+                                                </span>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('¿Eliminar este producto?')) {
+                                                      await handleRemoveProducto(producto._id, true);
+                                                      // Recargar detalles de esta orden
+                                                      const response = await apiService.getOrdenDetails(orden._id!);
+                                                      if (response.success) {
+                                                        setOrdenesDetalles(prev => ({
+                                                          ...prev,
+                                                          [orden._id!]: {
+                                                            platillos: response.data.platillos || [],
+                                                            productos: response.data.productos || []
+                                                          }
+                                                        }));
+                                                      }
+                                                      // Si la orden seleccionada es esta, actualizar también
+                                                      if (selectedOrden?._id === orden._id) {
+                                                        await loadOrdenDetails(orden, false);
+                                                      }
+                                                      await loadData();
+                                                    }
+                                                  }}
+                                                  className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded transition-colors flex-shrink-0"
+                                                  title="Eliminar producto"
+                                                >
+                                                  <Minus className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                          {/* Mensaje si no hay items */}
+                                          {ordenesDetalles[orden._id!].platillos.length === 0 && 
+                                           ordenesDetalles[orden._id!].productos.length === 0 && (
+                                            <p className="text-[9px] text-gray-500 italic">Sin items</p>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

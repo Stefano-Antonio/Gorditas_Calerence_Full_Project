@@ -26,6 +26,17 @@ const Cobrar: React.FC = () => {
   const [hasNewOrders, setHasNewOrders] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
 
+  // Función para detectar si una orden está marcada como pagada
+  const esOrdenPagada = (nombreCliente: string | undefined): boolean => {
+    if (!nombreCliente) return false;
+    return nombreCliente.trim().endsWith('- Pagada');
+  };
+
+  // Función para verificar si TODAS las órdenes de una mesa están pagadas
+  const todasLasOrdenesDeMesaPagadas = (mesa: MesaAgrupada): boolean => {
+    return mesa.ordenes.length > 0 && mesa.ordenes.every(orden => esOrdenPagada(orden.nombreCliente));
+  };
+
   useEffect(() => {
     loadOrdenesActivas();
     // Set up polling for real-time updates
@@ -599,7 +610,10 @@ const Cobrar: React.FC = () => {
                         >
                           <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
                           <span className="truncate">
-                            {mesa.totalOrdenes === 1 ? 'Cobrar' : `Cobrar Mesa`}
+                            {mesa.totalOrdenes === 1 
+                              ? (esOrdenPagada(mesa.ordenes[0].nombreCliente) ? 'Entregar' : 'Cobrar')
+                              : (todasLasOrdenesDeMesaPagadas(mesa) ? 'Entregar ' : 'Cobrar ')
+                            }
                           </span>
                         </button>
                       )}
@@ -697,7 +711,9 @@ const Cobrar: React.FC = () => {
                             </div>
                             <button onClick={() => handleFinalizarOrden(orden)} disabled={processing} className="w-full px-1.5 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                               <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
-                              <span className="truncate">Cobrar</span>
+                              <span className="truncate">
+                                {esOrdenPagada(orden.nombreCliente) ? 'Entregar' : 'Cobrar'}
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -735,7 +751,10 @@ const Cobrar: React.FC = () => {
                           >
                             <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 flex-shrink-0" />
                             <span className="truncate">
-                              {mesa.totalOrdenes === 1 ? `Cobrar orden` : `Cobrar ${mesa.nombreMesa}`}
+                              {mesa.totalOrdenes === 1 
+                                ? (esOrdenPagada(mesa.ordenes[0].nombreCliente) ? 'Entregar orden' : 'Cobrar orden')
+                                : (todasLasOrdenesDeMesaPagadas(mesa) ? `Entregar ${mesa.nombreMesa}` : `Cobrar ${mesa.nombreMesa}`)
+                              }
                             </span>
                           </button>
                         )}

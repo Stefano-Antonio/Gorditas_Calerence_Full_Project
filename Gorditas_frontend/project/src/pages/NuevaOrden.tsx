@@ -1042,10 +1042,12 @@ const NuevaOrden: React.FC = () => {
                   className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                 />
                 <span className="ml-3 text-sm sm:text-base font-medium text-gray-900">
-                  Orden Pagada
+                  {selectedMesa
+                    ? (esPedido(selectedMesa) ? 'Pedido pagado' : 'Mesa pagada')
+                    : 'Orden pagada'}
                 </span>
                 <span className="ml-2 text-xs text-gray-500">
-                  (se agregará "- Pagada" al nombre del cliente)
+                  (se marcaran las ordnes como "pagadas")
                 </span>
               </label>
             </div>
